@@ -67,10 +67,10 @@ const AnalyticsPage = () => {
   const menuItems = [
     { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
     { id: 'individual', icon: Users, label: 'Individuals', badge: null },
-    { id: 'daily', icon: FileText, label: 'Daily Notes', badge: '12' },
+  //  { id: 'daily', icon: FileText, label: 'Daily Notes', badge: '12' },
     { id: 'medicine', icon: Pill, label: 'Medications', badge: null },
     { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: '3' },
-    { id: 'hcbs', icon: MapPin, label: 'HCBS Tracking', badge: null },
+  //  { id: 'hcbs', icon: MapPin, label: 'HCBS Tracking', badge: null },
     { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null },
     { id: 'settings', icon: Settings, label: 'Settings', badge: null },
   ];
