@@ -16,6 +16,7 @@ import {
   HelpCircle, Mail, Phone, MessageSquare,
   Facebook, Twitter, Linkedin, Github
 } from 'lucide-react';
+import Link from 'next/link';
 
 const CareBridgeLanding = () => {
   const [activeSection, setActiveSection] = useState('hero');
@@ -174,12 +175,16 @@ const CareBridgeLanding = () => {
           </div>
 
           <div className="hidden md:flex items-center gap-4">
+            <Link href='/onboard'>
             <button className="text-slate-300 hover:text-emerald-400 font-medium text-sm transition-colors duration-300">
               Sign In
             </button>
+            </Link>
+            <Link href='/onboard'>
             <button className="bg-gradient-to-r from-emerald-600 to-teal-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-2xl hover:shadow-emerald-500/50 transition-all duration-300 hover:scale-105">
               Start Free Trial
             </button>
+            </Link>
           </div>
 
           {/* Mobile Menu Button */}
@@ -250,10 +255,12 @@ const CareBridgeLanding = () => {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
+             <Link href='/onboard'>
               <button className="group bg-gradient-to-r from-emerald-600 to-teal-500 text-white px-8 py-4 rounded-xl font-bold text-lg hover:shadow-2xl hover:shadow-emerald-500/50 transition-all duration-300 hover:scale-105 flex items-center justify-center gap-3">
                 Start Free Trial
                 <ArrowRight className="group-hover:translate-x-2 transition-transform" size={20} />
               </button>
+              </Link>
               <button className="group bg-slate-800/50 border border-slate-700 text-white px-8 py-4 rounded-xl font-bold text-lg hover:border-emerald-500/50 hover:bg-slate-800 transition-all duration-300 hover:scale-105 flex items-center justify-center gap-3">
                 <PlayCircle size={20} />
                 Watch Demo
