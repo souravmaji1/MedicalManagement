@@ -15,7 +15,7 @@ import { ScrollArea, ScrollBar } from "../../../components/ui/scroll-area";
 import { useUser } from '@clerk/nextjs';
 import { createClient } from '@supabase/supabase-js';
 import { useRouter, useParams } from 'next/navigation';
-import { useUserProfile } from '../../../contexts/UserProfileContext';
+import { useUserProfile } from '../../../contexts/userProfileContext';
 import { PERMISSIONS } from '../../../utils/permissions';
 
 const supabase = createClient(

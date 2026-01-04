@@ -6,7 +6,7 @@ import "./globals.css";
 import { Aclonica, Kanit, Mulish } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
-import { UserProfileProvider } from "../contexts/UserProfileContext";
+import { UserProfileProvider } from "../contexts/userProfileContext";
 
 const unbounded = Aclonica({
   subsets: ["latin"],

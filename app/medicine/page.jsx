@@ -13,10 +13,10 @@ import { ScrollArea } from "../../components/ui/scroll-area";
 import { useUser } from '@clerk/nextjs';
 import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
-import { useUserProfile } from '../../contexts/UserProfileContext';
+import { useUserProfile } from '../../contexts/userProfileContext';
 import { PERMISSIONS } from '../../utils/permissions';
 
-// Initialize Supabase client
+// Initialize Supabase client test
 const supabase = createClient(
   'https://bbikcxalypttfgrlxstf.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJiaWtjeGFseXB0dGZncmx4c3RmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MzcxODcwOCwiZXhwIjoyMDY5Mjk0NzA4fQ.4BLQyvPA0eB745Sfdn2Tl4oCDRTzNhLXrJ8Os8wOXfs'
