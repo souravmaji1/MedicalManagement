@@ -15,6 +15,7 @@ import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '../../contexts/userProfileContext';
 import { PERMISSIONS } from '../../utils/permissions';
+import { UserButton } from '@clerk/nextjs';
 
 const supabase = createClient(
   'https://bbikcxalypttfgrlxstf.supabase.co',
@@ -531,6 +532,7 @@ const IndividualsPage = () => {
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center max-w-md">
             <Shield className="w-20 h-20 text-red-500 mx-auto mb-6" />
+            <UserButton />
             <h2 className="text-3xl font-bold text-white mb-4">Access Restricted</h2>
             <p className="text-slate-400 mb-6">
               You do not have permission to view individuals. Please contact your administrator if you believe this is an error.
