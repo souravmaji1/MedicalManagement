@@ -1,0 +1,356 @@
+{
+  "name": "Only Google Tool – with Fail/Success Reply",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            { "name": "clientId" },
+            { "name": "clientSecret" },
+            { "name": "developerToken" },
+            { "name": "customerId" },
+            { "name": "managerId" },
+            { "name": "refreshToken" },
+            { "name": "budgetMicros", "type": "number" },
+            { "name": "endDate", "type": "any" },
+            { "name": "startDate", "type": "any" },
+            { "name": "finalUrl" },
+            { "name": "headlines", "type": "any" },
+            { "name": "description", "type": "any" },
+            { "name": "name" },
+            { "name": "channelType" }
+          ]
+        }
+      },
+      "id": "d18b91ce-0988-4e0c-92be-58765610b099",
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [352, 176],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://oauth2.googleapis.com/token",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "Content-Type", "value": "application/x-www-form-urlencoded" }]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "client_id", "value": "={{ $json.clientId }}" },
+            { "name": "client_secret", "value": "={{ $json.clientSecret }}" },
+            { "name": "refresh_token", "value": "={{ $json.refreshToken }}" },
+            { "name": "grant_type", "value": "refresh_token" }
+          ]
+        },
+        "options": { "timeout": 10000 }
+      },
+      "id": "607b2f2d-7e4b-4d1a-840f-5d12980969ec",
+      "name": "0. Get access-token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [576, 176],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "d862a83a-7210-4b7c-bca9-1aeeda8d9293", "name": "clientId", "value": "={{ $('When Executed by Another Workflow').item.json.clientId }}", "type": "string" },
+            { "id": "3f2620a9-76b0-43a9-b25e-7b6b05eac673", "name": "clientSecret", "value": "={{ $('When Executed by Another Workflow').item.json.clientSecret }}", "type": "string" },
+            { "id": "7cc670dc-ca90-4f5e-abc2-4b1fb229960e", "name": "devToken", "value": "={{ $('When Executed by Another Workflow').item.json.developerToken }}", "type": "string" },
+            { "id": "ffceefca-ffc8-4c2b-95d7-3d983b672629", "name": "refreshToken", "value": "={{ $('When Executed by Another Workflow').item.json.refreshToken }}", "type": "string" },
+            { "id": "f10db500-78ea-4d44-bf39-a90d6b85fa7a", "name": "customerId", "value": "={{ $('When Executed by Another Workflow').item.json.customerId }}", "type": "string" },
+            { "id": "18d50149-d72a-410e-982a-cd72a65c3142", "name": "managerId", "value": "={{ $('When Executed by Another Workflow').item.json.managerId }}", "type": "string" },
+            { "id": "c88bedde-c9d9-4e7c-a323-e81a31f6485a", "name": "campaignDetails.budgetMicros", "value": "={{ $('When Executed by Another Workflow').item.json.budgetMicros }}", "type": "number" },
+            { "id": "82ebfbd3-9205-4b62-a90f-51e6b7f36e4b", "name": "access_token", "value": "={{ $json.access_token }}", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c7447e06-665f-47ba-bee3-f709d83f1dfc",
+      "name": "Edit Fields3",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [800, 176]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://googleads.googleapis.com/v20/customers/' + $json.customerId + '/campaignBudgets:mutate' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Developer-Token", "value": "={{ $json.devToken }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $json.access_token }}" },
+            { "name": "login-customer-id", "value": "={{ $json.managerId || $json.customerId }}" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "operations",
+              "value": "={{ [{ create: { name: 'Budget for ' + $json.campaignDetails.name + ' #' + Date.now(), deliveryMethod: 'STANDARD', amountMicros: $json.campaignDetails.budgetMicros } }] }}"
+            }
+          ]
+        },
+        "options": { "timeout": 15000 }
+      },
+      "id": "e5abcf60-8dda-48bb-8096-40daa6dc1226",
+      "name": "1. Create Budget",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [976, 176],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "40a98656-e2ee-4f56-95ca-660b9ca00480", "name": "clientId", "value": "={{ $('When Executed by Another Workflow').item.json.clientId }}", "type": "string" },
+            { "id": "35ada9e7-132e-40b4-b807-8c9291b69d38", "name": "clientSecret", "value": "={{ $('When Executed by Another Workflow').item.json.clientSecret }}", "type": "string" },
+            { "id": "01fd4a72-f958-4c6b-a47d-5762ae034c40", "name": "devToken", "value": "={{ $('When Executed by Another Workflow').item.json.developerToken }}", "type": "string" },
+            { "id": "bd411790-18aa-4172-aca4-78560a5225c0", "name": "refreshToken", "value": "={{ $('When Executed by Another Workflow').item.json.refreshToken }}", "type": "string" },
+            { "id": "b09d1260-8914-4e7f-9497-980b17d4d117", "name": "customerId", "value": "={{ $('When Executed by Another Workflow').item.json.customerId }}", "type": "string" },
+            { "id": "af4377ab-f60b-40ec-bba8-eaae7aed5e44", "name": "managerId", "value": "={{ $('When Executed by Another Workflow').item.json.managerId }}", "type": "string" },
+            { "id": "05e16f20-7693-4b7a-8a73-07e75f97c6a0", "name": "results[0].resourceName", "value": "={{ $json.results[0].resourceName }}", "type": "string" },
+            { "id": "4ad0067e-7dac-4aae-a226-14a8a216dfe5", "name": "access_token", "value": "={{ $('0. Get access-token').item.json.access_token }}", "type": "string" },
+            { "id": "3bbb6e11-812b-47ec-9754-ff115a4bdcfa", "name": "campaignDetails.finalUrl", "value": "={{ $('When Executed by Another Workflow').item.json.finalUrl }}", "type": "string" },
+            { "id": "3024b6e0-6228-414f-be2f-4426c56b8374", "name": "campaignDetails.endDate", "value": "={{ $('When Executed by Another Workflow').item.json.endDate }}", "type": "string" },
+            { "id": "06d75dc7-2030-438b-a70a-5b4f29206092", "name": "campaignDetails.startDate", "value": "={{ $('When Executed by Another Workflow').item.json.startDate }}", "type": "string" },
+            { "id": "99b3d057-0e16-488d-8445-a287137ed750", "name": "campaignDetails.budgetMicros", "value": "={{ $('When Executed by Another Workflow').item.json.budgetMicros }}", "type": "number" },
+            { "id": "f7ea59a6-fff3-489a-af79-5cb8fa085cfe", "name": "campaignDetails.channelType", "value": "={{ $('When Executed by Another Workflow').item.json.channelType }}", "type": "string" },
+            { "id": "d4e0e2cf-a42a-4e7c-a1d6-e8f5c8cd30f1", "name": "campaignDetails.name", "value": "={{ $('When Executed by Another Workflow').item.json.name + 'workflowx' }}", "type": "string" },
+            { "id": "9f26265d-8634-4714-8e52-fcf09b7b8c75", "name": "campaignDetails.descriptions", "value": "={{ $('When Executed by Another Workflow').item.json.description }}", "type": "array" },
+            { "id": "2c65a448-9092-488a-b6d2-3ddce643b6c0", "name": "campaignDetails.headlines", "value": "={{ $('When Executed by Another Workflow').item.json.headlines }}", "type": "array" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b1c5a97d-17ec-4968-a849-60f32526640a",
+      "name": "Edit Fields4",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1184, 176]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://googleads.googleapis.com/v20/customers/' + $json.customerId + '/campaigns:mutate' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Developer-Token", "value": "={{ $json.devToken }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $json.access_token }}" },
+            { "name": "login-customer-id", "value": "={{ $json.managerId || $json.customerId }}" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "operations",
+              "value": "={{ [{ create: { name: $json.campaignDetails.name, campaignBudget: $json.results[0].resourceName, advertisingChannelType: $json.campaignDetails.channelType, status: 'PAUSED', startDate: $json.campaignDetails.startDate, endDate: $json.campaignDetails.endDate, manualCpc: { enhancedCpcEnabled: false }, networkSettings: { targetGoogleSearch: true, targetSearchNetwork: true, targetContentNetwork: false, targetPartnerSearchNetwork: false }, contains_eu_political_advertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING' } }] }}"
+            }
+          ]
+        },
+        "options": { "timeout": 15000 }
+      },
+      "id": "7a84aba9-a38b-4a56-a58c-0030a1be24f3",
+      "name": "2. Create Campaign",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1392, 176],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "4ff771ff-cb5c-4611-9571-46ae57c058ad", "name": "clientId", "value": "={{ $('When Executed by Another Workflow').item.json.clientId }}", "type": "string" },
+            { "id": "9dad3f84-5a1f-4f36-8c2d-8e0b3e26f7c9", "name": "clientSecret", "value": "={{ $('When Executed by Another Workflow').item.json.clientSecret }}", "type": "string" },
+            { "id": "967e7504-1d35-4ba0-840d-66d386b506c4", "name": "devToken", "value": "={{ $('When Executed by Another Workflow').item.json.developerToken }}", "type": "string" },
+            { "id": "697d290d-8b09-4f84-9cec-687e024dc759", "name": "refreshToken", "value": "={{ $('When Executed by Another Workflow').item.json.refreshToken }}", "type": "string" },
+            { "id": "26e676b9-1297-4f3b-a789-dbc252d0a1d3", "name": "customerId", "value": "={{ $('When Executed by Another Workflow').item.json.customerId }}", "type": "string" },
+            { "id": "1a5a68fc-d2ac-41b5-8975-54e534045e65", "name": "managerId", "value": "={{ $('When Executed by Another Workflow').item.json.managerId }}", "type": "string" },
+            { "id": "e55ce8e8-dfbe-425a-b518-f94f84be1b9d", "name": "campaignDetails", "value": "={{ $('When Executed by Another Workflow').item.json.name }}", "type": "string" },
+            { "id": "ee1b3ec6-8864-4489-8712-63413f376894", "name": "campaignDetails.descriptions", "value": "={{ $('When Executed by Another Workflow').item.json.description }}", "type": "array" },
+            { "id": "78a91a1a-aead-4c12-b1a9-688e5469283b", "name": "access_token", "value": "={{ $('0. Get access-token').item.json.access_token }}", "type": "string" },
+            { "id": "a9b6e07a-ebc2-4b95-b368-e88bc8e46662", "name": "results", "value": "={{ $json.results }}", "type": "array" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0e09de59-2f05-4be3-82e8-08d390fbf9ca",
+      "name": "Edit Fields5",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1600, 176]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://googleads.googleapis.com/v20/customers/' + $json.customerId + '/adGroups:mutate' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Developer-Token", "value": "={{ $json.devToken }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $json.access_token }}" },
+            { "name": "login-customer-id", "value": "={{ $json.managerId || $json.customerId }}" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "operations",
+              "value": "={{ [{ create: { name: 'AdGroup for ' + $('When Executed by Another Workflow').item.json.name, campaign: $json.results[0].resourceName, status: 'ENABLED', type: 'SEARCH_STANDARD', cpcBidMicros: 1000000 } }] }}"
+            }
+          ]
+        },
+        "options": { "timeout": 15000 }
+      },
+      "id": "d39de50b-dfcd-415f-b702-9aeab5097e2e",
+      "name": "3. Create AdGroup",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [384, 448],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "49fe5f78-00a4-4627-a472-a469ae4cfe59", "name": "devToken", "value": "={{ $('When Executed by Another Workflow').item.json.developerToken }}", "type": "string" },
+            { "id": "0b5f66c7-a78f-41d6-b016-171c1fd69e80", "name": "access_token", "value": "={{ $('0. Get access-token').item.json.access_token }}", "type": "string" },
+            { "id": "f46f7fc0-c029-414e-9d1f-f86d741e9876", "name": "results", "value": "={{ $json.results }}", "type": "array" },
+            { "id": "d68f3b02-159d-4796-a477-db66d34b9752", "name": "campaignDetails.descriptions", "value": "={{ $('When Executed by Another Workflow').item.json.description }}", "type": "array" },
+            { "id": "957d4679-5bb5-4594-b7b9-080f6dc2fecd", "name": "campaignDetails.headlines", "value": "={{ $('When Executed by Another Workflow').item.json.headlines }}", "type": "array" },
+            { "id": "477e66ae-118a-41d6-b479-03cf1928f78d", "name": "managerId", "value": "={{ $('When Executed by Another Workflow').item.json.managerId }}", "type": "string" },
+            { "id": "f34baacb-d14a-4a20-af14-c5703a1b0ed0", "name": "customerId", "value": "={{ $('When Executed by Another Workflow').item.json.customerId }}", "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e16ca2ca-6d0d-4d50-b287-1dfa331347b2",
+      "name": "Edit Fields6",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [592, 448]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://googleads.googleapis.com/v20/customers/' + $json.customerId + '/adGroupAds:mutate' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Developer-Token", "value": "={{ $json.devToken }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $json.access_token }}" },
+            { "name": "login-customer-id", "value": "={{ $json.managerId || $json.customerId }}" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "operations",
+              "value": "={{ [{ create: { adGroup: $json.results[0].resourceName, status: 'ENABLED', ad: { finalUrls: [ $json.campaignDetails.finalUrl || 'https://example.com' ], responsiveSearchAd: { headlines: $json.campaignDetails.headlines.map(h => ({ text: h })), descriptions: $json.campaignDetails.descriptions.map(d => ({ text: d })) } } } }] }}"
+            }
+          ]
+        },
+        "options": { "timeout": 15000 }
+      },
+      "id": "0edf42d1-40ad-4dff-a3bf-b8964010eeb4",
+      "name": "4. Create RSA (SEARCH only)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [816, 448],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "succ-1", "name": "status", "value": "success", "type": "string" },
+            { "id": "succ-2", "name": "message", "value": "Campaign created end-to-end", "type": "string" },
+            { "id": "succ-3", "name": "campaignResourceName", "value": "={{ $('2. Create Campaign').item.json.results[0].resourceName }}", "type": "string" }
+          ]
+        }
+      },
+      "id": "success-set-node",
+      "name": "Return Success",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1056, 448]
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ $json.message || 'Google API error' }}",
+        "options": {
+          "custom": {
+            "status": "fail",
+            "message": "{{ $json.message || 'Google API error' }}",
+            "errorDetail": "{{ $json }}"
+          }
+        }
+      },
+      "id": "stop-error-node",
+      "name": "Return Fail",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [1056, 600]
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": { "main": [[{ "node": "0. Get access-token", "type": "main", "index": 0 }]] },
+    "0. Get access-token": { "main": [[{ "node": "Edit Fields3", "type": "main", "index": 0 }]] },
+    "Edit Fields3": { "main": [[{ "node": "1. Create Budget", "type": "main", "index": 0 }]] },
+    "1. Create Budget": { "main": [[{ "node": "Edit Fields4", "type": "main", "index": 0 }]] },
+    "Edit Fields4": { "main": [[{ "node": "2. Create Campaign", "type": "main", "index": 0 }]] },
+    "2. Create Campaign": { "main": [[{ "node": "Edit Fields5", "type": "main", "index": 0 }]] },
+    "Edit Fields5": { "main": [[{ "node": "3. Create AdGroup", "type": "main", "index": 0 }]] },
+    "3. Create AdGroup": { "main": [[{ "node": "Edit Fields6", "type": "main", "index": 0 }]] },
+    "Edit Fields6": { "main": [[{ "node": "4. Create RSA (SEARCH only)", "type": "main", "index": 0 }]] },
+    "4. Create RSA (SEARCH only)": {
+      "main": [[{ "node": "Return Success", "type": "main", "index": 0 }]],
+      "error": [[{ "node": "Return Fail", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "versionId": "42c6f760-2627-4e2a-8bbd-9860b59b410f",
+  "meta": {
+    "instanceId": "7dd91d0dc366c1eac26c723a02b5493876e8913c6a77f78b4f55abfa2f7f1d32"
+  },
+  "id": "bhlFyI6XX2SK8qwy",
+  "tags": []
+}
