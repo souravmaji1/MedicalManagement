@@ -289,6 +289,8 @@ const MedicationsPage = () => {
     searchTerm: ''
   });
   const [filteredIndividuals, setFilteredIndividuals] = useState([]);
+  const [marHistory, setMarHistory] = useState([]);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Permission checks
   const canViewMedications = hasAnyPermission([
@@ -359,8 +361,6 @@ const MedicationsPage = () => {
     lateminutes: ''
   });
 
-  const [marHistory, setMarHistory] = useState([]);
-
   // Time blocks for MAR
   const timeBlocks = [
     '06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00'
@@ -378,6 +378,20 @@ const MedicationsPage = () => {
     { id: 'settings', icon: Settings, label: 'Settings', badge: null },
   ];
 
+  // Parse JSON data from Supabase
+  const parseJSONData = (data) => {
+    if (!data) return null;
+    if (typeof data === 'string') {
+      try {
+        return JSON.parse(data);
+      } catch (error) {
+        console.error('Error parsing JSON:', error);
+        return null;
+      }
+    }
+    return data;
+  };
+
   useEffect(() => {
     if (isLoaded && user && !profileLoading && userProfile) {
       if (canViewMedications) {
@@ -387,6 +401,13 @@ const MedicationsPage = () => {
       }
     }
   }, [isLoaded, user, profileLoading, userProfile]);
+
+  useEffect(() => {
+    if (selectedIndividual) {
+      fetchMedications(selectedIndividual.id);
+      fetchMARHistory(selectedIndividual.id);
+    }
+  }, [selectedIndividual]);
 
   useEffect(() => {
     applyFilters();
@@ -415,12 +436,73 @@ const MedicationsPage = () => {
       const { data, error } = await query;
 
       if (error) throw error;
-      setIndividuals(data || []);
-      setFilteredIndividuals(data || []);
+      
+      // Parse medications and marhistory from JSON strings
+      const parsedData = (data || []).map(individual => ({
+        ...individual,
+        medications: parseJSONData(individual.medications) || [],
+        marhistory: parseJSONData(individual.marhistory) || []
+      }));
+      
+      setIndividuals(parsedData);
+      setFilteredIndividuals(parsedData);
     } catch (error) {
       console.error('Error fetching individuals:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMedications = async (individualId) => {
+    try {
+      // Fetch from Supabase to get latest data
+      const { data, error } = await supabase
+        .from('individuals')
+        .select('medications')
+        .eq('id', individualId)
+        .single();
+      
+      if (error) throw error;
+      
+      const medications = parseJSONData(data?.medications) || [];
+      
+      setMedications(medications);
+      
+      // Update local state
+      setIndividuals(prev => prev.map(ind => 
+        ind.id === individualId 
+          ? { ...ind, medications } 
+          : ind
+      ));
+    } catch (error) {
+      console.error('Error fetching medications:', error);
+      setMedications([]);
+    }
+  };
+
+  const fetchMARHistory = async (individualId) => {
+    try {
+      const { data, error } = await supabase
+        .from('individuals')
+        .select('marhistory')
+        .eq('id', individualId)
+        .single();
+      
+      if (error) throw error;
+      
+      const marHistory = parseJSONData(data?.marhistory) || [];
+      
+      setMarHistory(marHistory);
+      
+      // Update local state
+      setIndividuals(prev => prev.map(ind => 
+        ind.id === individualId 
+          ? { ...ind, marhistory: marHistory } 
+          : ind
+      ));
+    } catch (error) {
+      console.error('Error fetching MAR history:', error);
+      setMarHistory([]);
     }
   };
 
@@ -511,19 +593,6 @@ const MedicationsPage = () => {
     return count;
   };
 
-  const fetchMedications = async (individualId) => {
-    try {
-      const individual = individuals.find(ind => ind.id === individualId);
-      if (individual && individual.medications) {
-        setMedications(individual.medications);
-      } else {
-        setMedications([]);
-      }
-    } catch (error) {
-      console.error('Error fetching medications:', error);
-    }
-  };
-
   const handleAddMedication = async (e) => {
     e.preventDefault();
     
@@ -545,6 +614,7 @@ const MedicationsPage = () => {
 
       const updatedMedications = [...medications, newMedication];
       
+      // Update in Supabase
       const { error } = await supabase
         .from('individuals')
         .update({ 
@@ -555,13 +625,68 @@ const MedicationsPage = () => {
 
       if (error) throw error;
 
+      // Update local state immediately
       setMedications(updatedMedications);
+      
+      // Update the individual in the individuals array
+      setIndividuals(prev => prev.map(ind => 
+        ind.id === selectedIndividual.id 
+          ? { ...ind, medications: updatedMedications } 
+          : ind
+      ));
+      
       setShowAddModal(false);
       resetMedicationForm();
       alert('Medication added successfully!');
     } catch (error) {
       console.error('Error adding medication:', error);
       alert('Error adding medication. Please try again.');
+    }
+  };
+
+  const handleDeleteMedication = async (medicationId) => {
+    if (!canDeleteMedications) {
+      alert('You do not have permission to delete medications.');
+      return;
+    }
+
+    if (!confirm('Are you sure you want to delete this medication? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      
+      // Filter out the medication to be deleted
+      const updatedMedications = medications.filter(med => med.id !== medicationId);
+      
+      // Update in Supabase
+      const { error } = await supabase
+        .from('individuals')
+        .update({ 
+          medications: updatedMedications,
+          last_activity: new Date().toISOString()
+        })
+        .eq('id', selectedIndividual.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setMedications(updatedMedications);
+      
+      // Update the individual in the individuals array
+      setIndividuals(prev => prev.map(ind => 
+        ind.id === selectedIndividual.id 
+          ? { ...ind, medications: updatedMedications } 
+          : ind
+      ));
+      
+      alert('Medication deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting medication:', error);
+      alert('Error deleting medication. Please try again.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -591,18 +716,31 @@ const MedicationsPage = () => {
         given_by: userProfile.fullname,
         given_by_role: userProfile.role_name,
         approved: canApproveMAREntries,
-        approved_by: canApproveMAREntries ? userProfile.fullname : null
+        approved_by: canApproveMAREntries ? userProfile.fullname : null,
+        medication_name: medications.find(m => m.id === marEntry.medicationid)?.medicationname || ''
       };
 
       const updatedHistory = [...marHistory, newMAREntry];
       
-      // Update medication with MAR entry
-      const updatedMedications = medications.map(med => 
-        med.id === marEntry.medicationid 
-          ? { ...med, lastadministered: newMAREntry.date, compliance: calculateCompliance(med.id) }
-          : med
-      );
+      // Calculate updated compliance for the medication
+      const updatedMedications = medications.map(med => {
+        if (med.id === marEntry.medicationid) {
+          const medHistory = [...marHistory, newMAREntry].filter(entry => 
+            entry.medicationid === med.id && entry.status === 'Given'
+          );
+          const expectedDoses = 30; // Adjust based on your logic
+          const compliance = Math.round((medHistory.length / expectedDoses) * 100);
+          
+          return { 
+            ...med, 
+            lastadministered: newMAREntry.date, 
+            compliance: compliance > 100 ? 100 : compliance
+          };
+        }
+        return med;
+      });
 
+      // Update in Supabase
       const { error } = await supabase
         .from('individuals')
         .update({ 
@@ -614,8 +752,21 @@ const MedicationsPage = () => {
 
       if (error) throw error;
 
+      // Update local state immediately
       setMedications(updatedMedications);
       setMarHistory(updatedHistory);
+      
+      // Update the individual in the individuals array
+      setIndividuals(prev => prev.map(ind => 
+        ind.id === selectedIndividual.id 
+          ? { 
+              ...ind, 
+              medications: updatedMedications,
+              marhistory: updatedHistory 
+            } 
+          : ind
+      ));
+      
       setShowMARModal(false);
       resetMARForm();
       alert('MAR entry recorded successfully!');
@@ -631,7 +782,8 @@ const MedicationsPage = () => {
       entry.status === 'Given'
     );
     const expectedDoses = 30;
-    return Math.round((medHistory.length / expectedDoses) * 100);
+    const compliance = Math.round((medHistory.length / expectedDoses) * 100);
+    return compliance > 100 ? 100 : compliance;
   };
 
   const checkMissedDoses = () => {
@@ -1582,7 +1734,6 @@ const MedicationsPage = () => {
                                 key={individual.id}
                                 onClick={() => {
                                   setSelectedIndividual(individual);
-                                  fetchMedications(individual.id);
                                 }}
                                 className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 cursor-pointer hover:border-emerald-500/50 transition-all duration-300 hover:scale-105 group"
                               >
@@ -1749,19 +1900,20 @@ const MedicationsPage = () => {
                                           medication.compliance >= 90 ? 'text-green-400' :
                                           medication.compliance >= 70 ? 'text-yellow-400' : 'text-red-400'
                                         }`}>
-                                          {medication.compliance}%
+                                          {medication.compliance || 0}%
                                         </p>
                                       </div>
                                       {canDeleteMedications && (
                                         <button
-                                          onClick={() => {
-                                            if (confirm('Are you sure you want to delete this medication?')) {
-                                              // Delete logic here
-                                            }
-                                          }}
-                                          className="p-2 hover:bg-red-500/20 rounded-lg transition-all duration-300"
+                                          onClick={() => handleDeleteMedication(medication.id)}
+                                          disabled={isDeleting}
+                                          className="p-2 hover:bg-red-500/20 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                          <Trash2 size={16} className="text-red-400" />
+                                          {isDeleting ? (
+                                            <Loader2 size={16} className="text-red-400 animate-spin" />
+                                          ) : (
+                                            <Trash2 size={16} className="text-red-400" />
+                                          )}
                                         </button>
                                       )}
                                     </div>
@@ -1778,7 +1930,7 @@ const MedicationsPage = () => {
                                     </div>
                                     <div>
                                       <p className="text-slate-400 text-sm">Start Date</p>
-                                      <p className="text-white text-sm">{new Date(medication.startdate).toLocaleDateString()}</p>
+                                      <p className="text-white text-sm">{medication.startdate ? new Date(medication.startdate).toLocaleDateString() : 'N/A'}</p>
                                     </div>
                                     <div>
                                       <p className="text-slate-400 text-sm">Status</p>
@@ -1787,7 +1939,7 @@ const MedicationsPage = () => {
                                         medication.status === 'On Hold' ? 'bg-yellow-900/30 text-yellow-400' :
                                         'bg-red-900/30 text-red-400'
                                       }`}>
-                                        {medication.status}
+                                        {medication.status || 'Active'}
                                       </span>
                                     </div>
                                   </div>

@@ -1304,54 +1304,62 @@ Goals & Outcomes
           )}
 
           {/* Medications Section */}
-          {selectedIndividual.medications && selectedIndividual.medications.length > 0 && (
-            <div className="mb-8">
-              <div className="bg-gradient-to-r from-blue-700 to-cyan-600 text-white p-4 rounded-t-xl flex items-center gap-2">
-                <Pill size={20} />
-                <h2 className="text-xl font-bold">Medication Management</h2>
-              </div>
-              <div className="border-2 border-gray-200 rounded-b-xl">
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b-2 border-gray-200">
-                    <tr>
-                      <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Medication Name</th>
-                      <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Dosage</th>
-                      <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Frequency</th>
-                      <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Status</th>
-                      <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Compliance</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedIndividual.medications.map((med, idx) => (
-                      <tr key={med.id || idx} className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                        <td className="py-3 px-4 text-sm font-semibold text-gray-900">{med.name || 'N/A'}</td>
-                        <td className="py-3 px-4 text-sm text-gray-700">{med.dosage || 'N/A'}</td>
-                        <td className="py-3 px-4 text-sm text-gray-700">{med.frequency || 'N/A'}</td>
-                        <td className="py-3 px-4">
-                          <span className={`text-xs px-2 py-1 rounded-full font-bold ${
-                            med.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-                          }`}>
-                            {med.status}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-2">
-                            <div className="w-20 bg-gray-200 rounded-full h-2">
-                              <div 
-                                className="h-full bg-blue-600 rounded-full" 
-                                style={{width: `${med.compliance || 0}%`}}
-                              ></div>
-                            </div>
-                            <span className="text-xs font-bold text-gray-700">{med.compliance || 0}%</span>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+          // Replace the medications section in the printable content with this corrected version:
+
+{selectedIndividual.medications && selectedIndividual.medications.length > 0 && (
+  <div className="mb-8">
+    <div className="bg-gradient-to-r from-blue-700 to-cyan-600 text-white p-4 rounded-t-xl flex items-center gap-2">
+      <Pill size={20} />
+      <h2 className="text-xl font-bold">Medication Management</h2>
+    </div>
+    <div className="border-2 border-gray-200 rounded-b-xl">
+      <table className="w-full">
+        <thead className="bg-gray-50 border-b-2 border-gray-200">
+          <tr>
+            <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Medication Name</th>
+            <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Dosage</th>
+            <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Route</th>
+            <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Frequency</th>
+            <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Status</th>
+            <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Compliance</th>
+          </tr>
+        </thead>
+        <tbody>
+          {selectedIndividual.medications.map((med, idx) => (
+            <tr key={med.id || idx} className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+              <td className="py-3 px-4 text-sm font-semibold text-gray-900">
+                {med.medicationname || med.name || 'N/A'}
+              </td>
+              <td className="py-3 px-4 text-sm text-gray-700">{med.dosage || 'N/A'}</td>
+              <td className="py-3 px-4 text-sm text-gray-700">{med.route || 'N/A'}</td>
+              <td className="py-3 px-4 text-sm text-gray-700">{med.frequency || 'N/A'}</td>
+              <td className="py-3 px-4">
+                <span className={`text-xs px-2 py-1 rounded-full font-bold ${
+                  med.status === 'Active' ? 'bg-green-100 text-green-700' :
+                  med.status === 'On Hold' ? 'bg-yellow-100 text-yellow-700' :
+                  'bg-red-100 text-red-700'
+                }`}>
+                  {med.status || 'Active'}
+                </span>
+              </td>
+              <td className="py-3 px-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-20 bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="h-full bg-blue-600 rounded-full" 
+                      style={{width: `${med.compliance || 0}%`}}
+                    ></div>
+                  </div>
+                  <span className="text-xs font-bold text-gray-700">{med.compliance || 0}%</span>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+)}
 
           {/* Incidents Section */}
           {selectedIndividual.incidents && selectedIndividual.incidents.length > 0 && (
