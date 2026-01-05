@@ -427,7 +427,8 @@ const IndividualsPage = () => {
           </div>
           <div className="relative">
             <div className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-emerald-500/50">
-              {userProfile?.fullname?.charAt(0) || 'U'}
+             
+<UserButton afterSignOutUrl="/" />
             </div>
             <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-900"></div>
           </div>
@@ -532,7 +533,6 @@ const IndividualsPage = () => {
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center max-w-md">
             <Shield className="w-20 h-20 text-red-500 mx-auto mb-6" />
-            <UserButton />
             <h2 className="text-3xl font-bold text-white mb-4">Access Restricted</h2>
             <p className="text-slate-400 mb-6">
               You do not have permission to view individuals. Please contact your administrator if you believe this is an error.
