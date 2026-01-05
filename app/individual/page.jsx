@@ -429,6 +429,8 @@ const IndividualsPage = () => {
             <div className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-emerald-500/50">
              
 <UserButton afterSignOutUrl="/" />
+
+
             </div>
             <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-900"></div>
           </div>

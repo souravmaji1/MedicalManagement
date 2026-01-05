@@ -11,7 +11,7 @@ import {
   RefreshCcw, Calendar as CalendarIcon, User, Home as HomeIcon
 } from 'lucide-react';
 import { ScrollArea } from "../../components/ui/scroll-area";
-import { useUser } from '@clerk/nextjs';
+import { useUser, UserButton } from '@clerk/nextjs';
 import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '../../contexts/userProfileContext';
@@ -374,7 +374,7 @@ const AnalyticsPage = () => {
           </div>
           <div className="relative">
             <div className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-emerald-500/50">
-              {userProfile?.fullname?.charAt(0) || 'U'}
+                 <UserButton afterSignOutUrl="/" />
             </div>
             <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-900"></div>
           </div>
