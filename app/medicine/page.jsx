@@ -7,7 +7,9 @@ import {
   ChevronRight, ChevronDown, Loader2, AlertTriangle, FileText, PlusCircle,
   MinusCircle, RotateCcw, History, BarChart3, Settings, Eye,
   Users, FileText as FileTextIcon, Home, MapPin, Brain, Zap, Sparkles, Award,
-  ChevronLeft, Bell, Menu, Shield
+  ChevronLeft, Bell, Menu, Shield, BookOpen, ClipboardCheck, Stethoscope,
+  Thermometer, Heart, BrainCircuit, Activity as ActivityIcon, Pill as PillIcon,
+  Droplets, Wind, HeartPulse
 } from 'lucide-react';
 import { ScrollArea } from "../../components/ui/scroll-area";
 import { useUser, UserButton } from '@clerk/nextjs';
@@ -16,11 +18,250 @@ import { useRouter } from 'next/navigation';
 import { useUserProfile } from '../../contexts/userProfileContext';
 import { PERMISSIONS } from '../../utils/permissions';
 
-// Initialize Supabase client test
+// Initialize Supabase client
 const supabase = createClient(
   'https://bbikcxalypttfgrlxstf.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJiaWtjeGFseXB0dGZncmx4c3RmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MzcxODcwOCwiZXhwIjoyMDY5Mjk0NzA4fQ.4BLQyvPA0eB745Sfdn2Tl4oCDRTzNhLXrJ8Os8wOXfs'
 );
+
+// DD Residential Medication Categories
+const DD_MEDICATION_CATEGORIES = {
+  psychiatric: {
+    name: 'Psychiatric & Behavioral Health',
+    icon: Brain,
+    color: 'from-purple-600 to-pink-500',
+    subcategories: {
+      atypicalAntipsychotics: {
+        name: 'Atypical Antipsychotics',
+        description: 'Used for mood stabilization, psychosis, and severe behavioral dysregulation',
+        medications: [
+          'Risperidone (Risperdal)',
+          'Aripiprazole (Abilify)',
+          'Olanzapine (Zyprexa)',
+          'Quetiapine (Seroquel)',
+          'Ziprasidone (Geodon)'
+        ]
+      },
+      typicalAntipsychotics: {
+        name: 'Typical Antipsychotics',
+        medications: [
+          'Haloperidol (Haldol)',
+          'Chlorpromazine'
+        ]
+      },
+      moodStabilizers: {
+        name: 'Mood Stabilizers / Anticonvulsants',
+        description: 'Used for behavior & seizures',
+        medications: [
+          'Divalproex Sodium (Depakote)',
+          'Carbamazepine (Tegretol)',
+          'Lamotrigine (Lamictal)',
+          'Oxcarbazepine (Trileptal)',
+          'Topiramate (Topamax)'
+        ]
+      },
+      antidepressants: {
+        name: 'Antidepressants',
+        medications: [
+          'Sertraline (Zoloft)',
+          'Fluoxetine (Prozac)',
+          'Escitalopram (Lexapro)',
+          'Duloxetine (Cymbalta)',
+          'Venlafaxine (Effexor)'
+        ]
+      },
+      anxiolytics: {
+        name: 'Anxiolytics / Anti-Anxiety',
+        medications: [
+          'Buspirone (Buspar)',
+          'Hydroxyzine (Vistaril, Atarax)',
+          'Lorazepam (Ativan) - Rare in DD',
+          'Clonazepam (Klonopin) - Rare in DD'
+        ]
+      },
+      adhd: {
+        name: 'Stimulants / ADHD Medications',
+        medications: [
+          'Methylphenidate (Ritalin, Concerta)',
+          'Amphetamine/Dextroamphetamine (Adderall)',
+          'Lisdexamfetamine (Vyvanse)',
+          'Guanfacine (Intuniv)',
+          'Clonidine'
+        ]
+      }
+    }
+  },
+  seizure: {
+    name: 'Seizure / Neurological',
+    icon: BrainCircuit,
+    color: 'from-blue-600 to-cyan-500',
+    description: 'Many individuals with DD have epilepsy or seizure disorders',
+    medications: [
+      'Levetiracetam (Keppra)',
+      'Divalproex (Depakote)',
+      'Carbamazepine (Tegretol)',
+      'Lamotrigine (Lamictal)',
+      'Topiramate (Topamax)',
+      'Phenobarbital',
+      'Clonazepam (Klonopin)'
+    ],
+    rescueMeds: {
+      name: 'Emergency Seizure Rescue Medications',
+      note: 'Staff must be specifically trained and delegated by the RN to use rescue meds',
+      medications: [
+        'Diazepam Nasal Spray (Valtoco)',
+        'Midazolam Nasal Spray (Nayzilam)',
+        'Rectal Diazepam (Diastat)'
+      ]
+    }
+  },
+  gastrointestinal: {
+    name: 'Gastrointestinal',
+    icon: ActivityIcon,
+    color: 'from-green-600 to-emerald-500',
+    description: 'Common due to constipation, reflux, and dietary sensitivities',
+    subcategories: {
+      gerd: {
+        name: 'GERD / Acid Reflux',
+        medications: [
+          'Omeprazole (Prilosec)',
+          'Pantoprazole (Protonix)',
+          'Famotidine (Pepcid)'
+        ]
+      },
+      constipation: {
+        name: 'Constipation / Bowel Regimen',
+        note: 'Bowel protocols must be followed and documented',
+        medications: [
+          'Polyethylene Glycol (MiraLAX)',
+          'Senna (Senokot)',
+          'Docusate (Colace)',
+          'Lactulose',
+          'Milk of Magnesia',
+          'Bisacodyl (Dulcolax)'
+        ]
+      }
+    }
+  },
+  allergy: {
+    name: 'Allergy & Respiratory',
+    icon: Wind,
+    color: 'from-sky-600 to-blue-500',
+    subcategories: {
+      antihistamines: {
+        name: 'Antihistamines',
+        medications: [
+          'Loratadine (Claritin)',
+          'Cetirizine (Zyrtec)',
+          'Diphenhydramine (Benadryl)'
+        ]
+      },
+      asthma: {
+        name: 'Asthma / Respiratory',
+        medications: [
+          'Albuterol Inhaler or Nebulizer',
+          'Fluticasone (Flovent)',
+          'Montelukast (Singulair)',
+          'Budesonide Nebulizer'
+        ]
+      },
+      emergency: {
+        name: 'Emergency Allergy Meds',
+        medications: [
+          'EPINEPHrine Auto-Injector (EpiPen)'
+        ]
+      }
+    }
+  },
+  pain: {
+    name: 'Pain, Fever & General PRN',
+    icon: Thermometer,
+    color: 'from-orange-600 to-red-500',
+    subcategories: {
+      analgesics: {
+        name: 'Analgesics / Pain Relief',
+        medications: [
+          'Acetaminophen (Tylenol)',
+          'Ibuprofen (Advil, Motrin)',
+          'Naproxen (Aleve)'
+        ]
+      },
+      topical: {
+        name: 'Topical Pain & Skin Treatments',
+        medications: [
+          'Hydrocortisone Cream',
+          'Triple Antibiotic Ointment',
+          'Antifungal cream (clotrimazole)'
+        ]
+      },
+      prnProtocol: {
+        name: 'PRN Protocol Meds',
+        note: 'Require written physician orders specifying what for, how often, and when to call RN/MD',
+        medications: [
+          'Anti-nausea: Ondansetron (Zofran)',
+          'Diarrhea: Loperamide (Imodium)',
+          'Cough: Dextromethorphan syrup (if ordered)'
+        ]
+      }
+    }
+  },
+  endocrine: {
+    name: 'Endocrine',
+    icon: Droplets,
+    color: 'from-yellow-600 to-amber-500',
+    subcategories: {
+      diabetes: {
+        name: 'Diabetes',
+        note: 'Blood glucose monitoring supplies must be kept secure and documented',
+        medications: [
+          'Metformin',
+          'Insulin (various types — requires RN delegation & training)'
+        ]
+      },
+      thyroid: {
+        name: 'Thyroid',
+        medications: [
+          'Levothyroxine (Synthroid)'
+        ]
+      }
+    }
+  },
+  cardiovascular: {
+    name: 'Cardiovascular',
+    icon: HeartPulse,
+    color: 'from-rose-600 to-pink-500',
+    note: 'Blood pressure parameters must be included in physician orders',
+    medications: [
+      'Lisinopril',
+      'Amlodipine',
+      'Metoprolol',
+      'Hydrochlorothiazide',
+      'Atorvastatin or other statins'
+    ]
+  },
+  supplements: {
+    name: 'Supplements & Nutritional Support',
+    icon: PillIcon,
+    color: 'from-indigo-600 to-purple-500',
+    description: 'Often physician-ordered for individuals with DD',
+    medications: [
+      'Vitamin D',
+      'Multivitamin',
+      'Iron (Ferrous Sulfate)',
+      'Calcium',
+      'Probiotics',
+      'Ensure / Boost / Nutritional drinks'
+    ]
+  }
+};
+
+// Filter options
+const INDIVIDUAL_FILTER_OPTIONS = {
+  status: ['All', 'Active', 'Pending', 'Inactive', 'On Hold'],
+  homeassignment: ['All Homes', 'Maple House', 'Oak House', 'Pine House', 'Cedar House', 'Willow House'],
+  division: ['All', 'DD', 'MI', 'SUD'],
+  medicationStatus: ['All', 'With Medications', 'Without Medications', 'PRN Only']
+};
 
 const MedicationsPage = () => {
   const { user, isLoaded } = useUser();
@@ -38,6 +279,16 @@ const MedicationsPage = () => {
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentPage, setCurrentPage] = useState('medicine');
+  const [showMedGuide, setShowMedGuide] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [activeFilters, setActiveFilters] = useState({
+    status: 'All',
+    homeassignment: 'All Homes',
+    division: 'All',
+    medicationStatus: 'All',
+    searchTerm: ''
+  });
+  const [filteredIndividuals, setFilteredIndividuals] = useState([]);
 
   // Permission checks
   const canViewMedications = hasAnyPermission([
@@ -91,7 +342,9 @@ const MedicationsPage = () => {
     specialinstructions: '',
     times: [],
     prn: false,
-    prnreason: ''
+    prnreason: '',
+    category: '',
+    subcategory: ''
   });
 
   // MAR entry form state
@@ -116,13 +369,11 @@ const MedicationsPage = () => {
   const routes = ['PO', 'IM', 'IV', 'SubQ', 'Topical', 'Inhalation', 'Rectal', 'Sublingual', 'Nasal'];
   const frequencies = ['Daily', 'BID', 'TID', 'QID', 'QHS', 'QAM', 'PRN', 'Weekly', 'Monthly'];
 
-   const menuItems = [
+  const menuItems = [
     { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
     { id: 'individual', icon: Users, label: 'Individuals', badge: null },
-  //  { id: 'daily', icon: FileText, label: 'Daily Notes', badge: '12' },
     { id: 'medicine', icon: Pill, label: 'Medications', badge: null },
     { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: '3' },
-//    { id: 'hcbs', icon: MapPin, label: 'HCBS Tracking', badge: null },
     { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null },
     { id: 'settings', icon: Settings, label: 'Settings', badge: null },
   ];
@@ -137,6 +388,10 @@ const MedicationsPage = () => {
     }
   }, [isLoaded, user, profileLoading, userProfile]);
 
+  useEffect(() => {
+    applyFilters();
+  }, [individuals, activeFilters]);
+
   const fetchIndividuals = async () => {
     try {
       setLoading(true);
@@ -148,16 +403,12 @@ const MedicationsPage = () => {
 
       // Role-based filtering
       if (userProfile.role_id === 'HouseManager_DD') {
-        // House managers only see individuals in their facility
         query = query.eq('homeassignment', userProfile.facility);
       } else if (userProfile.role_id === 'DSP_DD') {
-        // DSPs only see individuals in their assigned home
         query = query.eq('homeassignment', userProfile.facility);
       } else if (userProfile.division === 'MI' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-        // MI staff see only their division's individuals
         query = query.eq('division', 'MI');
       } else if (userProfile.division === 'SUD' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-        // SUD staff see only their division's individuals
         query = query.eq('division', 'SUD');
       }
 
@@ -165,11 +416,99 @@ const MedicationsPage = () => {
 
       if (error) throw error;
       setIndividuals(data || []);
+      setFilteredIndividuals(data || []);
     } catch (error) {
       console.error('Error fetching individuals:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const applyFilters = () => {
+    let filtered = [...individuals];
+
+    // Apply status filter
+    if (activeFilters.status !== 'All') {
+      filtered = filtered.filter(ind => 
+        ind.status?.toLowerCase() === activeFilters.status.toLowerCase()
+      );
+    }
+
+    // Apply home assignment filter
+    if (activeFilters.homeassignment !== 'All Homes') {
+      filtered = filtered.filter(ind => 
+        ind.homeassignment === activeFilters.homeassignment
+      );
+    }
+
+    // Apply division filter
+    if (activeFilters.division !== 'All') {
+      filtered = filtered.filter(ind => 
+        ind.division === activeFilters.division
+      );
+    }
+
+    // Apply medication status filter
+    if (activeFilters.medicationStatus !== 'All') {
+      switch (activeFilters.medicationStatus) {
+        case 'With Medications':
+          filtered = filtered.filter(ind => 
+            ind.medications && ind.medications.length > 0
+          );
+          break;
+        case 'Without Medications':
+          filtered = filtered.filter(ind => 
+            !ind.medications || ind.medications.length === 0
+          );
+          break;
+        case 'PRN Only':
+          filtered = filtered.filter(ind => 
+            ind.medications && ind.medications.some(med => med.prn)
+          );
+          break;
+      }
+    }
+
+    // Apply search filter
+    if (activeFilters.searchTerm) {
+      const searchLower = activeFilters.searchTerm.toLowerCase();
+      filtered = filtered.filter(ind => 
+        ind.firstname?.toLowerCase().includes(searchLower) ||
+        ind.lastname?.toLowerCase().includes(searchLower) ||
+        ind.individualid?.toLowerCase().includes(searchLower) ||
+        ind.homeassignment?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    setFilteredIndividuals(filtered);
+  };
+
+  const handleFilterChange = (filterType, value) => {
+    setActiveFilters(prev => ({
+      ...prev,
+      [filterType]: value
+    }));
+  };
+
+  const clearAllFilters = () => {
+    setActiveFilters({
+      status: 'All',
+      homeassignment: 'All Homes',
+      division: 'All',
+      medicationStatus: 'All',
+      searchTerm: ''
+    });
+    setSearchTerm('');
+  };
+
+  const getActiveFilterCount = () => {
+    let count = 0;
+    if (activeFilters.status !== 'All') count++;
+    if (activeFilters.homeassignment !== 'All Homes') count++;
+    if (activeFilters.division !== 'All') count++;
+    if (activeFilters.medicationStatus !== 'All') count++;
+    if (activeFilters.searchTerm) count++;
+    return count;
   };
 
   const fetchMedications = async (individualId) => {
@@ -224,6 +563,15 @@ const MedicationsPage = () => {
       console.error('Error adding medication:', error);
       alert('Error adding medication. Please try again.');
     }
+  };
+
+  const handleSelectMedicationFromGuide = (medicationName) => {
+    setMedicationForm({
+      ...medicationForm,
+      medicationname: medicationName
+    });
+    setShowMedGuide(false);
+    setShowAddModal(true);
   };
 
   const handleMARentry = async (e) => {
@@ -368,7 +716,9 @@ const MedicationsPage = () => {
       specialinstructions: '',
       times: [],
       prn: false,
-      prnreason: ''
+      prnreason: '',
+      category: '',
+      subcategory: ''
     });
   };
 
@@ -385,16 +735,214 @@ const MedicationsPage = () => {
     });
   };
 
-  const filteredIndividuals = individuals.filter(ind => {
-    const matchesSearch = 
-      ind.firstname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ind.lastname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ind.individualid?.toLowerCase().includes(searchTerm.toLowerCase());
-
-    return matchesSearch;
-  });
+  // Helper function to get all medication names from categories
+  const getAllMedicationNames = () => {
+    const allMeds = [];
+    
+    Object.values(DD_MEDICATION_CATEGORIES).forEach(category => {
+      if (category.medications) {
+        category.medications.forEach(med => allMeds.push(med));
+      }
+      
+      if (category.subcategories) {
+        Object.values(category.subcategories).forEach(subcat => {
+          if (subcat.medications) {
+            subcat.medications.forEach(med => allMeds.push(med));
+          }
+        });
+      }
+      
+      if (category.rescueMeds?.medications) {
+        category.rescueMeds.medications.forEach(med => allMeds.push(med));
+      }
+    });
+    
+    return [...new Set(allMeds)]; // Remove duplicates
+  };
 
   const missedDoses = checkMissedDoses();
+
+  // Filter Menu Component
+  const FilterMenu = () => (
+    <div className="absolute right-0 top-full mt-2 w-80 bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl shadow-2xl shadow-black/50 z-50 overflow-hidden">
+      <div className="p-4 border-b border-slate-700">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-bold text-white">Filter Individuals</h3>
+          <button
+            onClick={() => setShowFilterMenu(false)}
+            className="p-1 hover:bg-slate-700 rounded-lg"
+          >
+            <X size={20} className="text-slate-400" />
+          </button>
+        </div>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="flex-1">
+            <input
+              type="text"
+              value={activeFilters.searchTerm}
+              onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
+              placeholder="Search individuals..."
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+          {getActiveFilterCount() > 0 && (
+            <button
+              onClick={clearAllFilters}
+              className="px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm rounded-lg font-semibold transition-all"
+            >
+              Clear All
+            </button>
+          )}
+        </div>
+        {getActiveFilterCount() > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {activeFilters.status !== 'All' && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-500/20 text-emerald-400 text-xs rounded-full">
+                Status: {activeFilters.status}
+                <button onClick={() => handleFilterChange('status', 'All')}>
+                  <X size={12} />
+                </button>
+              </span>
+            )}
+            {activeFilters.homeassignment !== 'All Homes' && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full">
+                Home: {activeFilters.homeassignment}
+                <button onClick={() => handleFilterChange('homeassignment', 'All Homes')}>
+                  <X size={12} />
+                </button>
+              </span>
+            )}
+            {activeFilters.division !== 'All' && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded-full">
+                Division: {activeFilters.division}
+                <button onClick={() => handleFilterChange('division', 'All')}>
+                  <X size={12} />
+                </button>
+              </span>
+            )}
+            {activeFilters.medicationStatus !== 'All' && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">
+                Meds: {activeFilters.medicationStatus}
+                <button onClick={() => handleFilterChange('medicationStatus', 'All')}>
+                  <X size={12} />
+                </button>
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+      
+      <ScrollArea className="max-h-96">
+        <div className="p-4 space-y-6">
+          {/* Status Filter */}
+          <div>
+            <h4 className="text-sm font-semibold text-slate-300 mb-2 flex items-center gap-2">
+              <Activity size={14} />
+              Status
+            </h4>
+            <div className="flex flex-wrap gap-2">
+              {INDIVIDUAL_FILTER_OPTIONS.status.map(status => (
+                <button
+                  key={status}
+                  onClick={() => handleFilterChange('status', status)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    activeFilters.status === status
+                      ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/50'
+                      : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
+                  }`}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Home Assignment Filter */}
+          <div>
+            <h4 className="text-sm font-semibold text-slate-300 mb-2 flex items-center gap-2">
+              <Home size={14} />
+              Home Assignment
+            </h4>
+            <div className="grid grid-cols-2 gap-2">
+              {INDIVIDUAL_FILTER_OPTIONS.homeassignment.map(home => (
+                <button
+                  key={home}
+                  onClick={() => handleFilterChange('homeassignment', home)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium text-left transition-all ${
+                    activeFilters.homeassignment === home
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/50'
+                      : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
+                  }`}
+                >
+                  {home}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Division Filter */}
+          <div>
+            <h4 className="text-sm font-semibold text-slate-300 mb-2 flex items-center gap-2">
+              <Users size={14} />
+              Division
+            </h4>
+            <div className="flex flex-wrap gap-2">
+              {INDIVIDUAL_FILTER_OPTIONS.division.map(division => (
+                <button
+                  key={division}
+                  onClick={() => handleFilterChange('division', division)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    activeFilters.division === division
+                      ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
+                      : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
+                  }`}
+                >
+                  {division}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Medication Status Filter */}
+          <div>
+            <h4 className="text-sm font-semibold text-slate-300 mb-2 flex items-center gap-2">
+              <Pill size={14} />
+              Medication Status
+            </h4>
+            <div className="flex flex-wrap gap-2">
+              {INDIVIDUAL_FILTER_OPTIONS.medicationStatus.map(status => (
+                <button
+                  key={status}
+                  onClick={() => handleFilterChange('medicationStatus', status)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    activeFilters.medicationStatus === status
+                      ? 'bg-yellow-600 text-white shadow-lg shadow-yellow-500/50'
+                      : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
+                  }`}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </ScrollArea>
+      
+      <div className="p-4 border-t border-slate-700">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-slate-400">
+            Showing {filteredIndividuals.length} of {individuals.length} individuals
+          </span>
+          <button
+            onClick={() => setShowFilterMenu(false)}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition-all"
+          >
+            Apply Filters
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   // NavBar Component
   const NavBar = () => (
@@ -555,6 +1103,189 @@ const MedicationsPage = () => {
     </div>
   );
 
+  // Medication Guide Modal Component
+  const MedicationGuideModal = () => (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
+        <div className="flex items-center justify-between p-6 border-b border-slate-700">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-500 rounded-xl flex items-center justify-center">
+              <BookOpen className="text-white" size={24} />
+            </div>
+            <div>
+              <h3 className="text-2xl font-bold text-white">DD Residential Medication Guide</h3>
+              <p className="text-slate-400 text-sm">Commonly prescribed medication categories for individuals with ID/DD</p>
+              <p className="text-xs text-slate-500 mt-1">
+                Note: This list represents commonly prescribed medication categories found in DD residential settings.
+                It is not exhaustive and does not replace physician orders, MAR sheets, or pharmacy labels.
+              </p>
+            </div>
+          </div>
+          <button 
+            onClick={() => setShowMedGuide(false)}
+            className="p-2 hover:bg-slate-700 rounded-lg transition-all"
+          >
+            <X className="text-slate-400" size={24} />
+          </button>
+        </div>
+
+        <ScrollArea className="h-[calc(90vh-180px)]">
+          <div className="p-6">
+            {/* Disclaimer Banner */}
+            <div className="bg-gradient-to-r from-red-900/30 to-orange-900/30 border border-red-500/30 rounded-xl p-4 mb-6">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="text-red-400 mt-0.5" size={20} />
+                <div>
+                  <h4 className="text-white font-bold mb-1">Important Disclaimer</h4>
+                  <p className="text-sm text-slate-300">
+                    This list represents commonly prescribed medication categories found in DD residential settings.
+                    It is not exhaustive and does not replace physician orders, MAR sheets, or pharmacy labels.
+                    All medication administration must follow ADMH, HCBS, and facility-specific medication policies.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Categories Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Object.entries(DD_MEDICATION_CATEGORIES).map(([key, category]) => {
+                const Icon = category.icon;
+                return (
+                  <div 
+                    key={key}
+                    className={`bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700 rounded-xl p-5 hover:border-${category.color.split('-')[1]}/50 transition-all duration-300 cursor-pointer hover:scale-105`}
+                    onClick={() => setSelectedCategory(selectedCategory === key ? null : key)}
+                  >
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className={`w-12 h-12 bg-gradient-to-br ${category.color} rounded-xl flex items-center justify-center`}>
+                        <Icon className="text-white" size={24} />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-white font-bold text-lg">{category.name}</h4>
+                        {category.description && (
+                          <p className="text-sm text-slate-400">{category.description}</p>
+                        )}
+                      </div>
+                      <ChevronDown className={`text-slate-400 transition-transform ${selectedCategory === key ? 'rotate-180' : ''}`} />
+                    </div>
+
+                    {selectedCategory === key && (
+                      <div className="mt-4 space-y-4 animate-in fade-in">
+                        {/* Medications List */}
+                        {category.medications && (
+                          <div>
+                            <h5 className="text-white font-semibold mb-2 flex items-center gap-2">
+                              <PillIcon size={16} />
+                              Common Medications
+                            </h5>
+                            <div className="grid grid-cols-1 gap-2">
+                              {category.medications.map((med, idx) => (
+                                <button
+                                  key={idx}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSelectMedicationFromGuide(med);
+                                  }}
+                                  className="text-left bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700 rounded-lg p-3 text-sm text-slate-300 hover:text-white transition-all hover:border-emerald-500/50"
+                                >
+                                  {med}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Subcategories */}
+                        {category.subcategories && Object.entries(category.subcategories).map(([subKey, subcat]) => (
+                          <div key={subKey} className="border-t border-slate-700 pt-4">
+                            <h5 className="text-white font-semibold mb-2">{subcat.name}</h5>
+                            {subcat.description && (
+                              <p className="text-sm text-slate-400 mb-2">{subcat.description}</p>
+                            )}
+                            {subcat.note && (
+                              <p className="text-xs text-yellow-400 mb-2">{subcat.note}</p>
+                            )}
+                            <div className="grid grid-cols-1 gap-2">
+                              {subcat.medications.map((med, idx) => (
+                                <button
+                                  key={idx}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSelectMedicationFromGuide(med);
+                                  }}
+                                  className="text-left bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700 rounded-lg p-3 text-sm text-slate-300 hover:text-white transition-all hover:border-emerald-500/50"
+                                >
+                                  {med}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Rescue Medications */}
+                        {category.rescueMeds && (
+                          <div className="border-t border-slate-700 pt-4">
+                            <h5 className="text-white font-semibold mb-2">{category.rescueMeds.name}</h5>
+                            {category.rescueMeds.note && (
+                              <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-3 mb-2">
+                                <p className="text-xs text-red-400">{category.rescueMeds.note}</p>
+                              </div>
+                            )}
+                            <div className="grid grid-cols-1 gap-2">
+                              {category.rescueMeds.medications.map((med, idx) => (
+                                <button
+                                  key={idx}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSelectMedicationFromGuide(med);
+                                  }}
+                                  className="text-left bg-red-900/20 hover:bg-red-900/30 border border-red-500/30 rounded-lg p-3 text-sm text-red-300 hover:text-red-200 transition-all"
+                                >
+                                  <span className="font-semibold">⚠️ EMERGENCY:</span> {med}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Category Note */}
+                        {category.note && (
+                          <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-3">
+                            <p className="text-xs text-yellow-400">{category.note}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Quick Add Section */}
+            <div className="mt-8 p-5 bg-gradient-to-br from-emerald-900/20 to-teal-900/20 border border-emerald-500/30 rounded-xl">
+              <h4 className="text-white font-bold text-lg mb-3 flex items-center gap-2">
+                <ClipboardCheck size={20} />
+                Quick Medication Select
+              </h4>
+              <p className="text-slate-400 text-sm mb-4">Select a medication to quickly add it to the current individual:</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                {getAllMedicationNames().slice(0, 12).map((med, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleSelectMedicationFromGuide(med)}
+                    className="bg-slate-800/50 hover:bg-emerald-900/30 border border-slate-700 hover:border-emerald-500/50 rounded-lg p-3 text-sm text-slate-300 hover:text-white transition-all text-left"
+                  >
+                    {med}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </ScrollArea>
+      </div>
+    </div>
+  );
+
   // Permission Check - No Access Screen
   if (!profileLoading && !canViewMedications) {
     return (
@@ -612,7 +1343,7 @@ const MedicationsPage = () => {
                       </div>
                     </div>
                     <p className="text-slate-400 text-lg">
-                      MAR Module • IPMS Aligned Medication Tracking
+                      MAR Module • IPMS Aligned Medication Tracking • DD Residential Guide
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
@@ -737,52 +1468,167 @@ const MedicationsPage = () => {
                           <p className="text-slate-400">Choose an individual to manage their medications</p>
                         </div>
                         <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-3 bg-slate-900/50 rounded-xl px-5 py-3 border border-slate-700/50 hover:border-emerald-500/50 transition-all duration-300 group">
-                            <Search size={20} className="text-slate-400 group-hover:text-emerald-400 transition-colors" />
-                            <input 
-                              type="text"
-                              value={searchTerm}
-                              onChange={(e) => setSearchTerm(e.target.value)}
-                              placeholder="Search individuals..." 
-                              className="bg-transparent border-none outline-none text-sm text-white w-64 placeholder:text-slate-500"
-                            />
+                          {/* Search and Filter Container */}
+                          <div className="flex items-center gap-3">
+                            <div className="relative flex items-center gap-3 bg-slate-900/50 rounded-xl px-5 py-3 border border-slate-700/50 hover:border-emerald-500/50 transition-all duration-300 group">
+                              <Search size={20} className="text-slate-400 group-hover:text-emerald-400 transition-colors" />
+                              <input 
+                                type="text"
+                                value={activeFilters.searchTerm}
+                                onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
+                                placeholder="Search individuals..." 
+                                className="bg-transparent border-none outline-none text-sm text-white w-64 placeholder:text-slate-500"
+                              />
+                            </div>
+                            
+                            {/* Filter Button */}
+                            <div className="relative">
+                              <button
+                                onClick={() => setShowFilterMenu(!showFilterMenu)}
+                                className={`flex items-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 ${
+                                  getActiveFilterCount() > 0
+                                    ? 'bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow-lg shadow-emerald-500/50'
+                                    : 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700'
+                                }`}
+                              >
+                                <Filter size={18} />
+                                Filter
+                                {getActiveFilterCount() > 0 && (
+                                  <span className="ml-1 px-1.5 py-0.5 bg-white text-emerald-600 text-xs rounded-full font-bold">
+                                    {getActiveFilterCount()}
+                                  </span>
+                                )}
+                              </button>
+                              
+                              {/* Filter Menu */}
+                              {showFilterMenu && <FilterMenu />}
+                            </div>
+                            
+                            {/* Clear Filters Button (visible when filters are active) */}
+                            {getActiveFilterCount() > 0 && (
+                              <button
+                                onClick={clearAllFilters}
+                                className="flex items-center gap-2 px-4 py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-xl font-semibold transition-all duration-300 hover:scale-105 border border-red-500/30"
+                              >
+                                <X size={18} />
+                                Clear Filters
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
 
-                      <ScrollArea className="h-[400px]">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {filteredIndividuals.map((individual, idx) => (
-                            <div
-                              key={individual.id}
-                              onClick={() => {
-                                setSelectedIndividual(individual);
-                                fetchMedications(individual.id);
-                              }}
-                              className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 cursor-pointer hover:border-emerald-500/50 transition-all duration-300 hover:scale-105 group"
-                            >
-                              <div className="flex items-center gap-3 mb-3">
-                                <div className={`w-12 h-12 bg-gradient-to-br ${getColorClass(idx)} rounded-xl flex items-center justify-center text-white font-bold`}>
-                                  {getInitials(individual.firstname, individual.lastname)}
-                                </div>
-                                <div>
-                                  <h3 className="text-white font-semibold group-hover:text-emerald-400 transition-colors">
-                                    {individual.firstname} {individual.lastname}
-                                  </h3>
-                                  <p className="text-slate-400 text-sm">ID: {individual.individualid}</p>
-                                </div>
-                              </div>
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="text-slate-400">{individual.homeassignment}</span>
-                                <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                  individual.status === 'Active' ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'
-                                }`}>
-                                  {individual.status}
-                                </span>
+                      {/* Filter Summary */}
+                      {getActiveFilterCount() > 0 && (
+                        <div className="mb-6">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-sm text-slate-400">
+                              Showing {filteredIndividuals.length} of {individuals.length} individuals
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-emerald-400 font-semibold">
+                                Active Filters:
+                              </span>
+                              <div className="flex flex-wrap gap-2">
+                                {activeFilters.status !== 'All' && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-500/20 text-emerald-400 text-xs rounded-full">
+                                    Status: {activeFilters.status}
+                                  </span>
+                                )}
+                                {activeFilters.homeassignment !== 'All Homes' && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full">
+                                    Home: {activeFilters.homeassignment}
+                                  </span>
+                                )}
+                                {activeFilters.division !== 'All' && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded-full">
+                                    Division: {activeFilters.division}
+                                  </span>
+                                )}
+                                {activeFilters.medicationStatus !== 'All' && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">
+                                    Meds: {activeFilters.medicationStatus}
+                                  </span>
+                                )}
                               </div>
                             </div>
-                          ))}
+                          </div>
+                          <div className="w-full bg-slate-800 rounded-full h-1.5">
+                            <div 
+                              className="h-full bg-gradient-to-r from-emerald-600 to-teal-500 rounded-full transition-all duration-500"
+                              style={{ width: `${(filteredIndividuals.length / individuals.length) * 100}%` }}
+                            ></div>
+                          </div>
                         </div>
+                      )}
+
+                      <ScrollArea className="h-[400px]">
+                        {filteredIndividuals.length === 0 ? (
+                          <div className="text-center py-16">
+                            <Users className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                            <h4 className="text-xl font-bold text-slate-400 mb-2">No individuals found</h4>
+                            <p className="text-slate-500 mb-4">Try adjusting your search or filters</p>
+                            <button
+                              onClick={clearAllFilters}
+                              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition-all"
+                            >
+                              Clear All Filters
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {filteredIndividuals.map((individual, idx) => (
+                              <div
+                                key={individual.id}
+                                onClick={() => {
+                                  setSelectedIndividual(individual);
+                                  fetchMedications(individual.id);
+                                }}
+                                className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 cursor-pointer hover:border-emerald-500/50 transition-all duration-300 hover:scale-105 group"
+                              >
+                                <div className="flex items-center gap-3 mb-3">
+                                  <div className={`w-12 h-12 bg-gradient-to-br ${getColorClass(idx)} rounded-xl flex items-center justify-center text-white font-bold`}>
+                                    {getInitials(individual.firstname, individual.lastname)}
+                                  </div>
+                                  <div>
+                                    <h3 className="text-white font-semibold group-hover:text-emerald-400 transition-colors">
+                                      {individual.firstname} {individual.lastname}
+                                    </h3>
+                                    <p className="text-slate-400 text-sm">ID: {individual.individualid}</p>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                        individual.status === 'Active' ? 'bg-green-900/30 text-green-400' : 
+                                        individual.status === 'Pending' ? 'bg-yellow-900/30 text-yellow-400' :
+                                        individual.status === 'Inactive' ? 'bg-red-900/30 text-red-400' :
+                                        'bg-blue-900/30 text-blue-400'
+                                      }`}>
+                                        {individual.status}
+                                      </span>
+                                      <span className="px-2 py-0.5 bg-slate-700 text-slate-400 text-xs rounded-full">
+                                        {individual.homeassignment}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between text-sm">
+                                  <div className="flex items-center gap-2">
+                                    <Pill size={14} className="text-slate-500" />
+                                    <span className="text-slate-400">
+                                      {individual.medications?.length || 0} medications
+                                    </span>
+                                  </div>
+                                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                    individual.division === 'DD' ? 'bg-purple-900/30 text-purple-400' :
+                                    individual.division === 'MI' ? 'bg-blue-900/30 text-blue-400' :
+                                    'bg-orange-900/30 text-orange-400'
+                                  }`}>
+                                    {individual.division}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </ScrollArea>
                     </>
                   ) : (
@@ -797,7 +1643,20 @@ const MedicationsPage = () => {
                             <h3 className="text-2xl font-bold text-white">
                               {selectedIndividual.firstname} {selectedIndividual.lastname}
                             </h3>
-                            <p className="text-slate-400">ID: {selectedIndividual.individualid} • {selectedIndividual.homeassignment}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <p className="text-slate-400">ID: {selectedIndividual.individualid}</p>
+                              <span className="text-slate-600">•</span>
+                              <p className="text-slate-400">{selectedIndividual.homeassignment}</p>
+                              <span className="text-slate-600">•</span>
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                selectedIndividual.status === 'Active' ? 'bg-green-900/30 text-green-400' : 
+                                selectedIndividual.status === 'Pending' ? 'bg-yellow-900/30 text-yellow-400' :
+                                selectedIndividual.status === 'Inactive' ? 'bg-red-900/30 text-red-400' :
+                                'bg-blue-900/30 text-blue-400'
+                              }`}>
+                                {selectedIndividual.status}
+                              </span>
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
@@ -807,6 +1666,16 @@ const MedicationsPage = () => {
                           >
                             Change Individual
                           </button>
+                          
+                          {/* Medication Guide Button */}
+                          <button
+                            onClick={() => setShowMedGuide(true)}
+                            className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-2xl hover:shadow-purple-500/50 transition-all duration-300"
+                          >
+                            <BookOpen size={18} />
+                            Medication Guide
+                          </button>
+                          
                           {canAddMedications && (
                             <button
                               onClick={() => setShowAddModal(true)}
@@ -858,11 +1727,18 @@ const MedicationsPage = () => {
                                       <div>
                                         <h4 className="text-white font-bold text-lg">{medication.medicationname}</h4>
                                         <p className="text-slate-400">{medication.dosage} • {medication.route} • {medication.frequency}</p>
-                                        {medication.prn && (
-                                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-900/30 text-yellow-400 text-xs rounded-full mt-1">
-                                            <AlertCircle size={12} />
-                                            PRN
-                                          </span>
+                                        {medication.category && (
+                                          <div className="flex items-center gap-2 mt-1">
+                                            <span className="px-2 py-0.5 bg-purple-900/30 text-purple-400 text-xs rounded-full">
+                                              {medication.category}
+                                            </span>
+                                            {medication.prn && (
+                                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-900/30 text-yellow-400 text-xs rounded-full">
+                                                <AlertCircle size={12} />
+                                                PRN
+                                              </span>
+                                            )}
+                                          </div>
                                         )}
                                       </div>
                                     </div>
@@ -979,6 +1855,9 @@ const MedicationsPage = () => {
         </div>
       </div>
 
+      {/* Medication Guide Modal */}
+      {showMedGuide && <MedicationGuideModal />}
+
       {/* Add Medication Modal */}
       {showAddModal && canAddMedications && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -1058,6 +1937,29 @@ const MedicationsPage = () => {
                           <option key={freq} value={freq}>{freq}</option>
                         ))}
                       </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Category</label>
+                      <select
+                        value={medicationForm.category}
+                        onChange={(e) => setMedicationForm({...medicationForm, category: e.target.value})}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all"
+                      >
+                        <option value="">Select Category</option>
+                        {Object.entries(DD_MEDICATION_CATEGORIES).map(([key, category]) => (
+                          <option key={key} value={key}>{category.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Subcategory</label>
+                      <input
+                        type="text"
+                        value={medicationForm.subcategory}
+                        onChange={(e) => setMedicationForm({...medicationForm, subcategory: e.target.value})}
+                        placeholder="e.g., Atypical Antipsychotics"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all"
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-2">PRN Medication</label>

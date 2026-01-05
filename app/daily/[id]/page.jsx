@@ -491,7 +491,7 @@ const DailyNotesPage = () => {
             <p className="text-sm text-slate-500 mt-2">Division: {userProfile?.division}</p>
           </div>
           <button
-            onClick={() => router.push('/dashboard')}
+            onClick={() => router.push('/individual')}
             className="mt-4 px-6 py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-all"
           >
             Back to Dashboard
@@ -519,7 +519,7 @@ const DailyNotesPage = () => {
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <p className="text-slate-400 text-lg">Individual not found or access denied</p>
           <button
-            onClick={() => router.push('/individuals')}
+            onClick={() => router.push('/individual')}
             className="mt-4 px-6 py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-all"
           >
             Back to Individuals

@@ -797,7 +797,7 @@ const IndividualProfilePage = () => {
             <p className="text-sm text-slate-500 mt-2">Division: {userProfile?.division}</p>
           </div>
           <button
-            onClick={() => router.push('/individuals')}
+            onClick={() => router.push('/individual')}
             className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-all"
           >
             Back to Dashboard
@@ -826,7 +826,7 @@ const IndividualProfilePage = () => {
           <p className="text-slate-400 text-lg mb-2">Individual not found</p>
           <p className="text-slate-500 text-sm mb-6">This individual may not exist or you may not have permission to view them.</p>
           <button
-            onClick={() => router.push('/individuals')}
+            onClick={() => router.push('/individual')}
             className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-all"
           >
             Back to Individuals
@@ -852,7 +852,7 @@ const IndividualProfilePage = () => {
         <div className="flex items-center justify-between">
 <div className="flex items-center gap-4">
 <button
-onClick={() => router.push('/individuals')}
+onClick={() => router.push('/individual')}
 className="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all"
 >
 <ArrowLeft className="text-white" size={20} />
