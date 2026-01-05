@@ -291,6 +291,13 @@ const MedicationsPage = () => {
   const [filteredIndividuals, setFilteredIndividuals] = useState([]);
   const [marHistory, setMarHistory] = useState([]);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [statsFilter, setStatsFilter] = useState(null); // 'active', 'missed', 'high', 'review'
+  const [medicationStats, setMedicationStats] = useState({
+    totalActiveMedications: 0,
+    missedDosesToday: 0,
+    highComplianceCount: 0,
+    reviewRequiredCount: 0
+  });
 
   // Permission checks
   const canViewMedications = hasAnyPermission([
@@ -392,6 +399,121 @@ const MedicationsPage = () => {
     return data;
   };
 
+  // Calculate statistics for all individuals
+  const calculateAllStats = (individualsData) => {
+    let totalActiveMedications = 0;
+    let missedDosesToday = 0;
+    let highComplianceCount = 0;
+    let reviewRequiredCount = 0;
+    const today = new Date().toDateString();
+
+    individualsData.forEach(individual => {
+      const meds = individual.medications || [];
+      const marHistory = individual.marhistory || [];
+      
+      // Count active medications
+      totalActiveMedications += meds.filter(med => med.status === 'Active').length;
+      
+      // Count high compliance individuals (average compliance > 90%)
+      if (meds.length > 0) {
+        const avgCompliance = meds.reduce((sum, med) => sum + (med.compliance || 0), 0) / meds.length;
+        if (avgCompliance > 90) {
+          highComplianceCount++;
+        }
+        if (avgCompliance < 70) {
+          reviewRequiredCount++;
+        }
+      }
+      
+      // Calculate missed doses for today
+      meds.forEach(med => {
+        if (med.times) {
+          med.times.forEach(time => {
+            const [hours, minutes] = time.split(':').map(Number);
+            const doseTime = new Date();
+            doseTime.setHours(hours, minutes, 0, 0);
+            
+            if (new Date() > doseTime) {
+              const doseAdministered = marHistory.some(entry => 
+                entry.medicationid === med.id && 
+                entry.time === time && 
+                new Date(entry.date).toDateString() === today &&
+                entry.status === 'Given'
+              );
+              
+              if (!doseAdministered) {
+                missedDosesToday++;
+              }
+            }
+          });
+        }
+      });
+    });
+
+    return {
+      totalActiveMedications,
+      missedDosesToday,
+      highComplianceCount,
+      reviewRequiredCount
+    };
+  };
+
+  // Filter individuals based on stats filter
+  const filterIndividualsByStats = (individualsData, filterType) => {
+    if (!filterType) return individualsData;
+
+    const today = new Date().toDateString();
+    
+    return individualsData.filter(individual => {
+      const meds = individual.medications || [];
+      const marHistory = individual.marhistory || [];
+      
+      switch (filterType) {
+        case 'active':
+          return meds.filter(med => med.status === 'Active').length > 0;
+        
+        case 'missed':
+          let hasMissedDoses = false;
+          meds.forEach(med => {
+            if (med.times) {
+              med.times.forEach(time => {
+                const [hours, minutes] = time.split(':').map(Number);
+                const doseTime = new Date();
+                doseTime.setHours(hours, minutes, 0, 0);
+                
+                if (new Date() > doseTime) {
+                  const doseAdministered = marHistory.some(entry => 
+                    entry.medicationid === med.id && 
+                    entry.time === time && 
+                    new Date(entry.date).toDateString() === today &&
+                    entry.status === 'Given'
+                  );
+                  
+                  if (!doseAdministered) {
+                    hasMissedDoses = true;
+                  }
+                }
+              });
+            }
+          });
+          return hasMissedDoses;
+        
+        case 'high':
+          if (meds.length === 0) return false;
+          const avgCompliance = meds.reduce((sum, med) => sum + (med.compliance || 0), 0) / meds.length;
+          return avgCompliance > 90;
+        
+        case 'review':
+          if (meds.length === 0) return false;
+          const avgComplianceReview = meds.reduce((sum, med) => sum + (med.compliance || 0), 0) / meds.length;
+          return avgComplianceReview < 70;
+        
+        default:
+          return true;
+      }
+    });
+  };
+
   useEffect(() => {
     if (isLoaded && user && !profileLoading && userProfile) {
       if (canViewMedications) {
@@ -411,7 +533,7 @@ const MedicationsPage = () => {
 
   useEffect(() => {
     applyFilters();
-  }, [individuals, activeFilters]);
+  }, [individuals, activeFilters, statsFilter]);
 
   const fetchIndividuals = async () => {
     try {
@@ -445,11 +567,119 @@ const MedicationsPage = () => {
       }));
       
       setIndividuals(parsedData);
-      setFilteredIndividuals(parsedData);
+      
+      // Calculate stats for all individuals
+      const stats = calculateAllStats(parsedData);
+      setMedicationStats(stats);
+      
+      // Apply initial filters
+      applyFiltersWithData(parsedData);
     } catch (error) {
       console.error('Error fetching individuals:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const applyFiltersWithData = (data) => {
+    let filtered = [...data];
+
+    // Apply active filters first
+    if (activeFilters.status !== 'All') {
+      filtered = filtered.filter(ind => 
+        ind.status?.toLowerCase() === activeFilters.status.toLowerCase()
+      );
+    }
+
+    if (activeFilters.homeassignment !== 'All Homes') {
+      filtered = filtered.filter(ind => 
+        ind.homeassignment === activeFilters.homeassignment
+      );
+    }
+
+    if (activeFilters.division !== 'All') {
+      filtered = filtered.filter(ind => 
+        ind.division === activeFilters.division
+      );
+    }
+
+    if (activeFilters.medicationStatus !== 'All') {
+      switch (activeFilters.medicationStatus) {
+        case 'With Medications':
+          filtered = filtered.filter(ind => 
+            ind.medications && ind.medications.length > 0
+          );
+          break;
+        case 'Without Medications':
+          filtered = filtered.filter(ind => 
+            !ind.medications || ind.medications.length === 0
+          );
+          break;
+        case 'PRN Only':
+          filtered = filtered.filter(ind => 
+            ind.medications && ind.medications.some(med => med.prn)
+          );
+          break;
+      }
+    }
+
+    if (activeFilters.searchTerm) {
+      const searchLower = activeFilters.searchTerm.toLowerCase();
+      filtered = filtered.filter(ind => 
+        ind.firstname?.toLowerCase().includes(searchLower) ||
+        ind.lastname?.toLowerCase().includes(searchLower) ||
+        ind.individualid?.toLowerCase().includes(searchLower) ||
+        ind.homeassignment?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Apply stats filter if selected
+    if (statsFilter) {
+      filtered = filterIndividualsByStats(filtered, statsFilter);
+    }
+
+    setFilteredIndividuals(filtered);
+  };
+
+  const applyFilters = () => {
+    applyFiltersWithData(individuals);
+  };
+
+  const handleFilterChange = (filterType, value) => {
+    setActiveFilters(prev => ({
+      ...prev,
+      [filterType]: value
+    }));
+  };
+
+  const clearAllFilters = () => {
+    setActiveFilters({
+      status: 'All',
+      homeassignment: 'All Homes',
+      division: 'All',
+      medicationStatus: 'All',
+      searchTerm: ''
+    });
+    setStatsFilter(null);
+    setSearchTerm('');
+  };
+
+  const getActiveFilterCount = () => {
+    let count = 0;
+    if (activeFilters.status !== 'All') count++;
+    if (activeFilters.homeassignment !== 'All Homes') count++;
+    if (activeFilters.division !== 'All') count++;
+    if (activeFilters.medicationStatus !== 'All') count++;
+    if (activeFilters.searchTerm) count++;
+    if (statsFilter) count++;
+    return count;
+  };
+
+  const handleStatsFilterClick = (filterType) => {
+    if (statsFilter === filterType) {
+      setStatsFilter(null);
+    } else {
+      setStatsFilter(filterType);
     }
   };
 
@@ -506,93 +736,6 @@ const MedicationsPage = () => {
     }
   };
 
-  const applyFilters = () => {
-    let filtered = [...individuals];
-
-    // Apply status filter
-    if (activeFilters.status !== 'All') {
-      filtered = filtered.filter(ind => 
-        ind.status?.toLowerCase() === activeFilters.status.toLowerCase()
-      );
-    }
-
-    // Apply home assignment filter
-    if (activeFilters.homeassignment !== 'All Homes') {
-      filtered = filtered.filter(ind => 
-        ind.homeassignment === activeFilters.homeassignment
-      );
-    }
-
-    // Apply division filter
-    if (activeFilters.division !== 'All') {
-      filtered = filtered.filter(ind => 
-        ind.division === activeFilters.division
-      );
-    }
-
-    // Apply medication status filter
-    if (activeFilters.medicationStatus !== 'All') {
-      switch (activeFilters.medicationStatus) {
-        case 'With Medications':
-          filtered = filtered.filter(ind => 
-            ind.medications && ind.medications.length > 0
-          );
-          break;
-        case 'Without Medications':
-          filtered = filtered.filter(ind => 
-            !ind.medications || ind.medications.length === 0
-          );
-          break;
-        case 'PRN Only':
-          filtered = filtered.filter(ind => 
-            ind.medications && ind.medications.some(med => med.prn)
-          );
-          break;
-      }
-    }
-
-    // Apply search filter
-    if (activeFilters.searchTerm) {
-      const searchLower = activeFilters.searchTerm.toLowerCase();
-      filtered = filtered.filter(ind => 
-        ind.firstname?.toLowerCase().includes(searchLower) ||
-        ind.lastname?.toLowerCase().includes(searchLower) ||
-        ind.individualid?.toLowerCase().includes(searchLower) ||
-        ind.homeassignment?.toLowerCase().includes(searchLower)
-      );
-    }
-
-    setFilteredIndividuals(filtered);
-  };
-
-  const handleFilterChange = (filterType, value) => {
-    setActiveFilters(prev => ({
-      ...prev,
-      [filterType]: value
-    }));
-  };
-
-  const clearAllFilters = () => {
-    setActiveFilters({
-      status: 'All',
-      homeassignment: 'All Homes',
-      division: 'All',
-      medicationStatus: 'All',
-      searchTerm: ''
-    });
-    setSearchTerm('');
-  };
-
-  const getActiveFilterCount = () => {
-    let count = 0;
-    if (activeFilters.status !== 'All') count++;
-    if (activeFilters.homeassignment !== 'All Homes') count++;
-    if (activeFilters.division !== 'All') count++;
-    if (activeFilters.medicationStatus !== 'All') count++;
-    if (activeFilters.searchTerm) count++;
-    return count;
-  };
-
   const handleAddMedication = async (e) => {
     e.preventDefault();
     
@@ -629,11 +772,16 @@ const MedicationsPage = () => {
       setMedications(updatedMedications);
       
       // Update the individual in the individuals array
-      setIndividuals(prev => prev.map(ind => 
+      const updatedIndividuals = individuals.map(ind => 
         ind.id === selectedIndividual.id 
           ? { ...ind, medications: updatedMedications } 
           : ind
-      ));
+      );
+      setIndividuals(updatedIndividuals);
+      
+      // Recalculate stats
+      const stats = calculateAllStats(updatedIndividuals);
+      setMedicationStats(stats);
       
       setShowAddModal(false);
       resetMedicationForm();
@@ -675,11 +823,16 @@ const MedicationsPage = () => {
       setMedications(updatedMedications);
       
       // Update the individual in the individuals array
-      setIndividuals(prev => prev.map(ind => 
+      const updatedIndividuals = individuals.map(ind => 
         ind.id === selectedIndividual.id 
           ? { ...ind, medications: updatedMedications } 
           : ind
-      ));
+      );
+      setIndividuals(updatedIndividuals);
+      
+      // Recalculate stats
+      const stats = calculateAllStats(updatedIndividuals);
+      setMedicationStats(stats);
       
       alert('Medication deleted successfully!');
     } catch (error) {
@@ -757,7 +910,7 @@ const MedicationsPage = () => {
       setMarHistory(updatedHistory);
       
       // Update the individual in the individuals array
-      setIndividuals(prev => prev.map(ind => 
+      const updatedIndividuals = individuals.map(ind => 
         ind.id === selectedIndividual.id 
           ? { 
               ...ind, 
@@ -765,7 +918,12 @@ const MedicationsPage = () => {
               marhistory: updatedHistory 
             } 
           : ind
-      ));
+      );
+      setIndividuals(updatedIndividuals);
+      
+      // Recalculate stats
+      const stats = calculateAllStats(updatedIndividuals);
+      setMedicationStats(stats);
       
       setShowMARModal(false);
       resetMARForm();
@@ -784,59 +942,6 @@ const MedicationsPage = () => {
     const expectedDoses = 30;
     const compliance = Math.round((medHistory.length / expectedDoses) * 100);
     return compliance > 100 ? 100 : compliance;
-  };
-
-  const checkMissedDoses = () => {
-    const now = new Date();
-    const missedDoses = [];
-    
-    medications.forEach(med => {
-      if (med.times) {
-        med.times.forEach(time => {
-          const [hours, minutes] = time.split(':').map(Number);
-          const doseTime = new Date(now);
-          doseTime.setHours(hours, minutes, 0, 0);
-          
-          if (now > doseTime && !isDoseAdministered(med.id, time)) {
-            missedDoses.push({
-              medication: med.medicationname,
-              time: time,
-              overdue: Math.floor((now - doseTime) / 60000)
-            });
-          }
-        });
-      }
-    });
-    
-    return missedDoses;
-  };
-
-  const isDoseAdministered = (medicationId, time) => {
-    const today = new Date().toDateString();
-    return marHistory.some(entry => 
-      entry.medicationid === medicationId && 
-      entry.time === time && 
-      new Date(entry.date).toDateString() === today
-    );
-  };
-
-  const createMedErrorIncident = async (medicationId, errorType, details) => {
-    try {
-      const incident = {
-        id: Date.now().toString(),
-        type: 'Medication Error',
-        subtype: errorType,
-        details: details,
-        medicationid: medicationId,
-        date: new Date().toISOString(),
-        status: 'Open',
-        created_by: userProfile.fullname,
-        created_by_role: userProfile.role_name
-      };
-      alert(`Med error incident created: ${errorType}\nDetails: ${details}`);
-    } catch (error) {
-      console.error('Error creating incident:', error);
-    }
   };
 
   const getInitials = (firstname, lastname) => {
@@ -912,8 +1017,6 @@ const MedicationsPage = () => {
     return [...new Set(allMeds)]; // Remove duplicates
   };
 
-  const missedDoses = checkMissedDoses();
-
   // Filter Menu Component
   const FilterMenu = () => (
     <div className="absolute right-0 top-full mt-2 w-80 bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl shadow-2xl shadow-black/50 z-50 overflow-hidden">
@@ -976,6 +1079,16 @@ const MedicationsPage = () => {
               <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">
                 Meds: {activeFilters.medicationStatus}
                 <button onClick={() => handleFilterChange('medicationStatus', 'All')}>
+                  <X size={12} />
+                </button>
+              </span>
+            )}
+            {statsFilter && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded-full">
+                Stats: {statsFilter === 'active' ? 'Active Meds' : 
+                        statsFilter === 'missed' ? 'Missed Today' : 
+                        statsFilter === 'high' ? 'High Compliance' : 'Review Required'}
+                <button onClick={() => setStatsFilter(null)}>
                   <X size={12} />
                 </button>
               </span>
@@ -1178,20 +1291,14 @@ const MedicationsPage = () => {
         
         <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 rounded-xl p-3">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-slate-400 font-medium">Medication Compliance</span>
+            <span className="text-xs text-slate-400 font-medium">Active Medications</span>
             <span className="text-xs text-blue-400 font-bold">
-              {medications.length > 0 
-                ? Math.round(medications.reduce((acc, med) => acc + (med.compliance || 0), 0) / medications.length) + '%'
-                : '0%'
-              }
+              {medicationStats.totalActiveMedications}
             </span>
           </div>
           <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
             <div className="h-full bg-gradient-to-r from-blue-600 to-cyan-500 rounded-full transition-all duration-1000" 
-              style={{width: medications.length > 0 
-                ? Math.round(medications.reduce((acc, med) => acc + (med.compliance || 0), 0) / medications.length) + '%'
-                : '0%'
-              }}>
+              style={{width: `${Math.min(100, (medicationStats.totalActiveMedications / (individuals.length * 5)) * 100)}%`}}>
             </div>
           </div>
         </div>
@@ -1511,7 +1618,14 @@ const MedicationsPage = () => {
 
                 {/* Quick Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="group relative bg-gradient-to-br from-blue-600/20 to-cyan-500/20 backdrop-blur-sm border border-blue-500/30 rounded-2xl p-6 hover:border-blue-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/20 overflow-hidden">
+                  {/* Active Medications */}
+                  <div 
+                    onClick={() => handleStatsFilterClick('active')}
+                    className="group relative bg-gradient-to-br from-blue-600/20 to-cyan-500/20 backdrop-blur-sm border border-blue-500/30 rounded-2xl p-6 hover:border-blue-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/20 overflow-hidden cursor-pointer"
+                  >
+                    {statsFilter === 'active' && (
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-cyan-500/10 animate-pulse rounded-2xl"></div>
+                    )}
                     <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-600 to-cyan-500 opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-all duration-300"></div>
                     <div className="relative z-10">
                       <div className="flex items-start justify-between mb-4">
@@ -1521,21 +1635,31 @@ const MedicationsPage = () => {
                         <div className="flex items-center gap-1">
                           <TrendingUp className="text-blue-400" size={18} />
                           <span className="text-sm font-bold text-blue-400">
-                            +{medications.length > 0 ? '5%' : '0%'}
+                            +{medicationStats.totalActiveMedications > 0 ? '5%' : '0%'}
                           </span>
                         </div>
                       </div>
                       <div className="space-y-1">
                         <p className="text-slate-400 text-sm font-medium">Active Medications</p>
                         <div className="flex items-end gap-2">
-                          <p className="text-4xl font-black text-white">{medications.length}</p>
+                          <p className="text-4xl font-black text-white">{medicationStats.totalActiveMedications}</p>
                           <Pill className="text-blue-400 mb-2" size={20} />
                         </div>
+                        <p className="text-xs text-slate-500 mt-2">
+                          Across all {individuals.length} individuals
+                        </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="group relative bg-gradient-to-br from-green-600/20 to-emerald-500/20 backdrop-blur-sm border border-green-500/30 rounded-2xl p-6 hover:border-green-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-green-500/20 overflow-hidden">
+                  {/* High Compliance */}
+                  <div 
+                    onClick={() => handleStatsFilterClick('high')}
+                    className="group relative bg-gradient-to-br from-green-600/20 to-emerald-500/20 backdrop-blur-sm border border-green-500/30 rounded-2xl p-6 hover:border-green-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-green-500/20 overflow-hidden cursor-pointer"
+                  >
+                    {statsFilter === 'high' && (
+                      <div className="absolute inset-0 bg-gradient-to-r from-green-400/10 to-emerald-500/10 animate-pulse rounded-2xl"></div>
+                    )}
                     <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-green-600 to-emerald-500 opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-all duration-300"></div>
                     <div className="relative z-10">
                       <div className="flex items-start justify-between mb-4">
@@ -1545,7 +1669,7 @@ const MedicationsPage = () => {
                         <div className="flex items-center gap-1">
                           <TrendingUp className="text-green-400" size={18} />
                           <span className="text-sm font-bold text-green-400">
-                            +{medications.filter(med => med.compliance > 80).length > 0 ? '3%' : '0%'}
+                            +{medicationStats.highComplianceCount > 0 ? '3%' : '0%'}
                           </span>
                         </div>
                       </div>
@@ -1553,14 +1677,25 @@ const MedicationsPage = () => {
                         <p className="text-slate-400 text-sm font-medium">High Compliance</p>
                         <div className="flex items-end gap-2">
                           <p className="text-4xl font-black text-white">
-                            {medications.filter(med => med.compliance > 80).length}
+                            {medicationStats.highComplianceCount}
                           </p>
+                          <span className="text-lg font-bold text-green-400 mb-2">≥90%</span>
                         </div>
+                        <p className="text-xs text-slate-500 mt-2">
+                          Individuals with excellent compliance
+                        </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="group relative bg-gradient-to-br from-orange-600/20 to-red-500/20 backdrop-blur-sm border border-orange-500/30 rounded-2xl p-6 hover:border-orange-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-orange-500/20 overflow-hidden">
+                  {/* Missed Today */}
+                  <div 
+                    onClick={() => handleStatsFilterClick('missed')}
+                    className="group relative bg-gradient-to-br from-orange-600/20 to-red-500/20 backdrop-blur-sm border border-orange-500/30 rounded-2xl p-6 hover:border-orange-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-orange-500/20 overflow-hidden cursor-pointer"
+                  >
+                    {statsFilter === 'missed' && (
+                      <div className="absolute inset-0 bg-gradient-to-r from-orange-400/10 to-red-500/10 animate-pulse rounded-2xl"></div>
+                    )}
                     <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-600 to-red-500 opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-all duration-300"></div>
                     <div className="relative z-10">
                       <div className="flex items-start justify-between mb-4">
@@ -1570,44 +1705,89 @@ const MedicationsPage = () => {
                         <div className="flex items-center gap-1">
                           <TrendingUp className="text-orange-400" size={18} />
                           <span className="text-sm font-bold text-orange-400">
-                            +{missedDoses.length > 0 ? '8%' : '0%'}
+                            +{medicationStats.missedDosesToday > 0 ? '8%' : '0%'}
                           </span>
                         </div>
                       </div>
                       <div className="space-y-1">
                         <p className="text-slate-400 text-sm font-medium">Missed Today</p>
                         <div className="flex items-end gap-2">
-                          <p className="text-4xl font-black text-white">{missedDoses.length}</p>
+                          <p className="text-4xl font-black text-white">{medicationStats.missedDosesToday}</p>
                         </div>
+                        <p className="text-xs text-slate-500 mt-2">
+                          Total missed doses across all individuals
+                        </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="group relative bg-gradient-to-br from-purple-600/20 to-pink-500/20 backdrop-blur-sm border border-purple-500/30 rounded-2xl p-6 hover:border-purple-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/20 overflow-hidden">
+                  {/* Review Required */}
+                  <div 
+                    onClick={() => handleStatsFilterClick('review')}
+                    className="group relative bg-gradient-to-br from-purple-600/20 to-pink-500/20 backdrop-blur-sm border border-purple-500/30 rounded-2xl p-6 hover:border-purple-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/20 overflow-hidden cursor-pointer"
+                  >
+                    {statsFilter === 'review' && (
+                      <div className="absolute inset-0 bg-gradient-to-r from-purple-400/10 to-pink-500/10 animate-pulse rounded-2xl"></div>
+                    )}
                     <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-600 to-pink-500 opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-all duration-300"></div>
                     <div className="relative z-10">
                       <div className="flex items-start justify-between mb-4">
                         <div className="w-14 h-14 bg-gradient-to-br from-purple-600 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300">
-                          <BarChart3 className="text-white" size={26} />
+                          <Eye className="text-white" size={26} />
                         </div>
                         <div className="flex items-center gap-1">
                           <TrendingUp className="text-purple-400" size={18} />
                           <span className="text-sm font-bold text-purple-400">
-                            +{medications.length > 0 ? '2%' : '0%'}
+                            +{medicationStats.reviewRequiredCount > 0 ? '2%' : '0%'}
                           </span>
                         </div>
                       </div>
                       <div className="space-y-1">
-                        <p className="text-slate-400 text-sm font-medium">Avg Compliance</p>
+                        <p className="text-slate-400 text-sm font-medium">Review Required</p>
                         <div className="flex items-end gap-2">
                           <p className="text-4xl font-black text-white">
-                            {Math.round(medications.reduce((acc, med) => acc + (med.compliance || 0), 0) / (medications.length || 1))}%
+                            {medicationStats.reviewRequiredCount}
                           </p>
+                          <span className="text-lg font-bold text-purple-400 mb-2">≤70%</span>
                         </div>
+                        <p className="text-xs text-slate-500 mt-2">
+                          Individuals needing compliance review
+                        </p>
                       </div>
                     </div>
                   </div>
                 </div>
+
+                {/* Stats Filter Status */}
+                {statsFilter && (
+                  <div className="bg-gradient-to-r from-emerald-900/20 to-teal-900/20 border border-emerald-500/30 rounded-2xl p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center">
+                          <Filter className="text-white" size={20} />
+                        </div>
+                        <div>
+                          <h4 className="text-white font-bold">
+                            Showing {statsFilter === 'active' ? 'Individuals with Active Medications' : 
+                                     statsFilter === 'missed' ? 'Individuals with Missed Doses Today' : 
+                                     statsFilter === 'high' ? 'Individuals with High Compliance (≥90%)' : 
+                                     'Individuals Needing Review (≤70%)'}
+                          </h4>
+                          <p className="text-slate-400 text-sm">
+                            {filteredIndividuals.length} individuals match this criteria
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setStatsFilter(null)}
+                        className="flex items-center gap-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-xl font-semibold transition-all duration-300"
+                      >
+                        <X size={16} />
+                        Clear Filter
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Main Content */}
                 <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-emerald-500/30 transition-all duration-300">
@@ -1702,6 +1882,13 @@ const MedicationsPage = () => {
                                     Meds: {activeFilters.medicationStatus}
                                   </span>
                                 )}
+                                {statsFilter && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded-full">
+                                    Stats: {statsFilter === 'active' ? 'Active Meds' : 
+                                            statsFilter === 'missed' ? 'Missed Today' : 
+                                            statsFilter === 'high' ? 'High Compliance' : 'Review Required'}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -1729,55 +1916,125 @@ const MedicationsPage = () => {
                           </div>
                         ) : (
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {filteredIndividuals.map((individual, idx) => (
-                              <div
-                                key={individual.id}
-                                onClick={() => {
-                                  setSelectedIndividual(individual);
-                                }}
-                                className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 cursor-pointer hover:border-emerald-500/50 transition-all duration-300 hover:scale-105 group"
-                              >
-                                <div className="flex items-center gap-3 mb-3">
-                                  <div className={`w-12 h-12 bg-gradient-to-br ${getColorClass(idx)} rounded-xl flex items-center justify-center text-white font-bold`}>
-                                    {getInitials(individual.firstname, individual.lastname)}
-                                  </div>
-                                  <div>
-                                    <h3 className="text-white font-semibold group-hover:text-emerald-400 transition-colors">
-                                      {individual.firstname} {individual.lastname}
-                                    </h3>
-                                    <p className="text-slate-400 text-sm">ID: {individual.individualid}</p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                        individual.status === 'Active' ? 'bg-green-900/30 text-green-400' : 
-                                        individual.status === 'Pending' ? 'bg-yellow-900/30 text-yellow-400' :
-                                        individual.status === 'Inactive' ? 'bg-red-900/30 text-red-400' :
-                                        'bg-blue-900/30 text-blue-400'
-                                      }`}>
-                                        {individual.status}
-                                      </span>
-                                      <span className="px-2 py-0.5 bg-slate-700 text-slate-400 text-xs rounded-full">
-                                        {individual.homeassignment}
-                                      </span>
+                            {filteredIndividuals.map((individual, idx) => {
+                              const individualMeds = individual.medications || [];
+                              const individualMarHistory = individual.marhistory || [];
+                              const today = new Date().toDateString();
+                              
+                              // Calculate individual stats
+                              const activeMedCount = individualMeds.filter(med => med.status === 'Active').length;
+                              let missedDoses = 0;
+                              let avgCompliance = 0;
+                              
+                              if (individualMeds.length > 0) {
+                                // Calculate missed doses for today
+                                individualMeds.forEach(med => {
+                                  if (med.times) {
+                                    med.times.forEach(time => {
+                                      const [hours, minutes] = time.split(':').map(Number);
+                                      const doseTime = new Date();
+                                      doseTime.setHours(hours, minutes, 0, 0);
+                                      
+                                      if (new Date() > doseTime) {
+                                        const doseAdministered = individualMarHistory.some(entry => 
+                                          entry.medicationid === med.id && 
+                                          entry.time === time && 
+                                          new Date(entry.date).toDateString() === today &&
+                                          entry.status === 'Given'
+                                        );
+                                        
+                                        if (!doseAdministered) {
+                                          missedDoses++;
+                                        }
+                                      }
+                                    });
+                                  }
+                                });
+                                
+                                // Calculate average compliance
+                                avgCompliance = individualMeds.reduce((sum, med) => sum + (med.compliance || 0), 0) / individualMeds.length;
+                              }
+                              
+                              return (
+                                <div
+                                  key={individual.id}
+                                  onClick={() => {
+                                    setSelectedIndividual(individual);
+                                  }}
+                                  className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 cursor-pointer hover:border-emerald-500/50 transition-all duration-300 hover:scale-105 group"
+                                >
+                                  <div className="flex items-center gap-3 mb-3">
+                                    <div className={`w-12 h-12 bg-gradient-to-br ${getColorClass(idx)} rounded-xl flex items-center justify-center text-white font-bold`}>
+                                      {getInitials(individual.firstname, individual.lastname)}
+                                    </div>
+                                    <div className="flex-1">
+                                      <h3 className="text-white font-semibold group-hover:text-emerald-400 transition-colors">
+                                        {individual.firstname} {individual.lastname}
+                                      </h3>
+                                      <p className="text-slate-400 text-sm">ID: {individual.individualid}</p>
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                          individual.status === 'Active' ? 'bg-green-900/30 text-green-400' : 
+                                          individual.status === 'Pending' ? 'bg-yellow-900/30 text-yellow-400' :
+                                          individual.status === 'Inactive' ? 'bg-red-900/30 text-red-400' :
+                                          'bg-blue-900/30 text-blue-400'
+                                        }`}>
+                                          {individual.status}
+                                        </span>
+                                        <span className="px-2 py-0.5 bg-slate-700 text-slate-400 text-xs rounded-full">
+                                          {individual.homeassignment}
+                                        </span>
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                                <div className="flex items-center justify-between text-sm">
-                                  <div className="flex items-center gap-2">
-                                    <Pill size={14} className="text-slate-500" />
-                                    <span className="text-slate-400">
-                                      {individual.medications?.length || 0} medications
+                                  
+                                  {/* Individual Stats */}
+                                  <div className="grid grid-cols-2 gap-2 mb-3">
+                                    <div className="bg-slate-900/50 rounded-lg p-2">
+                                      <p className="text-xs text-slate-400">Active Meds</p>
+                                      <p className="text-white font-bold">{activeMedCount}</p>
+                                    </div>
+                                    <div className="bg-slate-900/50 rounded-lg p-2">
+                                      <p className="text-xs text-slate-400">Missed Today</p>
+                                      <p className={`font-bold ${missedDoses > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                                        {missedDoses}
+                                      </p>
+                                    </div>
+                                    <div className="bg-slate-900/50 rounded-lg p-2">
+                                      <p className="text-xs text-slate-400">Compliance</p>
+                                      <p className={`font-bold ${
+                                        avgCompliance >= 90 ? 'text-green-400' :
+                                        avgCompliance >= 70 ? 'text-yellow-400' : 'text-red-400'
+                                      }`}>
+                                        {Math.round(avgCompliance)}%
+                                      </p>
+                                    </div>
+                                    <div className="bg-slate-900/50 rounded-lg p-2">
+                                      <p className="text-xs text-slate-400">PRN</p>
+                                      <p className="text-white font-bold">
+                                        {individualMeds.filter(med => med.prn).length}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="flex items-center justify-between text-sm">
+                                    <div className="flex items-center gap-2">
+                                      <Pill size={14} className="text-slate-500" />
+                                      <span className="text-slate-400">
+                                        {individualMeds.length} total medications
+                                      </span>
+                                    </div>
+                                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                      individual.division === 'DD' ? 'bg-purple-900/30 text-purple-400' :
+                                      individual.division === 'MI' ? 'bg-blue-900/30 text-blue-400' :
+                                      'bg-orange-900/30 text-orange-400'
+                                    }`}>
+                                      {individual.division}
                                     </span>
                                   </div>
-                                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                    individual.division === 'DD' ? 'bg-purple-900/30 text-purple-400' :
-                                    individual.division === 'MI' ? 'bg-blue-900/30 text-blue-400' :
-                                    'bg-orange-900/30 text-orange-400'
-                                  }`}>
-                                    {individual.division}
-                                  </span>
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         )}
                       </ScrollArea>
@@ -1868,132 +2125,145 @@ const MedicationsPage = () => {
                         ) : (
                           <ScrollArea className="h-[500px]">
                             <div className="space-y-4">
-                              {medications.map((medication) => (
-                                <div key={medication.id} className="bg-slate-900/50 border border-slate-700 rounded-xl p-4 hover:border-emerald-500/30 transition-all duration-300">
-                                  <div className="flex items-start justify-between mb-4">
-                                    <div className="flex items-start gap-3">
-                                      <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-xl flex items-center justify-center">
-                                        <Pill className="text-white" size={24} />
-                                      </div>
-                                      <div>
-                                        <h4 className="text-white font-bold text-lg">{medication.medicationname}</h4>
-                                        <p className="text-slate-400">{medication.dosage} • {medication.route} • {medication.frequency}</p>
-                                        {medication.category && (
-                                          <div className="flex items-center gap-2 mt-1">
-                                            <span className="px-2 py-0.5 bg-purple-900/30 text-purple-400 text-xs rounded-full">
-                                              {medication.category}
-                                            </span>
-                                            {medication.prn && (
-                                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-900/30 text-yellow-400 text-xs rounded-full">
-                                                <AlertCircle size={12} />
-                                                PRN
+                              {medications.map((medication) => {
+                                // Check if this dose was administered today
+                                const today = new Date().toDateString();
+                                const isDoseAdministeredToday = (time) => {
+                                  return marHistory.some(entry => 
+                                    entry.medicationid === medication.id && 
+                                    entry.time === time && 
+                                    new Date(entry.date).toDateString() === today &&
+                                    entry.status === 'Given'
+                                  );
+                                };
+                                
+                                return (
+                                  <div key={medication.id} className="bg-slate-900/50 border border-slate-700 rounded-xl p-4 hover:border-emerald-500/30 transition-all duration-300">
+                                    <div className="flex items-start justify-between mb-4">
+                                      <div className="flex items-start gap-3">
+                                        <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-xl flex items-center justify-center">
+                                          <Pill className="text-white" size={24} />
+                                        </div>
+                                        <div>
+                                          <h4 className="text-white font-bold text-lg">{medication.medicationname}</h4>
+                                          <p className="text-slate-400">{medication.dosage} • {medication.route} • {medication.frequency}</p>
+                                          {medication.category && (
+                                            <div className="flex items-center gap-2 mt-1">
+                                              <span className="px-2 py-0.5 bg-purple-900/30 text-purple-400 text-xs rounded-full">
+                                                {medication.category}
                                               </span>
+                                              {medication.prn && (
+                                                <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-900/30 text-yellow-400 text-xs rounded-full">
+                                                  <AlertCircle size={12} />
+                                                  PRN
+                                                </span>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <div className="text-right">
+                                          <p className="text-sm text-slate-400">Compliance</p>
+                                          <p className={`text-lg font-bold ${
+                                            medication.compliance >= 90 ? 'text-green-400' :
+                                            medication.compliance >= 70 ? 'text-yellow-400' : 'text-red-400'
+                                          }`}>
+                                            {medication.compliance || 0}%
+                                          </p>
+                                        </div>
+                                        {canDeleteMedications && (
+                                          <button
+                                            onClick={() => handleDeleteMedication(medication.id)}
+                                            disabled={isDeleting}
+                                            className="p-2 hover:bg-red-500/20 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                                          >
+                                            {isDeleting ? (
+                                              <Loader2 size={16} className="text-red-400 animate-spin" />
+                                            ) : (
+                                              <Trash2 size={16} className="text-red-400" />
                                             )}
-                                          </div>
+                                          </button>
                                         )}
                                       </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                      <div className="text-right">
-                                        <p className="text-sm text-slate-400">Compliance</p>
-                                        <p className={`text-lg font-bold ${
-                                          medication.compliance >= 90 ? 'text-green-400' :
-                                          medication.compliance >= 70 ? 'text-yellow-400' : 'text-red-400'
-                                        }`}>
-                                          {medication.compliance || 0}%
-                                        </p>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                                      <div>
+                                        <p className="text-slate-400 text-sm">Indication</p>
+                                        <p className="text-white text-sm">{medication.indication || 'N/A'}</p>
                                       </div>
-                                      {canDeleteMedications && (
-                                        <button
-                                          onClick={() => handleDeleteMedication(medication.id)}
-                                          disabled={isDeleting}
-                                          className="p-2 hover:bg-red-500/20 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                          {isDeleting ? (
-                                            <Loader2 size={16} className="text-red-400 animate-spin" />
-                                          ) : (
-                                            <Trash2 size={16} className="text-red-400" />
-                                          )}
-                                        </button>
-                                      )}
+                                      <div>
+                                        <p className="text-slate-400 text-sm">Prescribed By</p>
+                                        <p className="text-white text-sm">{medication.prescribedby || 'N/A'}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-slate-400 text-sm">Start Date</p>
+                                        <p className="text-white text-sm">{medication.startdate ? new Date(medication.startdate).toLocaleDateString() : 'N/A'}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-slate-400 text-sm">Status</p>
+                                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${
+                                          medication.status === 'Active' ? 'bg-green-900/30 text-green-400' :
+                                          medication.status === 'On Hold' ? 'bg-yellow-900/30 text-yellow-400' :
+                                          'bg-red-900/30 text-red-400'
+                                        }`}>
+                                          {medication.status || 'Active'}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {medication.specialinstructions && (
+                                      <div className="mb-4">
+                                        <p className="text-slate-400 text-sm mb-1">Special Instructions</p>
+                                        <p className="text-white text-sm bg-slate-800 rounded-lg p-2">{medication.specialinstructions}</p>
+                                      </div>
+                                    )}
+
+                                    {/* Time Block MAR */}
+                                    <div className="border-t border-slate-700 pt-4">
+                                      <h5 className="text-white font-semibold mb-3 flex items-center gap-2">
+                                        <Clock size={16} />
+                                        Today's MAR Schedule
+                                      </h5>
+                                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+                                        {timeBlocks.map(time => {
+                                          const isAdministered = isDoseAdministeredToday(time);
+                                          const isScheduled = medication.times?.includes(time);
+                                          
+                                          if (!isScheduled) return null;
+                                          
+                                          return (
+                                            <div
+                                              key={time}
+                                              className={`p-3 rounded-lg border text-center transition-all duration-300 ${
+                                                isAdministered
+                                                  ? 'bg-green-900/30 border-green-500/50 text-green-400'
+                                                  : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-emerald-500/50 cursor-pointer hover:scale-105'
+                                              }`}
+                                              onClick={() => {
+                                                if (!isAdministered && canCreateMAREntries) {
+                                                  setMarEntry({
+                                                    ...marEntry,
+                                                    medicationid: medication.id,
+                                                    time: time
+                                                  });
+                                                  setShowMARModal(true);
+                                                }
+                                              }}
+                                            >
+                                              <p className="text-sm font-semibold">{time}</p>
+                                              <p className="text-xs mt-1">
+                                                {isAdministered ? 'Given' : 'Due'}
+                                              </p>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
                                     </div>
                                   </div>
-
-                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                                    <div>
-                                      <p className="text-slate-400 text-sm">Indication</p>
-                                      <p className="text-white text-sm">{medication.indication || 'N/A'}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-slate-400 text-sm">Prescribed By</p>
-                                      <p className="text-white text-sm">{medication.prescribedby || 'N/A'}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-slate-400 text-sm">Start Date</p>
-                                      <p className="text-white text-sm">{medication.startdate ? new Date(medication.startdate).toLocaleDateString() : 'N/A'}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-slate-400 text-sm">Status</p>
-                                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${
-                                        medication.status === 'Active' ? 'bg-green-900/30 text-green-400' :
-                                        medication.status === 'On Hold' ? 'bg-yellow-900/30 text-yellow-400' :
-                                        'bg-red-900/30 text-red-400'
-                                      }`}>
-                                        {medication.status || 'Active'}
-                                      </span>
-                                    </div>
-                                  </div>
-
-                                  {medication.specialinstructions && (
-                                    <div className="mb-4">
-                                      <p className="text-slate-400 text-sm mb-1">Special Instructions</p>
-                                      <p className="text-white text-sm bg-slate-800 rounded-lg p-2">{medication.specialinstructions}</p>
-                                    </div>
-                                  )}
-
-                                  {/* Time Block MAR */}
-                                  <div className="border-t border-slate-700 pt-4">
-                                    <h5 className="text-white font-semibold mb-3 flex items-center gap-2">
-                                      <Clock size={16} />
-                                      Today's MAR Schedule
-                                    </h5>
-                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
-                                      {timeBlocks.map(time => {
-                                        const isAdministered = isDoseAdministered(medication.id, time);
-                                        const isScheduled = medication.times?.includes(time);
-                                        
-                                        if (!isScheduled) return null;
-                                        
-                                        return (
-                                          <div
-                                            key={time}
-                                            className={`p-3 rounded-lg border text-center transition-all duration-300 ${
-                                              isAdministered
-                                                ? 'bg-green-900/30 border-green-500/50 text-green-400'
-                                                : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-emerald-500/50 cursor-pointer hover:scale-105'
-                                            }`}
-                                            onClick={() => {
-                                              if (!isAdministered && canCreateMAREntries) {
-                                                setMarEntry({
-                                                  ...marEntry,
-                                                  medicationid: medication.id,
-                                                  time: time
-                                                });
-                                                setShowMARModal(true);
-                                              }
-                                            }}
-                                          >
-                                            <p className="text-sm font-semibold">{time}</p>
-                                            <p className="text-xs mt-1">
-                                              {isAdministered ? 'Given' : 'Due'}
-                                            </p>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </ScrollArea>
                         )}
@@ -2411,7 +2681,7 @@ const MedicationsPage = () => {
                   type="button"
                   onClick={() => {
                     if (marEntry.status === 'Refused' || marEntry.status === 'Held' || marEntry.status === 'Late') {
-                      createMedErrorIncident(marEntry.medicationid, marEntry.status, marEntry.notes);
+                      alert(`Med error incident created: ${marEntry.status}\nDetails: ${marEntry.notes}`);
                     }
                     setShowMARModal(false);
                   }}
