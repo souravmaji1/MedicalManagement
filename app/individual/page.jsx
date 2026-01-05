@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Users, Plus, Upload, Search, Filter, Eye, Edit2, Trash2,
   MapPin, Clock, CheckCircle, AlertCircle, Download, X,
-  Save, FileText, Phone, Mail, Calendar, User, Home as HomeIcon,AlertTriangle,
+  Save, FileText, Phone, Mail, Calendar, User, Home as HomeIcon, AlertTriangle,
   Shield, Heart, Activity, ChevronRight, Loader2,
   Home, FileText as FileTextIcon, Pill, AlertCircle as AlertCircleIcon,
   TrendingUp, Settings, Menu, Bell, ChevronDown, BarChart3, Brain,
@@ -95,16 +95,15 @@ const IndividualsPage = () => {
     notes: ''
   });
 
-   const menuItems = [
-     { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
-     { id: 'individual', icon: Users, label: 'Individuals', badge: null },
-   //  { id: 'daily', icon: FileText, label: 'Daily Notes', badge: '12' },
-     { id: 'medicine', icon: Pill, label: 'Medications', badge: null },
-     { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: '3' },
-  //   { id: 'hcbs', icon: MapPin, label: 'HCBS Tracking', badge: null },
-     { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null },
-     { id: 'settings', icon: Settings, label: 'Settings', badge: null },
-   ];
+  const menuItems = [
+    { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
+    { id: 'individual', icon: Users, label: 'Individuals', badge: null },
+    { id: 'medicine', icon: Pill, label: 'Medications', badge: null },
+    { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: '3' },
+    { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null },
+    { id: 'settings', icon: Settings, label: 'Settings', badge: null },
+  ];
+
   // Fetch individuals from Supabase with role-based filtering
   useEffect(() => {
     if (isLoaded && user && !profileLoading && userProfile) {
@@ -374,6 +373,17 @@ const IndividualsPage = () => {
     return colors[index % colors.length];
   };
 
+  // Handle stats card click
+  const handleStatsCardClick = (status) => {
+    setFilterStatus(status);
+  };
+
+  // Calculate stats
+  const totalIndividuals = individuals.length;
+  const activeIndividuals = individuals.filter(ind => ind.status === 'Active').length;
+  const reviewIndividuals = individuals.filter(ind => ind.status === 'Review').length;
+  const inactiveIndividuals = individuals.filter(ind => ind.status === 'Inactive').length;
+
   // NavBar Component
   const NavBar = () => (
     <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-900/20 backdrop-blur-xl border-b border-slate-800/50 px-6 py-4 flex items-center justify-between sticky top-0 z-40 shadow-2xl">
@@ -427,10 +437,7 @@ const IndividualsPage = () => {
           </div>
           <div className="relative">
             <div className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-emerald-500/50">
-             
-<UserButton afterSignOutUrl="/" />
-
-
+              <UserButton afterSignOutUrl="/" />
             </div>
             <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-900"></div>
           </div>
@@ -478,14 +485,13 @@ const IndividualsPage = () => {
           return (
             <button
               key={item.id}
-                            onClick={() => {
+              onClick={() => {
                 setCurrentPage(item.id);
                 if (item.id !== 'reports') {
                   router.push(`/${item.id === 'dashboard' ? 'dashboard' : item.id}`);
                 }
                 if (window.innerWidth < 1024) setSidebarOpen(false);
               }}
-
               className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl mb-2 transition-all duration-300 group relative overflow-hidden ${
                 isActive 
                   ? 'bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow-lg shadow-emerald-500/50 scale-105' 
@@ -561,7 +567,7 @@ const IndividualsPage = () => {
     );
   }
 
-  /* NEW CODE - Table Row Component with Action Buttons */
+  /* Table Row Component with Action Buttons */
   const TableRow = ({ individual, idx }) => (
     <tr className="border-b border-slate-700/30 hover:bg-slate-900/50 transition-all duration-300 group">
       <td className="py-5 px-4">
@@ -669,12 +675,24 @@ const IndividualsPage = () => {
 
                 {/* Stats Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <div className="group relative bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-emerald-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/20 overflow-hidden">
+                  {/* Total Individuals Card */}
+                  <button 
+                    onClick={() => handleStatsCardClick('all')}
+                    className={`group relative bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border rounded-2xl p-6 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/20 overflow-hidden cursor-pointer ${
+                      filterStatus === 'all' 
+                        ? 'border-emerald-500/50 shadow-lg shadow-emerald-500/30' 
+                        : 'border-slate-700/50 hover:border-emerald-500/50'
+                    }`}
+                  >
                     <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-600 to-teal-500 opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-all duration-300"></div>
                     <div className="relative z-10">
                       <div className="flex items-start justify-between mb-4">
-                        <div className="w-14 h-14 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300">
-                          <Users className="text-white" size={26} />
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300 ${
+                          filterStatus === 'all' 
+                            ? 'bg-gradient-to-br from-emerald-600 to-teal-500 animate-pulse' 
+                            : 'bg-gradient-to-br from-slate-700 to-slate-800'
+                        }`}>
+                          <Users className={filterStatus === 'all' ? 'text-white' : 'text-slate-400'} size={26} />
                         </div>
                         <div className="flex items-center gap-1">
                           <TrendingUp className="text-green-400" size={18} />
@@ -686,19 +704,36 @@ const IndividualsPage = () => {
                       <div className="space-y-1">
                         <p className="text-slate-400 text-sm font-medium">Total Individuals</p>
                         <div className="flex items-end gap-2">
-                          <p className="text-4xl font-black text-white">{individuals.length}</p>
-                          <Sparkles className="text-lime-400 mb-2 animate-pulse" size={20} />
+                          <p className="text-4xl font-black text-white">{totalIndividuals}</p>
+                          {filterStatus === 'all' && <Sparkles className="text-lime-400 mb-2 animate-pulse" size={20} />}
                         </div>
+                        <p className={`text-xs font-medium mt-2 ${
+                          filterStatus === 'all' ? 'text-emerald-400' : 'text-slate-500'
+                        }`}>
+                          {filterStatus === 'all' ? '✓ Currently viewing all individuals' : 'Click to view all'}
+                        </p>
                       </div>
                     </div>
-                  </div>
+                  </button>
 
-                  <div className="group relative bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-emerald-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/20 overflow-hidden">
+                  {/* Active Individuals Card */}
+                  <button 
+                    onClick={() => handleStatsCardClick('Active')}
+                    className={`group relative bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border rounded-2xl p-6 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/20 overflow-hidden cursor-pointer ${
+                      filterStatus === 'Active' 
+                        ? 'border-emerald-500/50 shadow-lg shadow-emerald-500/30' 
+                        : 'border-slate-700/50 hover:border-emerald-500/50'
+                    }`}
+                  >
                     <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-green-400 to-emerald-500 opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-all duration-300"></div>
                     <div className="relative z-10">
                       <div className="flex items-start justify-between mb-4">
-                        <div className="w-14 h-14 bg-gradient-to-br from-green-400 to-emerald-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300">
-                          <CheckCircle className="text-white" size={26} />
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300 ${
+                          filterStatus === 'Active' 
+                            ? 'bg-gradient-to-br from-green-400 to-emerald-500 animate-pulse' 
+                            : 'bg-gradient-to-br from-slate-700 to-slate-800'
+                        }`}>
+                          <CheckCircle className={filterStatus === 'Active' ? 'text-white' : 'text-slate-400'} size={26} />
                         </div>
                         <div className="flex items-center gap-1">
                           <TrendingUp className="text-green-400" size={18} />
@@ -711,19 +746,26 @@ const IndividualsPage = () => {
                         <p className="text-slate-400 text-sm font-medium">Active Individuals</p>
                         <div className="flex items-end gap-2">
                           <p className="text-4xl font-black text-white">
-                            {individuals.filter(ind => ind.status === 'Active').length}
+                            {activeIndividuals}
                           </p>
+                          {filterStatus === 'Active' && <CheckCircle className="text-green-400 mb-2 animate-pulse" size={20} />}
                         </div>
+                        <p className={`text-xs font-medium mt-2 ${
+                          filterStatus === 'Active' ? 'text-emerald-400' : 'text-slate-500'
+                        }`}>
+                          {filterStatus === 'Active' ? '✓ Currently viewing active individuals' : 'Click to view active only'}
+                        </p>
                       </div>
                     </div>
-                  </div>
-              
+                  </button>
+
+                  {/* Average Compliance Card */}
                   <div className="group relative bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-emerald-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/20 overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-lime-500 to-green-600 opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-all duration-300"></div>
                     <div className="relative z-10">
                       <div className="flex items-start justify-between mb-4">
-                        <div className="w-14 h-14 bg-gradient-to-br from-lime-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300">
-                          <Brain className="text-white" size={26} />
+                        <div className="w-14 h-14 bg-gradient-to-br from-slate-700 to-slate-800 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300">
+                          <Brain className="text-slate-400" size={26} />
                         </div>
                         <div className="flex items-center gap-1">
                           <TrendingUp className="text-green-400" size={18} />
@@ -745,12 +787,24 @@ const IndividualsPage = () => {
                     </div>
                   </div>
 
-                  <div className="group relative bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-emerald-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/20 overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-teal-500 to-emerald-600 opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-all duration-300"></div>
+                  {/* Pending Reviews Card */}
+                  <button 
+                    onClick={() => handleStatsCardClick('Review')}
+                    className={`group relative bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border rounded-2xl p-6 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/20 overflow-hidden cursor-pointer ${
+                      filterStatus === 'Review' 
+                        ? 'border-amber-500/50 shadow-lg shadow-amber-500/30' 
+                        : 'border-slate-700/50 hover:border-amber-500/50'
+                    }`}
+                  >
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-amber-500 to-yellow-500 opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-all duration-300"></div>
                     <div className="relative z-10">
                       <div className="flex items-start justify-between mb-4">
-                        <div className="w-14 h-14 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300">
-                          <MapPin className="text-white" size={26} />
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300 ${
+                          filterStatus === 'Review' 
+                            ? 'bg-gradient-to-br from-amber-500 to-yellow-500 animate-pulse' 
+                            : 'bg-gradient-to-br from-slate-700 to-slate-800'
+                        }`}>
+                          <AlertCircle className={filterStatus === 'Review' ? 'text-white' : 'text-slate-400'} size={26} />
                         </div>
                         <div className="flex items-center gap-1">
                           <TrendingDown className="text-red-400" size={18} />
@@ -763,12 +817,18 @@ const IndividualsPage = () => {
                         <p className="text-slate-400 text-sm font-medium">Pending Reviews</p>
                         <div className="flex items-end gap-2">
                           <p className="text-4xl font-black text-white">
-                            {individuals.filter(ind => ind.status === 'Review').length}
+                            {reviewIndividuals}
                           </p>
+                          {filterStatus === 'Review' && <AlertCircle className="text-amber-400 mb-2 animate-pulse" size={20} />}
                         </div>
+                        <p className={`text-xs font-medium mt-2 ${
+                          filterStatus === 'Review' ? 'text-amber-400' : 'text-slate-500'
+                        }`}>
+                          {filterStatus === 'Review' ? '✓ Currently viewing pending reviews' : 'Click to view pending reviews'}
+                        </p>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 </div>
 
                 {/* Main Content */}
@@ -792,7 +852,13 @@ const IndividualsPage = () => {
                       >
                         <Filter size={18} />
                         Filters
-                        <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full font-bold">
+                        <span className={`px-2 py-0.5 text-xs rounded-full font-bold ${
+                          filterStatus === 'all' ? 'bg-emerald-500/20 text-emerald-400' :
+                          filterStatus === 'Active' ? 'bg-green-500/20 text-green-400' :
+                          filterStatus === 'Review' ? 'bg-amber-500/20 text-amber-400' :
+                          filterStatus === 'Inactive' ? 'bg-red-500/20 text-red-400' :
+                          'bg-slate-700 text-slate-400'
+                        }`}>
                           {filterStatus === 'all' ? 'All' : filterStatus}
                         </span>
                       </button>
@@ -806,13 +872,14 @@ const IndividualsPage = () => {
                                 setFilterStatus(status);
                                 setShowFilterMenu(false);
                               }}
-                              className={`w-full text-left px-4 py-2 rounded-lg transition-all ${
+                              className={`w-full text-left px-4 py-2 rounded-lg transition-all flex items-center justify-between ${
                                 filterStatus === status
                                   ? 'bg-emerald-600 text-white'
                                   : 'text-slate-300 hover:bg-slate-800'
                               }`}
                             >
-                              {status === 'all' ? 'All Status' : status}
+                              <span>{status === 'all' ? 'All Status' : status}</span>
+                              {filterStatus === status && <CheckCircle size={16} />}
                             </button>
                           ))}
                         </div>
@@ -829,16 +896,52 @@ const IndividualsPage = () => {
                     )}
                   </div>
 
+                  {/* Current Filter Status Indicator */}
+                  {filterStatus !== 'all' && (
+                    <div className="mb-4 p-3 bg-gradient-to-r from-slate-800/50 to-slate-900/50 border border-slate-700/50 rounded-xl">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {filterStatus === 'Active' && <CheckCircle className="text-green-400" size={18} />}
+                          {filterStatus === 'Review' && <AlertCircle className="text-amber-400" size={18} />}
+                          {filterStatus === 'Inactive' && <AlertCircle className="text-red-400" size={18} />}
+                          <span className="text-white font-semibold">
+                            Showing {filterStatus === 'Active' ? 'Active' : filterStatus === 'Review' ? 'Pending Review' : 'Inactive'} Individuals
+                          </span>
+                          <span className="text-slate-400 text-sm">
+                            ({filteredIndividuals.length} of {individuals.length})
+                          </span>
+                        </div>
+                        <button 
+                          onClick={() => setFilterStatus('all')}
+                          className="text-sm text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
+                        >
+                          <X size={14} />
+                          Clear Filter
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Table */}
                   {filteredIndividuals.length === 0 ? (
                     <div className="text-center py-16">
                       <Users className="w-16 h-16 text-slate-600 mx-auto mb-4" />
                       <h3 className="text-xl font-bold text-slate-400 mb-2">No individuals found</h3>
                       <p className="text-slate-500">
-                        {individuals.length === 0 
-                          ? 'Add your first individual to get started' 
-                          : 'Try adjusting your search or filters'}
+                        {filterStatus !== 'all' 
+                          ? `No individuals found with status: ${filterStatus}` 
+                          : individuals.length === 0 
+                            ? 'Add your first individual to get started' 
+                            : 'Try adjusting your search or filters'}
                       </p>
+                      {filterStatus !== 'all' && (
+                        <button 
+                          onClick={() => setFilterStatus('all')}
+                          className="mt-4 px-4 py-2 bg-emerald-500/20 text-emerald-400 rounded-lg hover:bg-emerald-500/30 transition-colors"
+                        >
+                          Show All Individuals
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <>
@@ -867,6 +970,12 @@ const IndividualsPage = () => {
                       <div className="flex items-center justify-between mt-6 pt-6 border-t border-slate-700/50">
                         <p className="text-slate-400 text-sm">
                           Showing <span className="text-white font-semibold">{filteredIndividuals.length}</span> of <span className="text-white font-semibold">{individuals.length}</span> individuals
+                          {filterStatus !== 'all' && (
+                            <span className="ml-2 px-2 py-1 bg-slate-800 rounded-lg">
+                              <span className="text-slate-300">Filter: </span>
+                              <span className="font-semibold text-emerald-400">{filterStatus}</span>
+                            </span>
+                          )}
                         </p>
                       </div>
                     </>
