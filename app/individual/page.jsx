@@ -4,7 +4,7 @@ import {
   Users, Plus, Upload, Search, Filter, Eye, Edit2, Trash2,
   MapPin, Clock, CheckCircle, AlertCircle, Download, X,
   Save, FileText, Phone, Mail, Calendar, User, Home as HomeIcon, AlertTriangle,
-  Shield, Heart, Activity, ChevronRight, Loader2,
+  Shield, Heart, Activity, ChevronRight, Loader2,CreditCard,
   Home, FileText as FileTextIcon, Pill, AlertCircle as AlertCircleIcon,
   TrendingUp, Settings, Menu, Bell, ChevronDown, BarChart3, Brain,
   Zap, Sparkles, Award, TrendingDown, Target, StickyNote
@@ -95,11 +95,14 @@ const IndividualsPage = () => {
     notes: ''
   });
 
+
+  // Menu items (same as IncidentsPage)
   const menuItems = [
     { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
     { id: 'individual', icon: Users, label: 'Individuals', badge: null },
     { id: 'medicine', icon: Pill, label: 'Medications', badge: null },
     { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: '3' },
+    { id: 'billing', icon: CreditCard, label: 'Billing', badge: null },
     { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null },
     { id: 'settings', icon: Settings, label: 'Settings', badge: null },
   ];

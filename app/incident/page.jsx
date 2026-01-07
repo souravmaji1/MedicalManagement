@@ -1,10 +1,11 @@
+
 'use client'
 
 import React, { useState, useEffect } from 'react';
 import { 
   AlertTriangle, Plus, Search, Filter, Edit2, Trash2, Save, X, CheckCircle, XCircle, 
   Clock, AlertCircle, Calendar, User, Activity, TrendingUp, Download, 
-  ChevronRight, ChevronDown, Loader2, FileText, Upload, Bell, ArrowLeft,
+  ChevronRight, ChevronDown, Loader2, FileText, Upload, Bell, ArrowLeft,CreditCard,
   Shield, Eye, MessageSquare, Paperclip, History, BarChart3,
   TrendingDown, AlertOctagon, Info, CheckSquare, RotateCcw,
   Users, FileText as FileTextIcon, Pill, Home, Settings, Menu,
@@ -31,6 +32,7 @@ const IncidentsPage = () => {
   const [individuals, setIndividuals] = useState([]);
   const [selectedIndividual, setSelectedIndividual] = useState(null);
   const [incidents, setIncidents] = useState([]);
+  const [allIncidents, setAllIncidents] = useState([]); // Store all incidents for stats
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -41,6 +43,13 @@ const IncidentsPage = () => {
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentPage, setCurrentPage] = useState('incident');
+  const [activeFilter, setActiveFilter] = useState(null); // Track active card filter
+  const [cardStats, setCardStats] = useState({
+    openIncidents: 0,
+    highSeverity: 0,
+    closureRate: 0,
+    totalIncidents: 0
+  });
 
   // Permission checks
   const canViewIncidents = hasAnyPermission([
@@ -172,13 +181,14 @@ const IncidentsPage = () => {
     'Other'
   ];
 
-    const menuItems = [
+
+  // Menu items (same as IncidentsPage)
+  const menuItems = [
     { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
     { id: 'individual', icon: Users, label: 'Individuals', badge: null },
-  //  { id: 'daily', icon: FileText, label: 'Daily Notes', badge: '12' },
     { id: 'medicine', icon: Pill, label: 'Medications', badge: null },
     { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: '3' },
- //   { id: 'hcbs', icon: MapPin, label: 'HCBS Tracking', badge: null },
+    { id: 'billing', icon: CreditCard, label: 'Billing', badge: null },
     { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null },
     { id: 'settings', icon: Settings, label: 'Settings', badge: null },
   ];
@@ -187,11 +197,63 @@ const IncidentsPage = () => {
     if (isLoaded && user && !profileLoading && userProfile) {
       if (canViewIncidents) {
         fetchIndividuals();
+        fetchAllIncidents(); // Fetch all incidents for stats
       } else {
         setLoading(false);
       }
     }
   }, [isLoaded, user, profileLoading, userProfile]);
+
+  // Fetch all incidents for statistics
+  const fetchAllIncidents = async () => {
+    try {
+      let query = supabase
+        .from('incidents')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      // Role-based filtering for incidents
+      if (userProfile.role_id === 'DSP_DD' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
+        query = query.or(`created_by.eq.${userProfile.fullname},facility.eq.${userProfile.facility}`);
+      } else if (userProfile.division === 'MI' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
+        query = query.eq('division', 'MI');
+      } else if (userProfile.division === 'SUD' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
+        query = query.eq('division', 'SUD');
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.warn('Incidents table not found for stats, will calculate from individuals');
+        // We'll calculate from individuals in fetchIndividuals
+        return;
+      }
+
+      setAllIncidents(data || []);
+      calculateStats(data || []);
+    } catch (error) {
+      console.error('Error fetching all incidents:', error);
+      setAllIncidents([]);
+    }
+  };
+
+  // Calculate statistics from incidents data
+  const calculateStats = (incidentsData) => {
+    const openIncidents = incidentsData.filter(inc => inc.status === 'Open').length;
+    const highSeverity = incidentsData.filter(inc => 
+      inc.severity?.includes('Critical') || inc.severity?.includes('Major')
+    ).length;
+    const closedIncidents = incidentsData.filter(inc => inc.status === 'Closed').length;
+    const totalIncidents = incidentsData.length;
+    const closureRate = totalIncidents > 0 ? Math.round((closedIncidents / totalIncidents) * 100) : 0;
+
+    setCardStats({
+      openIncidents,
+      highSeverity,
+      closureRate,
+      totalIncidents
+    });
+  };
 
   const fetchIndividuals = async () => {
     try {
@@ -221,6 +283,13 @@ const IncidentsPage = () => {
 
       if (error) throw error;
       setIndividuals(data || []);
+      
+      // If allIncidents is empty, calculate from individuals data
+      if (allIncidents.length === 0 && data) {
+        const incidentsFromIndividuals = extractIncidentsFromIndividuals(data);
+        setAllIncidents(incidentsFromIndividuals);
+        calculateStats(incidentsFromIndividuals);
+      }
     } catch (error) {
       console.error('Error fetching individuals:', error);
     } finally {
@@ -228,26 +297,104 @@ const IncidentsPage = () => {
     }
   };
 
-  const fetchIncidents = async (individualId) => {
-    try {
-      const individual = individuals.find(ind => ind.id === individualId);
-      if (individual && individual.incidents) {
-        // Filter incidents based on user permissions
+  // Extract incidents from individuals data
+  const extractIncidentsFromIndividuals = (individualsData) => {
+    let allIncidentsFromIndividuals = [];
+    
+    individualsData.forEach(individual => {
+      if (individual.incidents && Array.isArray(individual.incidents)) {
+        // Apply role-based filtering to individual incidents
         let filteredIncidents = individual.incidents;
         
-        // Role-based incident filtering
         if (userProfile.role_id === 'DSP_DD' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-          // DSPs can only see incidents they reported or incidents in their facility
           filteredIncidents = individual.incidents.filter(incident => 
             incident.created_by === userProfile.fullname || 
             incident.facility === userProfile.facility
           );
         } else if (userProfile.division === 'MI' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-          // MI staff see only MI division incidents
           filteredIncidents = individual.incidents.filter(incident => incident.division === 'MI');
         } else if (userProfile.division === 'SUD' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-          // SUD staff see only SUD division incidents
           filteredIncidents = individual.incidents.filter(incident => incident.division === 'SUD');
+        }
+        
+        filteredIncidents.forEach(incident => {
+          allIncidentsFromIndividuals.push({
+            ...incident,
+            individual_id: individual.id,
+            individual_name: `${individual.firstname} ${individual.lastname}`,
+            individual_identifier: individual.individualid
+          });
+        });
+      }
+    });
+
+    return allIncidentsFromIndividuals;
+  };
+
+  // Fetch incidents from incidents table
+  const fetchIncidents = async (individualId) => {
+    try {
+      setLoading(true);
+      
+      let query = supabase
+        .from('incidents')
+        .select('*')
+        .eq('individual_id', individualId)
+        .order('created_at', { ascending: false });
+
+      // Role-based incident filtering
+      if (userProfile.role_id === 'DSP_DD' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
+        // DSPs can only see incidents they reported or incidents in their facility
+        query = query.or(`created_by.eq.${userProfile.fullname},facility.eq.${userProfile.facility}`);
+      } else if (userProfile.division === 'MI' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
+        // MI staff see only MI division incidents
+        query = query.eq('division', 'MI');
+      } else if (userProfile.division === 'SUD' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
+        // SUD staff see only SUD division incidents
+        query = query.eq('division', 'SUD');
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.warn('Incidents table not found, falling back to individuals table');
+        // Fallback to individuals table if incidents table doesn't exist
+        await fetchIncidentsFromIndividualsTable(individualId);
+      } else {
+        setIncidents(data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching incidents:', error);
+      setIncidents([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fallback function to fetch incidents from individuals table
+  const fetchIncidentsFromIndividualsTable = async (individualId) => {
+    try {
+      const { data, error } = await supabase
+        .from('individuals')
+        .select('incidents')
+        .eq('id', individualId)
+        .single();
+
+      if (error) throw error;
+      
+      if (data && data.incidents) {
+        // Filter incidents based on user permissions
+        let filteredIncidents = data.incidents;
+        
+        if (userProfile.role_id === 'DSP_DD' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
+          filteredIncidents = data.incidents.filter(incident => 
+            incident.created_by === userProfile.fullname || 
+            incident.facility === userProfile.facility
+          );
+        } else if (userProfile.division === 'MI' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
+          filteredIncidents = data.incidents.filter(incident => incident.division === 'MI');
+        } else if (userProfile.division === 'SUD' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
+          filteredIncidents = data.incidents.filter(incident => incident.division === 'SUD');
         }
         
         setIncidents(filteredIncidents);
@@ -255,10 +402,17 @@ const IncidentsPage = () => {
         setIncidents([]);
       }
     } catch (error) {
-      console.error('Error fetching incidents:', error);
+      console.error('Error fetching incidents from individuals table:', error);
+      setIncidents([]);
     }
   };
 
+  // Handle card click to filter individuals
+  const handleCardClick = (cardType) => {
+    setActiveFilter(cardType);
+  };
+
+  // Save incident to incidents table
   const handleAddIncident = async (e) => {
     e.preventDefault();
     
@@ -267,47 +421,154 @@ const IncidentsPage = () => {
       return;
     }
 
+    if (!selectedIndividual) {
+      alert('Please select an individual first.');
+      return;
+    }
+
     try {
       const newIncident = {
-        id: Date.now().toString(),
-        ...incidentForm,
+        incidenttype: incidentForm.incidenttype,
+        severity: incidentForm.severity,
+        dateoccurred: incidentForm.dateoccurred,
+        timeoccurred: incidentForm.timeoccurred,
+        location: incidentForm.location,
+        individualsinvolved: incidentForm.individualsinvolved,
+        staffinvolved: incidentForm.staffinvolved,
+        description: incidentForm.description,
+        immediateaction: incidentForm.immediateaction,
+        injuries: incidentForm.injuries,
+        medicalattention: incidentForm.medicalattention,
+        notifiedparties: incidentForm.notifiedparties,
+        witnessnames: incidentForm.witnessnames,
+        witnessstatements: incidentForm.witnessstatements,
+        followuprequired: incidentForm.followuprequired,
+        followupactions: incidentForm.followupactions,
+        qidpreviewnotes: incidentForm.qidpreviewnotes,
+        adminreviewnotes: incidentForm.adminreviewnotes,
+        status: 'Open',
+        attachments: incidentForm.attachments,
+        ipmsfields: incidentForm.ipmsfields,
+        individual_id: selectedIndividual.id,
+        individual_name: `${selectedIndividual.firstname} ${selectedIndividual.lastname}`,
+        individual_identifier: selectedIndividual.individualid,
         reportedby: user.id,
+        reportedby_name: userProfile.fullname,
         reporteddate: new Date().toISOString(),
-        createddate: new Date().toISOString(),
-        lastupdated: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
         qidpreviewdate: null,
         adminreviewdate: null,
         created_by: userProfile.fullname,
         created_by_role: userProfile.role_name,
         division: userProfile.division,
-        facility: userProfile.facility
+        facility: userProfile.facility,
+        home_assignment: selectedIndividual.homeassignment,
+        program: selectedIndividual.program
       };
 
-      const updatedIncidents = [...incidents, newIncident];
-      
-      const { error } = await supabase
-        .from('individuals')
-        .update({ 
-          incidents: updatedIncidents,
-          last_activity: new Date().toISOString()
-        })
-        .eq('id', selectedIndividual.id);
+      // Save to incidents table
+      const { data, error } = await supabase
+        .from('incidents')
+        .insert([newIncident])
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (error) {
+        // If incidents table doesn't exist, fallback to individuals table
+        console.log('Incidents table not found, saving to individuals table');
+        await saveIncidentToIndividualsTable(newIncident);
+      } else {
+        // Successfully saved to incidents table
+        setIncidents([data, ...incidents]);
+        // Update all incidents for stats
+        setAllIncidents(prev => [data, ...prev]);
+        // Update stats
+        setCardStats(prev => ({
+          ...prev,
+          openIncidents: prev.openIncidents + 1,
+          totalIncidents: prev.totalIncidents + 1,
+          highSeverity: newIncident.severity?.includes('Critical') || newIncident.severity?.includes('Major') 
+            ? prev.highSeverity + 1 
+            : prev.highSeverity
+        }));
+        
+        setShowAddModal(false);
+        resetIncidentForm();
+        alert('Incident reported successfully!');
+      }
 
-      setIncidents(updatedIncidents);
-      setShowAddModal(false);
-      resetIncidentForm();
+      // Auto-link incident if needed
+      await autoLinkIncident(newIncident.id || newIncident);
       
-      await autoLinkIncident(newIncident);
-      
-      alert('Incident reported successfully!');
     } catch (error) {
       console.error('Error adding incident:', error);
       alert('Error reporting incident. Please try again.');
     }
   };
 
+  // Fallback function to save incident to individuals table
+  const saveIncidentToIndividualsTable = async (incident) => {
+    try {
+      // Generate a unique ID for the incident
+      const incidentWithId = {
+        ...incident,
+        id: Date.now().toString()
+      };
+
+      // Get current incidents array from individual
+      const { data: individualData, error: fetchError } = await supabase
+        .from('individuals')
+        .select('incidents')
+        .eq('id', selectedIndividual.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const currentIncidents = individualData.incidents || [];
+      const updatedIncidents = [...currentIncidents, incidentWithId];
+
+      const { error } = await supabase
+        .from('individuals')
+        .update({ 
+          incidents: updatedIncidents,
+          last_activity: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedIndividual.id);
+
+      if (error) throw error;
+
+      setIncidents(updatedIncidents);
+      
+      // Update all incidents and stats
+      const newIncidentForStats = {
+        ...incidentWithId,
+        individual_id: selectedIndividual.id,
+        individual_name: `${selectedIndividual.firstname} ${selectedIndividual.lastname}`,
+        individual_identifier: selectedIndividual.individualid
+      };
+      
+      setAllIncidents(prev => [newIncidentForStats, ...prev]);
+      setCardStats(prev => ({
+        ...prev,
+        openIncidents: prev.openIncidents + 1,
+        totalIncidents: prev.totalIncidents + 1,
+        highSeverity: incident.severity?.includes('Critical') || incident.severity?.includes('Major') 
+          ? prev.highSeverity + 1 
+          : prev.highSeverity
+      }));
+      
+      setShowAddModal(false);
+      resetIncidentForm();
+      alert('Incident reported successfully!');
+    } catch (error) {
+      console.error('Error saving incident to individuals table:', error);
+      throw error;
+    }
+  };
+
+  // Handle incident review
   const handleReviewIncident = async (e) => {
     e.preventDefault();
     
@@ -317,19 +578,85 @@ const IncidentsPage = () => {
     }
 
     try {
-      const updatedIncidents = incidents.map(incident => 
-        incident.id === reviewForm.incidentid 
-          ? { 
-              ...incident, 
-              status: reviewForm.statuschange || incident.status,
-              qidpreviewnotes: reviewForm.reviewtype === 'QIDP' ? reviewForm.notes : incident.qidpreviewnotes,
-              qidpreviewdate: reviewForm.reviewtype === 'QIDP' ? new Date().toISOString() : incident.qidpreviewdate,
-              adminreviewnotes: reviewForm.reviewtype === 'Admin' ? reviewForm.notes : incident.adminreviewnotes,
-              adminreviewdate: reviewForm.reviewtype === 'Admin' ? new Date().toISOString() : incident.adminreviewdate,
-              lastupdated: new Date().toISOString(),
-              reviewed_by: userProfile.fullname,
-              reviewed_by_role: userProfile.role_name
-            }
+      const incidentId = reviewForm.incidentid;
+      const incidentToUpdate = incidents.find(inc => inc.id === incidentId);
+      
+      if (!incidentToUpdate) {
+        alert('Incident not found.');
+        return;
+      }
+
+      const updateData = {
+        status: reviewForm.statuschange || incidentToUpdate.status,
+        lastupdated: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        reviewed_by: userProfile.fullname,
+        reviewed_by_role: userProfile.role_name,
+        reviewdate: reviewForm.reviewdate
+      };
+
+      // Add review notes based on review type
+      if (reviewForm.reviewtype === 'QIDP') {
+        updateData.qidpreviewnotes = reviewForm.notes;
+        updateData.qidpreviewdate = new Date().toISOString();
+      } else if (reviewForm.reviewtype === 'Admin') {
+        updateData.adminreviewnotes = reviewForm.notes;
+        updateData.adminreviewdate = new Date().toISOString();
+      }
+
+      // Try to update in incidents table
+      const { data, error } = await supabase
+        .from('incidents')
+        .update(updateData)
+        .eq('id', incidentId)
+        .select()
+        .single();
+
+      if (error) {
+        console.log('Incidents table not found, updating in individuals table');
+        // Fallback to individuals table
+        await updateIncidentInIndividualsTable(incidentId, updateData);
+      } else {
+        // Update local state
+        const updatedIncidents = incidents.map(inc => 
+          inc.id === incidentId ? { ...inc, ...updateData } : inc
+        );
+        setIncidents(updatedIncidents);
+        
+        // Update all incidents
+        const updatedAllIncidents = allIncidents.map(inc => 
+          inc.id === incidentId ? { ...inc, ...updateData } : inc
+        );
+        setAllIncidents(updatedAllIncidents);
+        
+        // Recalculate stats
+        calculateStats(updatedAllIncidents);
+        
+        setShowReviewModal(false);
+        resetReviewForm();
+        alert('Incident review completed successfully!');
+      }
+      
+    } catch (error) {
+      console.error('Error reviewing incident:', error);
+      alert('Error reviewing incident. Please try again.');
+    }
+  };
+
+  // Fallback function to update incident in individuals table
+  const updateIncidentInIndividualsTable = async (incidentId, updateData) => {
+    try {
+      const { data: individualData, error: fetchError } = await supabase
+        .from('individuals')
+        .select('incidents')
+        .eq('id', selectedIndividual.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const updatedIncidents = individualData.incidents.map(incident => 
+        incident.id === incidentId 
+          ? { ...incident, ...updateData }
           : incident
       );
 
@@ -337,19 +664,33 @@ const IncidentsPage = () => {
         .from('individuals')
         .update({ 
           incidents: updatedIncidents,
-          last_activity: new Date().toISOString()
+          updated_at: new Date().toISOString()
         })
         .eq('id', selectedIndividual.id);
 
       if (error) throw error;
 
-      setIncidents(updatedIncidents);
+      // Update local state
+      const localUpdatedIncidents = incidents.map(inc => 
+        inc.id === incidentId ? { ...inc, ...updateData } : inc
+      );
+      setIncidents(localUpdatedIncidents);
+      
+      // Update all incidents
+      const updatedAllIncidents = allIncidents.map(inc => 
+        inc.id === incidentId ? { ...inc, ...updateData } : inc
+      );
+      setAllIncidents(updatedAllIncidents);
+      
+      // Recalculate stats
+      calculateStats(updatedAllIncidents);
+      
       setShowReviewModal(false);
       resetReviewForm();
       alert('Incident review completed successfully!');
     } catch (error) {
-      console.error('Error reviewing incident:', error);
-      alert('Error reviewing incident. Please try again.');
+      console.error('Error updating incident in individuals table:', error);
+      throw error;
     }
   };
 
@@ -361,35 +702,120 @@ const IncidentsPage = () => {
         notes: []
       };
 
-      if (incident.incidenttype === 'Medication Error' || 
-          incident.description.toLowerCase().includes('medication') ||
-          incident.description.toLowerCase().includes('pill') ||
-          incident.description.toLowerCase().includes('dose')) {
-        
-        if (selectedIndividual.medications && selectedIndividual.medications.length > 0) {
-          links.medications = selectedIndividual.medications.map(med => med.id);
+      // Determine links based on incident type and description
+      if (selectedIndividual.medications && selectedIndividual.medications.length > 0) {
+        if (incident.incidenttype === 'Medication Error' || 
+            incident.description?.toLowerCase().includes('medication') ||
+            incident.description?.toLowerCase().includes('pill') ||
+            incident.description?.toLowerCase().includes('dose')) {
+          links.medications = selectedIndividual.medications.map(med => med.id || med.medication_id);
         }
       }
 
       if (incident.incidenttype === 'Behavioral Emergency' ||
-          incident.description.toLowerCase().includes('behavior') ||
-          incident.description.toLowerCase().includes('aggressive') ||
-          incident.description.toLowerCase().includes('meltdown')) {
-        
+          incident.description?.toLowerCase().includes('behavior') ||
+          incident.description?.toLowerCase().includes('aggressive') ||
+          incident.description?.toLowerCase().includes('meltdown')) {
         links.behaviors = ['behavior-tracking'];
       }
 
-      const updatedIncidents = incidents.map(inc => 
-        inc.id === incident.id ? { ...inc, linkedrecords: links } : inc
-      );
+      // Update incident with linked records
+      const updateData = { 
+        linkedrecords: links, 
+        updated_at: new Date().toISOString() 
+      };
       
-      await supabase
-        .from('individuals')
-        .update({ incidents: updatedIncidents })
-        .eq('id', selectedIndividual.id);
+      // Try to update in incidents table
+      const { error } = await supabase
+        .from('incidents')
+        .update(updateData)
+        .eq('id', incident.id || incident);
+
+      if (error) {
+        console.log('Could not update linked records in incidents table');
+      }
         
     } catch (error) {
       console.error('Error auto-linking incident:', error);
+    }
+  };
+
+  // Handle incident deletion
+  const handleDeleteIncident = async (incidentId) => {
+    if (!canDeleteIncidents) {
+      alert('You do not have permission to delete incidents.');
+      return;
+    }
+
+    if (!confirm('Are you sure you want to delete this incident? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      // Try to delete from incidents table
+      const { error } = await supabase
+        .from('incidents')
+        .delete()
+        .eq('id', incidentId);
+
+      if (error) {
+        console.log('Incidents table not found, deleting from individuals table');
+        // Fallback to removing from individuals table
+        await deleteIncidentFromIndividualsTable(incidentId);
+      } else {
+        // Update local state
+        const updatedIncidents = incidents.filter(inc => inc.id !== incidentId);
+        setIncidents(updatedIncidents);
+        
+        // Update all incidents and stats
+        const updatedAllIncidents = allIncidents.filter(inc => inc.id !== incidentId);
+        setAllIncidents(updatedAllIncidents);
+        calculateStats(updatedAllIncidents);
+        
+        alert('Incident deleted successfully!');
+      }
+    } catch (error) {
+      console.error('Error deleting incident:', error);
+      alert('Error deleting incident. Please try again.');
+    }
+  };
+
+  // Fallback function to delete incident from individuals table
+  const deleteIncidentFromIndividualsTable = async (incidentId) => {
+    try {
+      const { data: individualData, error: fetchError } = await supabase
+        .from('individuals')
+        .select('incidents')
+        .eq('id', selectedIndividual.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const updatedIncidents = individualData.incidents.filter(inc => inc.id !== incidentId);
+
+      const { error } = await supabase
+        .from('individuals')
+        .update({ 
+          incidents: updatedIncidents,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedIndividual.id);
+
+      if (error) throw error;
+
+      // Update local state
+      const localUpdatedIncidents = incidents.filter(inc => inc.id !== incidentId);
+      setIncidents(localUpdatedIncidents);
+      
+      // Update all incidents and stats
+      const updatedAllIncidents = allIncidents.filter(inc => inc.id !== incidentId);
+      setAllIncidents(updatedAllIncidents);
+      calculateStats(updatedAllIncidents);
+      
+      alert('Incident deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting incident from individuals table:', error);
+      throw error;
     }
   };
 
@@ -505,20 +931,41 @@ const IncidentsPage = () => {
     return colors[index % colors.length];
   };
 
+  // Filter individuals based on search term and active filter
   const filteredIndividuals = individuals.filter(ind => {
     const matchesSearch = 
       ind.firstname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       ind.lastname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       ind.individualid?.toLowerCase().includes(searchTerm.toLowerCase());
 
+    // If there's an active filter, check if individual has incidents matching that filter
+    if (activeFilter) {
+      const individualIncidents = allIncidents.filter(inc => inc.individual_id === ind.id);
+      
+      if (individualIncidents.length === 0) return false;
+      
+      switch(activeFilter) {
+        case 'open':
+          return individualIncidents.some(inc => inc.status === 'Open');
+        case 'high':
+          return individualIncidents.some(inc => 
+            inc.severity?.includes('Critical') || inc.severity?.includes('Major')
+          );
+        case 'total':
+          return individualIncidents.length > 0;
+        default:
+          return true;
+      }
+    }
+
     return matchesSearch;
   });
 
   const filteredIncidents = incidents.filter(incident => {
     const matchesSearch = 
-      incident.incidenttype.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      incident.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      incident.location.toLowerCase().includes(searchTerm.toLowerCase());
+      incident.incidenttype?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      incident.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      incident.location?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus = filterStatus === 'all' || incident.status === filterStatus;
     const matchesSeverity = filterSeverity === 'all' || incident.severity === filterSeverity;
@@ -526,6 +973,12 @@ const IncidentsPage = () => {
 
     return matchesSearch && matchesStatus && matchesSeverity && matchesType;
   });
+
+  // Clear active filter
+  const clearFilter = () => {
+    setActiveFilter(null);
+    setSearchTerm('');
+  };
 
   // NavBar Component
   const NavBar = () => (
@@ -560,6 +1013,8 @@ const IncidentsPage = () => {
             type="text" 
             placeholder="Search incidents..." 
             className="bg-transparent border-none outline-none text-sm text-white w-full placeholder:text-slate-500"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
           <kbd className="px-2 py-0.5 text-xs bg-slate-700 rounded text-slate-400 font-mono">⌘K</kbd>
         </div>
@@ -580,7 +1035,7 @@ const IncidentsPage = () => {
           </div>
           <div className="relative">
             <div className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-emerald-500/50">
-            <UserButton afterSignOutUrl="/" />
+              <UserButton afterSignOutUrl="/" />
             </div>
             <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-900"></div>
           </div>
@@ -610,11 +1065,11 @@ const IncidentsPage = () => {
         <div className="bg-gradient-to-r from-red-500/10 to-orange-500/10 border border-red-500/30 rounded-xl p-3">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs text-slate-400 font-medium">Incident Rate</span>
-            <span className="text-xs text-red-400 font-bold">{incidents.length}</span>
+            <span className="text-xs text-red-400 font-bold">{cardStats.totalIncidents}</span>
           </div>
           <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
             <div className="h-full bg-gradient-to-r from-red-600 to-orange-500 rounded-full transition-all duration-1000" 
-              style={{width: `${Math.min((incidents.length / 10) * 100, 100)}%`}}></div>
+              style={{width: `${Math.min((cardStats.totalIncidents / 10) * 100, 100)}%`}}></div>
           </div>
         </div>
       </div>
@@ -631,7 +1086,7 @@ const IncidentsPage = () => {
               key={item.id}
               onClick={() => {
                 setCurrentPage(item.id);
-                if (item.id !== 'incidents') {
+                if (item.id !== 'incident') {
                   router.push(`/${item.id === 'dashboard' ? 'dashboard' : item.id}`);
                 }
                 if (window.innerWidth < 1024) setSidebarOpen(false);
@@ -748,9 +1203,15 @@ const IncidentsPage = () => {
                   </div>
                 </div>
 
-                {/* Quick Stats */}
+                {/* Quick Stats - Now showing data from all incidents */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="group relative bg-gradient-to-br from-red-600/20 to-pink-500/20 backdrop-blur-sm border border-red-500/30 rounded-2xl p-6 hover:border-red-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-red-500/20 overflow-hidden">
+                  {/* Open Incidents Card */}
+                  <div 
+                    onClick={() => handleCardClick('open')}
+                    className={`group relative bg-gradient-to-br from-red-600/20 to-pink-500/20 backdrop-blur-sm border rounded-2xl p-6 hover:border-red-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-red-500/20 overflow-hidden cursor-pointer ${
+                      activeFilter === 'open' ? 'border-red-500/70 shadow-2xl shadow-red-500/30' : 'border-red-500/30'
+                    }`}
+                  >
                     <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-red-600 to-pink-500 opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-all duration-300"></div>
                     <div className="relative z-10">
                       <div className="flex items-start justify-between mb-4">
@@ -760,7 +1221,7 @@ const IncidentsPage = () => {
                         <div className="flex items-center gap-1">
                           <TrendingUp className="text-red-400" size={18} />
                           <span className="text-sm font-bold text-red-400">
-                            +{incidents.filter(inc => inc.status === 'Open').length > 0 ? '12%' : '0%'}
+                            {cardStats.openIncidents > 0 ? '+12%' : '0%'}
                           </span>
                         </div>
                       </div>
@@ -768,15 +1229,24 @@ const IncidentsPage = () => {
                         <p className="text-slate-400 text-sm font-medium">Open Incidents</p>
                         <div className="flex items-end gap-2">
                           <p className="text-4xl font-black text-white">
-                            {incidents.filter(inc => inc.status === 'Open').length}
+                            {cardStats.openIncidents}
                           </p>
-                          <AlertTriangle className="text-red-400 mb-2 animate-pulse" size={20} />
+                          {cardStats.openIncidents > 0 && <AlertTriangle className="text-red-400 mb-2 animate-pulse" size={20} />}
                         </div>
+                        {activeFilter === 'open' && (
+                          <p className="text-red-300 text-xs mt-2">Showing individuals with open incidents</p>
+                        )}
                       </div>
                     </div>
                   </div>
 
-                  <div className="group relative bg-gradient-to-br from-orange-600/20 to-red-500/20 backdrop-blur-sm border border-orange-500/30 rounded-2xl p-6 hover:border-orange-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-orange-500/20 overflow-hidden">
+                  {/* High Severity Card */}
+                  <div 
+                    onClick={() => handleCardClick('high')}
+                    className={`group relative bg-gradient-to-br from-orange-600/20 to-red-500/20 backdrop-blur-sm border rounded-2xl p-6 hover:border-orange-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-orange-500/20 overflow-hidden cursor-pointer ${
+                      activeFilter === 'high' ? 'border-orange-500/70 shadow-2xl shadow-orange-500/30' : 'border-orange-500/30'
+                    }`}
+                  >
                     <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-600 to-red-500 opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-all duration-300"></div>
                     <div className="relative z-10">
                       <div className="flex items-start justify-between mb-4">
@@ -786,7 +1256,7 @@ const IncidentsPage = () => {
                         <div className="flex items-center gap-1">
                           <TrendingUp className="text-orange-400" size={18} />
                           <span className="text-sm font-bold text-orange-400">
-                            +{incidents.filter(inc => inc.severity.includes('Critical') || inc.severity.includes('Major')).length > 0 ? '8%' : '0%'}
+                            {cardStats.highSeverity > 0 ? '+8%' : '0%'}
                           </span>
                         </div>
                       </div>
@@ -794,13 +1264,17 @@ const IncidentsPage = () => {
                         <p className="text-slate-400 text-sm font-medium">High Severity</p>
                         <div className="flex items-end gap-2">
                           <p className="text-4xl font-black text-white">
-                            {incidents.filter(inc => inc.severity.includes('Critical') || inc.severity.includes('Major')).length}
+                            {cardStats.highSeverity}
                           </p>
                         </div>
+                        {activeFilter === 'high' && (
+                          <p className="text-orange-300 text-xs mt-2">Showing individuals with high severity incidents</p>
+                        )}
                       </div>
                     </div>
                   </div>
 
+                  {/* Closure Rate Card */}
                   <div className="group relative bg-gradient-to-br from-blue-600/20 to-cyan-500/20 backdrop-blur-sm border border-blue-500/30 rounded-2xl p-6 hover:border-blue-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/20 overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-600 to-cyan-500 opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-all duration-300"></div>
                     <div className="relative z-10">
@@ -811,7 +1285,7 @@ const IncidentsPage = () => {
                         <div className="flex items-center gap-1">
                           <TrendingUp className="text-blue-400" size={18} />
                           <span className="text-sm font-bold text-blue-400">
-                            {Math.round((incidents.filter(inc => inc.status === 'Closed').length / (incidents.length || 1)) * 100)}%
+                            {cardStats.closureRate}%
                           </span>
                         </div>
                       </div>
@@ -819,14 +1293,20 @@ const IncidentsPage = () => {
                         <p className="text-slate-400 text-sm font-medium">Closure Rate</p>
                         <div className="flex items-end gap-2">
                           <p className="text-4xl font-black text-white">
-                            {Math.round((incidents.filter(inc => inc.status === 'Closed').length / (incidents.length || 1)) * 100)}%
+                            {cardStats.closureRate}%
                           </p>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="group relative bg-gradient-to-br from-purple-600/20 to-pink-500/20 backdrop-blur-sm border border-purple-500/30 rounded-2xl p-6 hover:border-purple-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/20 overflow-hidden">
+                  {/* Total Incidents Card */}
+                  <div 
+                    onClick={() => handleCardClick('total')}
+                    className={`group relative bg-gradient-to-br from-purple-600/20 to-pink-500/20 backdrop-blur-sm border rounded-2xl p-6 hover:border-purple-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/20 overflow-hidden cursor-pointer ${
+                      activeFilter === 'total' ? 'border-purple-500/70 shadow-2xl shadow-purple-500/30' : 'border-purple-500/30'
+                    }`}
+                  >
                     <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-600 to-pink-500 opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-all duration-300"></div>
                     <div className="relative z-10">
                       <div className="flex items-start justify-between mb-4">
@@ -836,19 +1316,35 @@ const IncidentsPage = () => {
                         <div className="flex items-center gap-1">
                           <TrendingUp className="text-purple-400" size={18} />
                           <span className="text-sm font-bold text-purple-400">
-                            +{incidents.length > 0 ? '5%' : '0%'}
+                            {cardStats.totalIncidents > 0 ? '+5%' : '0%'}
                           </span>
                         </div>
                       </div>
                       <div className="space-y-1">
                         <p className="text-slate-400 text-sm font-medium">Total Incidents</p>
                         <div className="flex items-end gap-2">
-                          <p className="text-4xl font-black text-white">{incidents.length}</p>
+                          <p className="text-4xl font-black text-white">{cardStats.totalIncidents}</p>
                         </div>
+                        {activeFilter === 'total' && (
+                          <p className="text-purple-300 text-xs mt-2">Showing individuals with incidents</p>
+                        )}
                       </div>
                     </div>
                   </div>
                 </div>
+
+                {/* Filter Clear Button */}
+                {activeFilter && (
+                  <div className="flex justify-end">
+                    <button
+                      onClick={clearFilter}
+                      className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all duration-300 text-sm"
+                    >
+                      <X size={14} />
+                      Clear Filter
+                    </button>
+                  </div>
+                )}
 
                 {/* Main Content */}
                 <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-emerald-500/30 transition-all duration-300">
@@ -859,6 +1355,13 @@ const IncidentsPage = () => {
                         <div>
                           <h3 className="text-xl font-bold text-white mb-2">Select Individual</h3>
                           <p className="text-slate-400">Choose an individual to view their incident history</p>
+                          {activeFilter && (
+                            <p className="text-emerald-400 text-sm mt-1">
+                              Showing individuals with {activeFilter === 'open' ? 'open incidents' : 
+                              activeFilter === 'high' ? 'high severity incidents' : 
+                              'incidents'}
+                            </p>
+                          )}
                         </div>
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-3 bg-slate-900/50 rounded-xl px-5 py-3 border border-slate-700/50 hover:border-emerald-500/50 transition-all duration-300 group">
@@ -876,36 +1379,65 @@ const IncidentsPage = () => {
 
                       <ScrollArea className="h-[400px]">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {filteredIndividuals.map((individual, idx) => (
-                            <div
-                              key={individual.id}
-                              onClick={() => {
-                                setSelectedIndividual(individual);
-                                fetchIncidents(individual.id);
-                              }}
-                              className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 cursor-pointer hover:border-emerald-500/50 transition-all duration-300 hover:scale-105 group"
-                            >
-                              <div className="flex items-center gap-3 mb-3">
-                                <div className={`w-12 h-12 bg-gradient-to-br ${getColorClass(idx)} rounded-xl flex items-center justify-center text-white font-bold`}>
-                                  {getInitials(individual.firstname, individual.lastname)}
+                          {filteredIndividuals.map((individual, idx) => {
+                            // Get incident count for this individual
+                            const individualIncidents = allIncidents.filter(inc => inc.individual_id === individual.id);
+                            const openIncidentsCount = individualIncidents.filter(inc => inc.status === 'Open').length;
+                            const highSeverityCount = individualIncidents.filter(inc => 
+                              inc.severity?.includes('Critical') || inc.severity?.includes('Major')
+                            ).length;
+                            
+                            return (
+                              <div
+                                key={individual.id}
+                                onClick={() => {
+                                  setSelectedIndividual(individual);
+                                  fetchIncidents(individual.id);
+                                }}
+                                className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 cursor-pointer hover:border-emerald-500/50 transition-all duration-300 hover:scale-105 group"
+                              >
+                                <div className="flex items-center gap-3 mb-3">
+                                  <div className={`w-12 h-12 bg-gradient-to-br ${getColorClass(idx)} rounded-xl flex items-center justify-center text-white font-bold`}>
+                                    {getInitials(individual.firstname, individual.lastname)}
+                                  </div>
+                                  <div>
+                                    <h3 className="text-white font-semibold group-hover:text-emerald-400 transition-colors">
+                                      {individual.firstname} {individual.lastname}
+                                    </h3>
+                                    <p className="text-slate-400 text-sm">ID: {individual.individualid}</p>
+                                  </div>
                                 </div>
-                                <div>
-                                  <h3 className="text-white font-semibold group-hover:text-emerald-400 transition-colors">
-                                    {individual.firstname} {individual.lastname}
-                                  </h3>
-                                  <p className="text-slate-400 text-sm">ID: {individual.individualid}</p>
+                                
+                                {/* Incident Badges */}
+                                {individualIncidents.length > 0 && (
+                                  <div className="flex gap-2 mb-3">
+                                    {openIncidentsCount > 0 && (
+                                      <span className="px-2 py-1 bg-red-900/30 text-red-400 text-xs rounded-full border border-red-500/50">
+                                        {openIncidentsCount} Open
+                                      </span>
+                                    )}
+                                    {highSeverityCount > 0 && (
+                                      <span className="px-2 py-1 bg-orange-900/30 text-orange-400 text-xs rounded-full border border-orange-500/50">
+                                        {highSeverityCount} High
+                                      </span>
+                                    )}
+                                    <span className="px-2 py-1 bg-slate-700 text-slate-300 text-xs rounded-full">
+                                      {individualIncidents.length} Total
+                                    </span>
+                                  </div>
+                                )}
+                                
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-slate-400">{individual.homeassignment}</span>
+                                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                    individual.status === 'Active' ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'
+                                  }`}>
+                                    {individual.status}
+                                  </span>
                                 </div>
                               </div>
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="text-slate-400">{individual.homeassignment}</span>
-                                <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                  individual.status === 'Active' ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'
-                                }`}>
-                                  {individual.status}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </ScrollArea>
                     </>
@@ -926,7 +1458,10 @@ const IncidentsPage = () => {
                         </div>
                         <div className="flex items-center gap-3">
                           <button
-                            onClick={() => setSelectedIndividual(null)}
+                            onClick={() => {
+                              setSelectedIndividual(null);
+                              setIncidents([]);
+                            }}
                             className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all duration-300"
                           >
                             Change Individual
@@ -1035,15 +1570,15 @@ const IncidentsPage = () => {
                                   <div className="flex items-start justify-between mb-4">
                                     <div className="flex items-start gap-4">
                                       <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                                        incident.severity.includes('Critical') ? 'bg-red-900/50' :
-                                        incident.severity.includes('Major') ? 'bg-orange-900/50' :
-                                        incident.severity.includes('Moderate') ? 'bg-yellow-900/50' :
+                                        incident.severity?.includes('Critical') ? 'bg-red-900/50' :
+                                        incident.severity?.includes('Major') ? 'bg-orange-900/50' :
+                                        incident.severity?.includes('Moderate') ? 'bg-yellow-900/50' :
                                         'bg-green-900/50'
                                       }`}>
                                         <AlertTriangle className={`${
-                                          incident.severity.includes('Critical') ? 'text-red-400' :
-                                          incident.severity.includes('Major') ? 'text-orange-400' :
-                                          incident.severity.includes('Moderate') ? 'text-yellow-400' :
+                                          incident.severity?.includes('Critical') ? 'text-red-400' :
+                                          incident.severity?.includes('Major') ? 'text-orange-400' :
+                                          incident.severity?.includes('Moderate') ? 'text-yellow-400' :
                                           'text-green-400'
                                         }`} size={24} />
                                       </div>
@@ -1067,7 +1602,13 @@ const IncidentsPage = () => {
                                       {canReviewIncidents && (
                                         <button
                                           onClick={() => {
-                                            setReviewForm({...reviewForm, incidentid: incident.id});
+                                            setReviewForm({
+                                              ...reviewForm, 
+                                              incidentid: incident.id,
+                                              reviewedby: userProfile.fullname,
+                                              reviewed_by: userProfile.fullname,
+                                              reviewed_by_role: userProfile.role_name
+                                            });
                                             setShowReviewModal(true);
                                           }}
                                           className="p-2 hover:bg-blue-500/20 rounded-lg transition-all duration-300"
@@ -1077,11 +1618,7 @@ const IncidentsPage = () => {
                                       )}
                                       {canDeleteIncidents && (
                                         <button
-                                          onClick={() => {
-                                            if (confirm('Are you sure you want to delete this incident?')) {
-                                              // Delete logic here
-                                            }
-                                          }}
+                                          onClick={() => handleDeleteIncident(incident.id)}
                                           className="p-2 hover:bg-red-500/20 rounded-lg transition-all duration-300"
                                         >
                                           <Trash2 size={16} className="text-red-400" />
@@ -1146,7 +1683,7 @@ const IncidentsPage = () => {
                                             <p className="text-blue-400 text-xs uppercase tracking-wider mb-1">QIDP Review</p>
                                             <p className="text-white text-sm">{incident.qidpreviewnotes}</p>
                                             <p className="text-blue-300 text-xs mt-1">
-                                              {new Date(incident.qidpreviewdate).toLocaleDateString()}
+                                              {incident.qidpreviewdate ? new Date(incident.qidpreviewdate).toLocaleDateString() : 'No date'}
                                             </p>
                                           </div>
                                         )}
@@ -1155,7 +1692,7 @@ const IncidentsPage = () => {
                                             <p className="text-purple-400 text-xs uppercase tracking-wider mb-1">Admin Review</p>
                                             <p className="text-white text-sm">{incident.adminreviewnotes}</p>
                                             <p className="text-purple-300 text-xs mt-1">
-                                              {new Date(incident.adminreviewdate).toLocaleDateString()}
+                                              {incident.adminreviewdate ? new Date(incident.adminreviewdate).toLocaleDateString() : 'No date'}
                                             </p>
                                           </div>
                                         )}
@@ -1388,7 +1925,7 @@ const IncidentsPage = () => {
                         <input
                           type="text"
                           value={incidentForm.witnessnames.join(', ')}
-                          onChange={(e) => setIncidentForm({...incidentForm, witnessnames: e.target.value.split(', ')})}
+                          onChange={(e) => setIncidentForm({...incidentForm, witnessnames: e.target.value.split(',').map(name => name.trim()).filter(name => name)})}
                           placeholder="Separate names with commas"
                           className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all"
                         />
@@ -1407,134 +1944,7 @@ const IncidentsPage = () => {
                   </div>
                 </div>
 
-                {/* Notifications & Follow-up */}
-                <div>
-                  <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
-                    <Bell size={20} />
-                    Notifications & Follow-up
-                  </h4>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Parties Notified</label>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                        {['Guardian', 'QIDP', 'Admin', 'Nurse', 'Physician', 'Law Enforcement', 'Emergency Services'].map(party => (
-                          <button
-                            key={party}
-                            type="button"
-                            onClick={() => {
-                              const notified = incidentForm.notifiedparties.includes(party)
-                                ? incidentForm.notifiedparties.filter(p => p !== party)
-                                : [...incidentForm.notifiedparties, party];
-                              setIncidentForm({...incidentForm, notifiedparties: notified});
-                            }}
-                            className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
-                              incidentForm.notifiedparties.includes(party)
-                                ? 'bg-emerald-600 text-white'
-                                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                            }`}
-                          >
-                            {party}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Follow-up Required</label>
-                        <div className="flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setIncidentForm({...incidentForm, followuprequired: !incidentForm.followuprequired})}
-                            className={`px-4 py-2 rounded-lg font-semibold transition-all ${
-                              incidentForm.followuprequired 
-                                ? 'bg-orange-600 text-white' 
-                                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                            }`}
-                          >
-                            {incidentForm.followuprequired ? 'Yes' : 'No'}
-                          </button>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Status</label>
-                        <select
-                          value={incidentForm.status}
-                          onChange={(e) => setIncidentForm({...incidentForm, status: e.target.value})}
-                          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all"
-                        >
-                          {incidentStatuses.map(status => (
-                            <option key={status} value={status}>{status}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                    {incidentForm.followuprequired && (
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Follow-up Actions</label>
-                        <textarea
-                          value={incidentForm.followupactions}
-                          onChange={(e) => setIncidentForm({...incidentForm, followupactions: e.target.value})}
-                          rows="3"
-                          placeholder="Describe required follow-up actions..."
-                          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all resize-none"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* File Attachments */}
-                <div>
-                  <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
-                    <Paperclip size={20} />
-                    Attachments
-                  </h4>
-                  <div className="space-y-4">
-                    <div className="border-2 border-dashed border-slate-700 hover:border-emerald-500 rounded-xl p-6 text-center transition-all duration-300 cursor-pointer">
-                      <Upload className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                      <p className="text-white font-semibold mb-2">Upload supporting documents</p>
-                      <p className="text-slate-400 text-sm mb-3">Photos, witness statements, medical reports</p>
-                      <input
-                        type="file"
-                        multiple
-                        onChange={handleFileUpload}
-                        className="hidden"
-                        id="file-upload"
-                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
-                      />
-                      <label
-                        htmlFor="file-upload"
-                        className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-emerald-500/50 transition-all duration-300 cursor-pointer"
-                      >
-                        <Upload size={18} />
-                        Select Files
-                      </label>
-                    </div>
-                    {incidentForm.attachments.length > 0 && (
-                      <div className="space-y-2">
-                        {incidentForm.attachments.map((file, index) => (
-                          <div key={index} className="flex items-center justify-between bg-slate-800 rounded-lg p-3">
-                            <div className="flex items-center gap-3">
-                              <FileText className="text-emerald-400" size={16} />
-                              <div>
-                                <p className="text-white text-sm font-medium">{file.name}</p>
-                                <p className="text-slate-400 text-xs">{(file.size / 1024).toFixed(1)} KB</p>
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => removeAttachment(index)}
-                              className="p-1 hover:bg-red-500/20 rounded transition-all"
-                            >
-                              <X size={16} className="text-red-400" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
+              
                 {/* Form Actions */}
                 <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">
                   <button

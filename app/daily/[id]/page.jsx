@@ -9,7 +9,8 @@ import {
   Smile, Frown, Meh, MessageSquare, MapPin,
   FileText, User, Loader2, ChevronDown, ChevronRight,
   TrendingUp, Award, Brain, Sparkles, Coffee, Book,
-  Music, Palette, Dumbbell, X, Copy, Shield
+  Music, Palette, Dumbbell, X, Copy, Shield,
+  ClipboardList, CheckSquare, Stethoscope, Bell
 } from 'lucide-react';
 import { ScrollArea, ScrollBar } from "../../../components/ui/scroll-area";
 import { useUser } from '@clerk/nextjs';
@@ -22,7 +23,6 @@ const supabase = createClient(
   'https://bbikcxalypttfgrlxstf.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJiaWtjeGFseXB0dGZncmx4c3RmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MzcxODcwOCwiZXhwIjoyMDY5Mjk0NzA4fQ.4BLQyvPA0eB745Sfdn2Tl4oCDRTzNhLXrJ8Os8wOXfs'
 );
-
 
 const DailyNotesPage = () => {
   const { user, isLoaded } = useUser();
@@ -106,10 +106,16 @@ const DailyNotesPage = () => {
     return false;
   };
 
-  // Form state for daily note
+  // Form state for daily note with all new sections
   const [noteForm, setNoteForm] = useState({
+    // SECTION 1 — SHIFT DETAILS
     date: new Date().toISOString().split('T')[0],
-    shift: 'Day',
+    shift: '1st Shift',
+    shiftTimeIn: '',
+    shiftTimeOut: '',
+    awakeOvernight: false,
+    
+    // Staff info
     staffname: user?.fullName || '',
     staffid: user?.id || '',
     
@@ -121,9 +127,48 @@ const DailyNotesPage = () => {
     eating: 'Independent',
     mobility: 'Independent',
     
-    // Activities
+    // SECTION 2 — ISP GOALS & SUPPORT PROVIDED
+    ispGoalsNarrative: '',
+    
+    // SECTION 3 — CHOICE & AUTONOMY
+    choiceAutonomyNarrative: '',
+    
+    // SECTION 4 — DAILY ACTIVITIES & COMMUNITY INCLUSION
     activities: [],
     activitydetails: '',
+    communityouting: false,
+    outinglocation: '',
+    outingpurpose: '',
+    participationlevel: 'Full',
+    
+    // SECTION 5 — HEALTH, BEHAVIOR, & WELLNESS OBSERVATIONS
+    healthChanges: '',
+    noChangesBaseline: false,
+    
+    // Mood & Well-being
+    mood: 'Happy',
+    appetite: 'Good',
+    sleep: 'Good',
+    
+    // SECTION 6 — ADDITIONAL SUPPORTS PROVIDED
+    additionalSupportsNarrative: '',
+    
+    // SECTION 7 — MEDICATION ADMINISTRATION
+    medicationsAdministered: 'Yes',
+    medicationsNotAdministeredReason: '',
+    medicationRefusals: '',
+    sideEffectsObserved: '',
+    prnMedications: [],
+    
+    // SECTION 8 — SAFETY & INCIDENT SCREENING
+    safetyIssues: false,
+    safetyNarrative: '',
+    incidentReportCompleted: 'Not required for this event',
+    
+    // SECTION 9 — INDEPENDENT LIVING SKILLS PRACTICED
+    livingSkills: [],
+    livingSkillsOther: '',
+    livingSkillsNarrative: '',
     
     // Behaviors
     behaviors: [],
@@ -135,21 +180,10 @@ const DailyNotesPage = () => {
     goalsworked: [],
     goalprogress: '',
     
-    // Community/HCBS
-    communityouting: false,
-    outinglocation: '',
-    outingduration: '',
-    choiceoffered: '',
-    choicetaken: '',
-    skillspracticed: '',
+    // Transportation
     transportation: '',
     
-    // Mood & Well-being
-    mood: 'Happy',
-    appetite: 'Good',
-    sleep: 'Good',
-    
-    // Narrative
+    // Narrative (kept for backward compatibility)
     narrative: '',
     
     // Incidents/Concerns
@@ -166,11 +200,21 @@ const DailyNotesPage = () => {
     timestamp: new Date().toISOString()
   });
 
+  const [prnMedication, setPrnMedication] = useState({
+    medication: '',
+    amount: '',
+    time: '',
+    reason: '',
+    outcome: ''
+  });
+
   const adlOptions = ['Independent', 'Verbal Prompt', 'Physical Assist', 'Total Assist', 'Refused', 'N/A'];
-  const shiftOptions = ['Day (6am-2pm)', 'Evening (2pm-10pm)', 'Night (10pm-6am)', 'Other'];
   const moodOptions = ['Happy', 'Calm', 'Anxious', 'Sad', 'Frustrated', 'Excited', 'Neutral'];
   const appetiteOptions = ['Good', 'Fair', 'Poor', 'Refused'];
   const sleepOptions = ['Good', 'Fair', 'Poor', 'Restless', 'N/A'];
+  const participationOptions = ['Full', 'Partial', 'Refused'];
+  const medicationOptions = ['Yes', 'No'];
+  const incidentReportOptions = ['Yes', 'No', 'Not required for this event'];
 
   const activityTypes = [
     { icon: Palette, label: 'Arts & Crafts', value: 'arts-crafts' },
@@ -195,6 +239,79 @@ const DailyNotesPage = () => {
     'Withdrawal',
     'Positive Behavior'
   ];
+
+  const livingSkills = [
+    { value: 'cooking', label: 'Cooking' },
+    { value: 'cleaning', label: 'Cleaning / Chores' },
+    { value: 'laundry', label: 'Laundry' },
+    { value: 'money-skills', label: 'Money Skills' },
+    { value: 'communication-skills', label: 'Communication Skills' },
+    { value: 'personal-hygiene', label: 'Personal Hygiene' },
+    { value: 'social-skills', label: 'Social Skills' },
+    { value: 'community-safety', label: 'Community Safety' },
+    { value: 'medication-participation', label: 'Medication Participation' }
+  ];
+
+  const handlePrnMedicationAdd = () => {
+    if (!prnMedication.medication.trim()) return;
+    
+    setNoteForm(prev => ({
+      ...prev,
+      prnMedications: [...prev.prnMedications, { ...prnMedication, id: Date.now().toString() }]
+    }));
+    
+    setPrnMedication({
+      medication: '',
+      amount: '',
+      time: '',
+      reason: '',
+      outcome: ''
+    });
+  };
+
+  const handlePrnMedicationRemove = (id) => {
+    setNoteForm(prev => ({
+      ...prev,
+      prnMedications: prev.prnMedications.filter(med => med.id !== id)
+    }));
+  };
+
+  // Toggle functions for multi-select fields
+  const toggleActivity = (activity) => {
+    setNoteForm(prev => ({
+      ...prev,
+      activities: prev.activities.includes(activity)
+        ? prev.activities.filter(a => a !== activity)
+        : [...prev.activities, activity]
+    }));
+  };
+
+  const toggleBehavior = (behavior) => {
+    setNoteForm(prev => ({
+      ...prev,
+      behaviors: prev.behaviors.includes(behavior)
+        ? prev.behaviors.filter(b => b !== behavior)
+        : [...prev.behaviors, behavior]
+    }));
+  };
+
+  const toggleGoal = (goalId) => {
+    setNoteForm(prev => ({
+      ...prev,
+      goalsworked: prev.goalsworked.includes(goalId)
+        ? prev.goalsworked.filter(g => g !== goalId)
+        : [...prev.goalsworked, goalId]
+    }));
+  };
+
+  const toggleLivingSkill = (skill) => {
+    setNoteForm(prev => ({
+      ...prev,
+      livingSkills: prev.livingSkills.includes(skill)
+        ? prev.livingSkills.filter(s => s !== skill)
+        : [...prev.livingSkills, skill]
+    }));
+  };
 
   useEffect(() => {
     if (isLoaded && user && individualId && !profileLoading) {
@@ -286,33 +403,6 @@ const DailyNotesPage = () => {
     }));
   };
 
-  const toggleActivity = (activity) => {
-    setNoteForm(prev => ({
-      ...prev,
-      activities: prev.activities.includes(activity)
-        ? prev.activities.filter(a => a !== activity)
-        : [...prev.activities, activity]
-    }));
-  };
-
-  const toggleBehavior = (behavior) => {
-    setNoteForm(prev => ({
-      ...prev,
-      behaviors: prev.behaviors.includes(behavior)
-        ? prev.behaviors.filter(b => b !== behavior)
-        : [...prev.behaviors, behavior]
-    }));
-  };
-
-  const toggleGoal = (goalId) => {
-    setNoteForm(prev => ({
-      ...prev,
-      goalsworked: prev.goalsworked.includes(goalId)
-        ? prev.goalsworked.filter(g => g !== goalId)
-        : [...prev.goalsworked, goalId]
-    }));
-  };
-
   const handleSaveNote = async (e) => {
     e.preventDefault();
     
@@ -398,7 +488,10 @@ const DailyNotesPage = () => {
   const resetForm = () => {
     setNoteForm({
       date: new Date().toISOString().split('T')[0],
-      shift: 'Day',
+      shift: '1st Shift',
+      shiftTimeIn: '',
+      shiftTimeOut: '',
+      awakeOvernight: false,
       staffname: user?.fullName || '',
       staffid: user?.id || '',
       bathing: 'Independent',
@@ -407,24 +500,38 @@ const DailyNotesPage = () => {
       toileting: 'Independent',
       eating: 'Independent',
       mobility: 'Independent',
+      ispGoalsNarrative: '',
+      choiceAutonomyNarrative: '',
       activities: [],
       activitydetails: '',
+      communityouting: false,
+      outinglocation: '',
+      outingpurpose: '',
+      participationlevel: 'Full',
+      healthChanges: '',
+      noChangesBaseline: false,
+      mood: 'Happy',
+      appetite: 'Good',
+      sleep: 'Good',
+      additionalSupportsNarrative: '',
+      medicationsAdministered: 'Yes',
+      medicationsNotAdministeredReason: '',
+      medicationRefusals: '',
+      sideEffectsObserved: '',
+      prnMedications: [],
+      safetyIssues: false,
+      safetyNarrative: '',
+      incidentReportCompleted: 'Not required for this event',
+      livingSkills: [],
+      livingSkillsOther: '',
+      livingSkillsNarrative: '',
       behaviors: [],
       behaviordetails: '',
       behaviortriggers: '',
       behaviorinterventions: '',
       goalsworked: [],
       goalprogress: '',
-      communityouting: false,
-      outinglocation: '',
-      outingduration: '',
-      choiceoffered: '',
-      choicetaken: '',
-      skillspracticed: '',
       transportation: '',
-      mood: 'Happy',
-      appetite: 'Good',
-      sleep: 'Good',
       narrative: '',
       incidentreported: false,
       incidentdetails: '',
@@ -435,6 +542,13 @@ const DailyNotesPage = () => {
       approved_date: '',
       timestamp: new Date().toISOString()
     });
+    setPrnMedication({
+      medication: '',
+      amount: '',
+      time: '',
+      reason: '',
+      outcome: ''
+    });
   };
 
   const filteredNotes = dailyNotes.filter(note => {
@@ -442,7 +556,9 @@ const DailyNotesPage = () => {
       note.narrative?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       note.staffname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       note.behaviordetails?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      note.activitydetails?.toLowerCase().includes(searchTerm.toLowerCase());
+      note.activitydetails?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      note.ispGoalsNarrative?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      note.choiceAutonomyNarrative?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesDate = !filterDate || note.date === filterDate;
     
@@ -592,10 +708,10 @@ const DailyNotesPage = () => {
             <div className="flex items-center justify-between mb-2">
               <AlertCircle className="text-orange-400" size={24} />
               <span className="text-2xl font-bold text-white">
-                {dailyNotes.filter(n => n.incidentreported).length}
+                {dailyNotes.filter(n => n.incidentreported || n.safetyIssues).length}
               </span>
             </div>
-            <p className="text-slate-300 text-sm font-semibold">Incidents</p>
+            <p className="text-slate-300 text-sm font-semibold">Incidents/Safety Issues</p>
           </div>
         </div>
 
@@ -730,17 +846,21 @@ const DailyNotesPage = () => {
                       </div>
 
                       {/* Narrative Preview */}
-                      {note.narrative && (
+                      {(note.narrative || note.ispGoalsNarrative || note.choiceAutonomyNarrative) && (
                         <div className="bg-slate-800/30 rounded-lg p-4">
-                          <p className="text-sm text-slate-300 line-clamp-2">{note.narrative}</p>
+                          <p className="text-sm text-slate-300 line-clamp-2">
+                            {note.narrative || note.ispGoalsNarrative || note.choiceAutonomyNarrative}
+                          </p>
                         </div>
                       )}
 
                       {/* Incident Alert */}
-                      {note.incidentreported && (
+                      {(note.incidentreported || note.safetyIssues) && (
                         <div className="mt-4 flex items-center gap-2 text-orange-400 text-sm">
                           <AlertCircle size={16} />
-                          <span className="font-semibold">Incident reported - requires review</span>
+                          <span className="font-semibold">
+                            {note.incidentreported ? 'Incident reported' : 'Safety issue reported'} - requires review
+                          </span>
                         </div>
                       )}
                     </div>
@@ -760,7 +880,7 @@ const DailyNotesPage = () => {
             <div className="flex items-center justify-between p-6 border-b border-slate-700 bg-slate-900/95 backdrop-blur-sm z-10">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center">
-                  <Plus className="text-white" size={24} />
+                  <ClipboardList className="text-white" size={24} />
                 </div>
                 <div>
                   <h3 className="text-2xl font-bold text-white">Daily Service Note</h3>
@@ -777,11 +897,11 @@ const DailyNotesPage = () => {
 
             <ScrollArea className="h-[calc(90vh-160px)]">
               <form onSubmit={handleSaveNote} className="p-6 space-y-8">
-                {/* Basic Information */}
+                {/* SECTION 1 — SHIFT DETAILS */}
                 <div>
                   <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
-                    <Calendar size={20} />
-                    Basic Information
+                    <Clock size={20} />
+                    SHIFT DETAILS
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
@@ -796,18 +916,23 @@ const DailyNotesPage = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Shift *</label>
-                      <select
-                        name="shift"
-                        value={noteForm.shift}
-                        onChange={handleInputChange}
-                        required
-                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
-                      >
-                        {shiftOptions.map(shift => (
-                          <option key={shift} value={shift}>{shift}</option>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Shift Time *</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {['1st Shift', '2nd Shift', '3rd Shift', 'Awake Overnight'].map(shift => (
+                          <button
+                            key={shift}
+                            type="button"
+                            onClick={() => setNoteForm(prev => ({ ...prev, shift }))}
+                            className={`p-2 border rounded-lg text-sm font-semibold ${
+                              noteForm.shift === shift
+                                ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400'
+                                : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
+                            }`}
+                          >
+                            {shift}
+                          </button>
                         ))}
-                      </select>
+                      </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-2">Staff Name</label>
@@ -815,6 +940,28 @@ const DailyNotesPage = () => {
                         type="text"
                         name="staffname"
                         value={noteForm.staffname}
+                        onChange={handleInputChange}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Time In</label>
+                      <input
+                        type="time"
+                        name="shiftTimeIn"
+                        value={noteForm.shiftTimeIn}
+                        onChange={handleInputChange}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Time Out</label>
+                      <input
+                        type="time"
+                        name="shiftTimeOut"
+                        value={noteForm.shiftTimeOut}
                         onChange={handleInputChange}
                         className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
                       />
@@ -860,48 +1007,11 @@ const DailyNotesPage = () => {
                   </div>
                 </div>
 
-                {/* Activities */}
-                <div>
-                  <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
-                    <Sparkles size={20} />
-                    Activities Participated
-                  </h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                    {activityTypes.map(activity => {
-                      const Icon = activity.icon;
-                      const isSelected = noteForm.activities.includes(activity.value);
-                      return (
-                        <button
-                          key={activity.value}
-                          type="button"
-                          onClick={() => toggleActivity(activity.value)}
-                          className={`p-4 border rounded-xl transition-all flex flex-col items-center gap-2 ${
-                            isSelected
-                              ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400'
-                              : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
-                          }`}
-                        >
-                          <Icon size={24} />
-                          <span className="text-sm font-semibold text-center">{activity.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <textarea
-                    name="activitydetails"
-                    value={noteForm.activitydetails}
-                    onChange={handleInputChange}
-                    placeholder="Describe activities in detail..."
-                    rows="3"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 resize-none"
-                  />
-                </div>
-
-                {/* Goals Worked On */}
+                {/* SECTION 2 — ISP GOALS & SUPPORT PROVIDED */}
                 <div>
                   <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
                     <Target size={20} />
-                    Goals Worked On
+                     ISP GOALS & SUPPORT PROVIDED
                   </h4>
                   <div className="space-y-3 mb-4">
                     {individual.goals?.length > 0 ? (
@@ -940,17 +1050,221 @@ const DailyNotesPage = () => {
                       <p className="text-slate-500 text-sm">No goals defined for this individual</p>
                     )}
                   </div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Narrative (Describe support provided for each goal):
+                  </label>
                   <textarea
-                    name="goalprogress"
-                    value={noteForm.goalprogress}
+                    name="ispGoalsNarrative"
+                    value={noteForm.ispGoalsNarrative}
                     onChange={handleInputChange}
-                    placeholder="Describe progress on goals..."
+                    placeholder="Example: 'Supported John in preparing his breakfast by prompting him through each step. He independently completed 3/5 steps.'"
                     rows="3"
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 resize-none"
                   />
                 </div>
 
-                {/* Behaviors */}
+                {/* SECTION 3 — CHOICE & AUTONOMY */}
+                <div>
+                  <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
+                    <CheckSquare size={20} />
+                    CHOICE & AUTONOMY (HCBS REQUIREMENT)
+                  </h4>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Describe how the individual exercised choice today (activities, meals, clothing, schedule, community, etc.):
+                  </label>
+                  <textarea
+                    name="choiceAutonomyNarrative"
+                    value={noteForm.choiceAutonomyNarrative}
+                    onChange={handleInputChange}
+                    placeholder="Describe choices made by the individual throughout the day..."
+                    rows="3"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 resize-none"
+                  />
+                </div>
+
+                {/* SECTION 4 — DAILY ACTIVITIES & COMMUNITY INCLUSION */}
+                <div>
+                  <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
+                    <Sparkles size={20} />
+                    DAILY ACTIVITIES & COMMUNITY INCLUSION
+                  </h4>
+                  
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Activities Completed:</label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                      {activityTypes.map(activity => {
+                        const Icon = activity.icon;
+                        const isSelected = noteForm.activities.includes(activity.value);
+                        return (
+                          <button
+                            key={activity.value}
+                            type="button"
+                            onClick={() => toggleActivity(activity.value)}
+                            className={`p-3 border rounded-lg transition-all flex flex-col items-center gap-2 ${
+                              isSelected
+                                ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400'
+                                : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
+                            }`}
+                          >
+                            <Icon size={20} />
+                            <span className="text-xs font-semibold text-center">{activity.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <textarea
+                      name="activitydetails"
+                      value={noteForm.activitydetails}
+                      onChange={handleInputChange}
+                      placeholder="Describe meaningful activities completed today and how they supported independence, social skills, or inclusion..."
+                      rows="2"
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 resize-none"
+                    />
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        name="communityouting"
+                        checked={noteForm.communityouting}
+                        onChange={handleInputChange}
+                        className="w-5 h-5 bg-slate-800 border-slate-700 rounded focus:ring-emerald-500"
+                      />
+                      <label className="text-white font-semibold">
+                        Community Outing (if applicable)
+                      </label>
+                    </div>
+
+                    {noteForm.communityouting && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-8">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-300 mb-2">Location</label>
+                          <input
+                            type="text"
+                            name="outinglocation"
+                            value={noteForm.outinglocation}
+                            onChange={handleInputChange}
+                            placeholder="e.g., Local park, grocery store"
+                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-300 mb-2">Purpose</label>
+                          <input
+                            type="text"
+                            name="outingpurpose"
+                            value={noteForm.outingpurpose}
+                            onChange={handleInputChange}
+                            placeholder="e.g., Shopping, social visit"
+                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-300 mb-2">Level of Participation</label>
+                          <select
+                            name="participationlevel"
+                            value={noteForm.participationlevel}
+                            onChange={handleInputChange}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+                          >
+                            {participationOptions.map(option => (
+                              <option key={option} value={option}>{option}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-300 mb-2">Transportation</label>
+                          <input
+                            type="text"
+                            name="transportation"
+                            value={noteForm.transportation}
+                            onChange={handleInputChange}
+                            placeholder="e.g., Agency van, public bus"
+                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* SECTION 5 — HEALTH, BEHAVIOR, & WELLNESS OBSERVATIONS */}
+                <div>
+                  <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
+                    <Stethoscope size={20} />
+                     HEALTH, BEHAVIOR, & WELLNESS OBSERVATIONS
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Overall Mood</label>
+                      <select
+                        name="mood"
+                        value={noteForm.mood}
+                        onChange={handleInputChange}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+                      >
+                        {moodOptions.map(mood => (
+                          <option key={mood} value={mood}>{mood}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Appetite</label>
+                      <select
+                        name="appetite"
+                        value={noteForm.appetite}
+                        onChange={handleInputChange}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+                      >
+                        {appetiteOptions.map(option => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Sleep Quality</label>
+                      <select
+                        name="sleep"
+                        value={noteForm.sleep}
+                        onChange={handleInputChange}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+                      >
+                        {sleepOptions.map(option => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Changes Noted (mood, behavior, appetite, sleep, hygiene, bowel movements, or overall wellness):
+                  </label>
+                  <textarea
+                    name="healthChanges"
+                    value={noteForm.healthChanges}
+                    onChange={handleInputChange}
+                    placeholder="Document any changes observed..."
+                    rows="2"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 resize-none"
+                  />
+                  
+                  <div className="flex items-center gap-3 mt-4">
+                    <input
+                      type="checkbox"
+                      name="noChangesBaseline"
+                      checked={noteForm.noChangesBaseline}
+                      onChange={handleInputChange}
+                      className="w-5 h-5 bg-slate-800 border-slate-700 rounded focus:ring-emerald-500"
+                    />
+                    <label className="text-white font-semibold">
+                      No changes from baseline were observed
+                    </label>
+                  </div>
+                </div>
+
+                {/* Behaviors Section */}
                 <div>
                   <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
                     <Brain size={20} />
@@ -1003,201 +1317,300 @@ const DailyNotesPage = () => {
                   </div>
                 </div>
 
-                {/* Community/HCBS Documentation */}
+                {/* SECTION 6 — ADDITIONAL SUPPORTS PROVIDED */}
                 <div>
                   <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
-                    <MapPin size={20} />
-                    Community Integration & HCBS
+                    <Users size={20} />
+                     ADDITIONAL SUPPORTS PROVIDED
+                  </h4>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Did the individual require extra support (behavioral, medical, emotional)? Describe what occurred and your response:
+                  </label>
+                  <textarea
+                    name="additionalSupportsNarrative"
+                    value={noteForm.additionalSupportsNarrative}
+                    onChange={handleInputChange}
+                    placeholder="Describe any additional supports provided..."
+                    rows="3"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 resize-none"
+                  />
+                </div>
+
+                {/* SECTION 7 — MEDICATION ADMINISTRATION */}
+                <div>
+                  <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
+                    <Bell size={20} />
+                    MEDICATION ADMINISTRATION (MAR SUMMARY)
+                  </h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Medications Administered as Scheduled:
+                      </label>
+                      <div className="flex gap-4">
+                        {medicationOptions.map(option => (
+                          <button
+                            key={option}
+                            type="button"
+                            onClick={() => setNoteForm(prev => ({ ...prev, medicationsAdministered: option }))}
+                            className={`px-4 py-2 border rounded-lg font-semibold ${
+                              noteForm.medicationsAdministered === option
+                                ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400'
+                                : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
+                            }`}
+                          >
+                            {option}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {noteForm.medicationsAdministered === 'No' && (
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">Explain:</label>
+                        <textarea
+                          name="medicationsNotAdministeredReason"
+                          value={noteForm.medicationsNotAdministeredReason}
+                          onChange={handleInputChange}
+                          placeholder="Explain why medications were not administered..."
+                          rows="2"
+                          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 resize-none"
+                        />
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Refusals / Missed Doses:</label>
+                      <textarea
+                        name="medicationRefusals"
+                        value={noteForm.medicationRefusals}
+                        onChange={handleInputChange}
+                        placeholder="Document any medication refusals or missed doses..."
+                        rows="2"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 resize-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Side Effects Observed:</label>
+                      <textarea
+                        name="sideEffectsObserved"
+                        value={noteForm.sideEffectsObserved}
+                        onChange={handleInputChange}
+                        placeholder="Document any observed side effects..."
+                        rows="2"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 resize-none"
+                      />
+                    </div>
+
+                    {/* PRN Medications */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">PRN Medications Given:</label>
+                      <div className="space-y-3 mb-3">
+                        {noteForm.prnMedications.map(med => (
+                          <div key={med.id} className="bg-slate-800/50 border border-slate-700 rounded-lg p-3">
+                            <div className="flex justify-between items-start mb-2">
+                              <div>
+                                <p className="font-semibold text-white">{med.medication}</p>
+                                <p className="text-sm text-slate-400">Amount: {med.amount} • Time: {med.time}</p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handlePrnMedicationRemove(med.id)}
+                                className="text-red-400 hover:text-red-300"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                            <p className="text-sm text-slate-300 mb-1"><span className="text-slate-400">Reason:</span> {med.reason}</p>
+                            <p className="text-sm text-slate-300"><span className="text-slate-400">Outcome:</span> {med.outcome}</p>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                        <input
+                          type="text"
+                          placeholder="Medication"
+                          value={prnMedication.medication}
+                          onChange={(e) => setPrnMedication(prev => ({ ...prev, medication: e.target.value }))}
+                          className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Amount"
+                          value={prnMedication.amount}
+                          onChange={(e) => setPrnMedication(prev => ({ ...prev, amount: e.target.value }))}
+                          className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+                        />
+                        <input
+                          type="time"
+                          placeholder="Time"
+                          value={prnMedication.time}
+                          onChange={(e) => setPrnMedication(prev => ({ ...prev, time: e.target.value }))}
+                          className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Reason for PRN"
+                          value={prnMedication.reason}
+                          onChange={(e) => setPrnMedication(prev => ({ ...prev, reason: e.target.value }))}
+                          className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+                        />
+                        <div className="md:col-span-2">
+                          <input
+                            type="text"
+                            placeholder="Outcome/Relief"
+                            value={prnMedication.outcome}
+                            onChange={(e) => setPrnMedication(prev => ({ ...prev, outcome: e.target.value }))}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handlePrnMedicationAdd}
+                        className="px-4 py-2 bg-emerald-600/20 border border-emerald-500 text-emerald-400 rounded-lg font-semibold hover:bg-emerald-600/30 transition-all"
+                      >
+                        Add PRN Medication
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* SECTION 8 — SAFETY & INCIDENT SCREENING */}
+                <div>
+                  <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
+                    <AlertCircle size={20} />
+                     SAFETY & INCIDENT SCREENING
                   </h4>
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
                       <input
                         type="checkbox"
-                        name="communityouting"
-                        checked={noteForm.communityouting}
+                        name="safetyIssues"
+                        checked={noteForm.safetyIssues}
                         onChange={handleInputChange}
                         className="w-5 h-5 bg-slate-800 border-slate-700 rounded focus:ring-emerald-500"
                       />
                       <label className="text-white font-semibold">
-                        Community outing occurred today
+                        Safety issues, environmental concerns, accidents, injuries, or behavioral incidents
                       </label>
                     </div>
 
-                    {noteForm.communityouting && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-8">
+                    {noteForm.safetyIssues ? (
+                      <div className="pl-8 space-y-4">
+                        <textarea
+                          name="safetyNarrative"
+                          value={noteForm.safetyNarrative}
+                          onChange={handleInputChange}
+                          placeholder="Describe the safety issue or incident in detail..."
+                          rows="3"
+                          className="w-full bg-red-900/20 border border-red-500/50 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500 resize-none"
+                        />
+                        
                         <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">Location</label>
-                          <input
-                            type="text"
-                            name="outinglocation"
-                            value={noteForm.outinglocation}
-                            onChange={handleInputChange}
-                            placeholder="e.g., Local park, grocery store"
-                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
-                          />
+                          <label className="block text-sm font-medium text-slate-300 mb-2">
+                            Did you complete an ADMH Incident Report (IR)?
+                          </label>
+                          <div className="flex flex-wrap gap-2">
+                            {incidentReportOptions.map(option => (
+                              <button
+                                key={option}
+                                type="button"
+                                onClick={() => setNoteForm(prev => ({ ...prev, incidentReportCompleted: option }))}
+                                className={`px-4 py-2 border rounded-lg font-semibold ${
+                                  noteForm.incidentReportCompleted === option
+                                    ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400'
+                                    : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
+                                }`}
+                              >
+                                {option}
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">Duration</label>
-                          <input
-                            type="text"
-                            name="outingduration"
-                            value={noteForm.outingduration}
-                            onChange={handleInputChange}
-                            placeholder="e.g., 2 hours"
-                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
-                          />
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3 pl-8">
+                        <div className="w-5 h-5 flex items-center justify-center">
+                          <div className="w-4 h-4 border-2 border-slate-600 rounded"></div>
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">Transportation</label>
-                          <input
-                            type="text"
-                            name="transportation"
-                            value={noteForm.transportation}
-                            onChange={handleInputChange}
-                            placeholder="e.g., Agency van, public bus"
-                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">Skills Practiced</label>
-                          <input
-                            type="text"
-                            name="skillspracticed"
-                            value={noteForm.skillspracticed}
-                            onChange={handleInputChange}
-                            placeholder="e.g., Money handling, social interaction"
-                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
-                          />
-                        </div>
-                        <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-slate-300 mb-2">Choice Offered</label>
-                          <textarea
-                            name="choiceoffered"
-                            value={noteForm.choiceoffered}
-                            onChange={handleInputChange}
-                            placeholder="What choices were offered?"
-                            rows="2"
-                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 resize-none"
-                          />
-                        </div>
-                        <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-slate-300 mb-2">Choice Taken</label>
-                          <textarea
-                            name="choicetaken"
-                            value={noteForm.choicetaken}
-                            onChange={handleInputChange}
-                            placeholder="What did the individual choose?"
-                            rows="2"
-                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 resize-none"
-                          />
-                        </div>
+                        <span className="text-slate-300">No issues to report</span>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Mood & Well-being */}
+                {/* SECTION 9 — INDEPENDENT LIVING SKILLS PRACTICED */}
                 <div>
                   <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
-                    <Heart size={20} />
-                    Mood & Well-being
+                    <HomeIcon size={20} />
+                    INDEPENDENT LIVING SKILLS PRACTICED
                   </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Overall Mood</label>
-                      <select
-                        name="mood"
-                        value={noteForm.mood}
-                        onChange={handleInputChange}
-                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
-                      >
-                        {moodOptions.map(mood => (
-                          <option key={mood} value={mood}>{mood}</option>
-                        ))}
-                      </select>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {livingSkills.map(skill => {
+                        const isSelected = noteForm.livingSkills.includes(skill.value);
+                        return (
+                          <button
+                            key={skill.value}
+                            type="button"
+                            onClick={() => toggleLivingSkill(skill.value)}
+                            className={`p-3 border rounded-lg transition-all text-sm font-semibold ${
+                              isSelected
+                                ? 'bg-blue-600/20 border-blue-500 text-blue-400'
+                                : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
+                            }`}
+                          >
+                            {skill.label}
+                          </button>
+                        );
+                      })}
                     </div>
+                    
                     <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Appetite</label>
-                      <select
-                        name="appetite"
-                        value={noteForm.appetite}
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Other:</label>
+                      <input
+                        type="text"
+                        name="livingSkillsOther"
+                        value={noteForm.livingSkillsOther}
                         onChange={handleInputChange}
+                        placeholder="Specify other skills practiced"
                         className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
-                      >
-                        {appetiteOptions.map(option => (
-                          <option key={option} value={option}>{option}</option>
-                        ))}
-                      </select>
+                      />
                     </div>
+                    
                     <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Sleep Quality</label>
-                      <select
-                        name="sleep"
-                        value={noteForm.sleep}
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Explain skills practiced and level of independence:
+                      </label>
+                      <textarea
+                        name="livingSkillsNarrative"
+                        value={noteForm.livingSkillsNarrative}
                         onChange={handleInputChange}
-                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
-                      >
-                        {sleepOptions.map(option => (
-                          <option key={option} value={option}>{option}</option>
-                        ))}
-                      </select>
+                        placeholder="Describe the skills practiced and the individual's level of independence..."
+                        rows="3"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 resize-none"
+                      />
                     </div>
                   </div>
                 </div>
 
-                {/* Narrative */}
+                {/* Daily Narrative (existing field - keep for backward compatibility) */}
                 <div>
                   <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
                     <MessageSquare size={20} />
-                    Daily Narrative
+                    Daily Narrative (Optional Additional Notes)
                   </h4>
                   <textarea
                     name="narrative"
                     value={noteForm.narrative}
                     onChange={handleInputChange}
-                    placeholder="Provide a detailed narrative of the day's events, interactions, and observations..."
-                    rows="6"
+                    placeholder="Additional notes or summary of the day..."
+                    rows="4"
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 resize-none"
                   />
-                </div>
-
-                {/* Incidents/Concerns */}
-                <div>
-                  <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
-                    <AlertCircle size={20} />
-                    Incidents/Concerns
-                  </h4>
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        name="incidentreported"
-                        checked={noteForm.incidentreported}
-                        onChange={handleInputChange}
-                        className="w-5 h-5 bg-slate-800 border-slate-700 rounded focus:ring-emerald-500"
-                      />
-                      <label className="text-white font-semibold">
-                        Incident or concern to report
-                      </label>
-                    </div>
-
-                    {noteForm.incidentreported && (
-                      <div className="pl-8">
-                        <textarea
-                          name="incidentdetails"
-                          value={noteForm.incidentdetails}
-                          onChange={handleInputChange}
-                          placeholder="Describe the incident or concern in detail..."
-                          rows="4"
-                          className="w-full bg-red-900/20 border border-red-500/50 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500 resize-none"
-                        />
-                        <p className="text-sm text-orange-400 mt-2 flex items-center gap-2">
-                          <AlertCircle size={16} />
-                          Remember to file a formal incident report in the IPMS module
-                        </p>
-                      </div>
-                    )}
-                  </div>
                 </div>
 
                 {/* Form Actions */}
@@ -1235,7 +1648,7 @@ const DailyNotesPage = () => {
         </div>
       )}
 
-      {/* View Note Detail Modal */}
+      {/* View Note Detail Modal - Updated to show all new sections */}
       {selectedNote && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
@@ -1266,156 +1679,124 @@ const DailyNotesPage = () => {
 
             <ScrollArea className="h-[calc(90vh-160px)]">
               <div className="p-6 space-y-6">
-                {/* Basic Info */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-slate-800/50 rounded-lg p-4">
-                    <p className="text-xs text-slate-400 mb-1">Shift</p>
-                    <p className="text-white font-semibold">{selectedNote.shift}</p>
-                  </div>
-                  <div className="bg-slate-800/50 rounded-lg p-4">
-                    <p className="text-xs text-slate-400 mb-1">Staff</p>
-                    <p className="text-white font-semibold">{selectedNote.staffname}</p>
-                    {selectedNote.created_by_role && (
-                      <p className="text-xs text-slate-500 mt-1">{selectedNote.created_by_role}</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* ADLs */}
+                {/* SECTION 1 — SHIFT DETAILS */}
                 <div>
-                  <h4 className="text-lg font-bold text-emerald-400 mb-3">ADL Summary</h4>
-                  <div className="grid grid-cols-3 gap-3">
-                    {[
-                      { label: 'Bathing', value: selectedNote.bathing },
-                      { label: 'Dressing', value: selectedNote.dressing },
-                      { label: 'Grooming', value: selectedNote.grooming },
-                      { label: 'Toileting', value: selectedNote.toileting },
-                      { label: 'Eating', value: selectedNote.eating },
-                      { label: 'Mobility', value: selectedNote.mobility }
-                    ].map(adl => (
-                      <div key={adl.label} className="bg-slate-800/50 rounded-lg p-3">
-                        <p className="text-xs text-slate-400 mb-1">{adl.label}</p>
-                        <p className="text-sm font-semibold text-white">{adl.value}</p>
+                  <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2">
+                    <Clock size={18} />
+                    Shift Details
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="bg-slate-800/50 rounded-lg p-3">
+                      <p className="text-xs text-slate-400 mb-1">Shift</p>
+                      <p className="text-white font-semibold">{selectedNote.shift}</p>
+                    </div>
+                    {selectedNote.shiftTimeIn && (
+                      <div className="bg-slate-800/50 rounded-lg p-3">
+                        <p className="text-xs text-slate-400 mb-1">Time In</p>
+                        <p className="text-white font-semibold">{selectedNote.shiftTimeIn}</p>
                       </div>
-                    ))}
+                    )}
+                    {selectedNote.shiftTimeOut && (
+                      <div className="bg-slate-800/50 rounded-lg p-3">
+                        <p className="text-xs text-slate-400 mb-1">Time Out</p>
+                        <p className="text-white font-semibold">{selectedNote.shiftTimeOut}</p>
+                      </div>
+                    )}
+                    <div className="bg-slate-800/50 rounded-lg p-3">
+                      <p className="text-xs text-slate-400 mb-1">Staff</p>
+                      <p className="text-white font-semibold">{selectedNote.staffname}</p>
+                      {selectedNote.created_by_role && (
+                        <p className="text-xs text-slate-500 mt-1">{selectedNote.created_by_role}</p>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                {/* Activities */}
-                {selectedNote.activities?.length > 0 && (
+                {/* SECTION 2 — ISP GOALS & SUPPORT PROVIDED */}
+                {selectedNote.ispGoalsNarrative && (
                   <div>
-                    <h4 className="text-lg font-bold text-emerald-400 mb-3">Activities</h4>
+                    <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2">
+                      <Target size={18} />
+                      ISP Goals & Support Provided
+                    </h4>
                     <div className="bg-slate-800/50 rounded-lg p-4">
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {selectedNote.activities.map(activity => (
-                          <span key={activity} className="px-3 py-1 bg-emerald-600/20 text-emerald-400 rounded-full text-sm font-semibold border border-emerald-500/30">
-                            {activityTypes.find(a => a.value === activity)?.label || activity}
-                          </span>
-                        ))}
-                      </div>
+                      <p className="text-slate-300 text-sm whitespace-pre-wrap">{selectedNote.ispGoalsNarrative}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* SECTION 3 — CHOICE & AUTONOMY */}
+                {selectedNote.choiceAutonomyNarrative && (
+                  <div>
+                    <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2">
+                      <CheckSquare size={18} />
+                      Choice & Autonomy
+                    </h4>
+                    <div className="bg-slate-800/50 rounded-lg p-4">
+                      <p className="text-slate-300 text-sm whitespace-pre-wrap">{selectedNote.choiceAutonomyNarrative}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* SECTION 4 — ACTIVITIES & COMMUNITY INCLUSION */}
+                {(selectedNote.activities?.length > 0 || selectedNote.communityouting) && (
+                  <div>
+                    <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2">
+                      <Sparkles size={18} />
+                      Activities & Community Inclusion
+                    </h4>
+                    <div className="bg-slate-800/50 rounded-lg p-4 space-y-3">
+                      {selectedNote.activities?.length > 0 && (
+                        <div>
+                          <p className="text-xs text-slate-400 mb-1">Activities:</p>
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {selectedNote.activities.map(activity => (
+                              <span key={activity} className="px-2 py-1 bg-emerald-600/20 text-emerald-400 rounded text-xs font-semibold">
+                                {activityTypes.find(a => a.value === activity)?.label || activity}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       {selectedNote.activitydetails && (
                         <p className="text-slate-300 text-sm">{selectedNote.activitydetails}</p>
                       )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Goals */}
-                {selectedNote.goalsworked?.length > 0 && (
-                  <div>
-                    <h4 className="text-lg font-bold text-emerald-400 mb-3">Goals Worked On</h4>
-                    <div className="bg-slate-800/50 rounded-lg p-4 space-y-2">
-                      {selectedNote.goalsworked.map(goalId => {
-                        const goal = individual.goals?.find(g => g.id === goalId);
-                        return goal ? (
-                          <div key={goalId} className="flex items-center gap-2 text-sm">
-                            <CheckCircle size={16} className="text-blue-400" />
-                            <span className="text-slate-300">{goal.description}</span>
+                      {selectedNote.communityouting && (
+                        <div className="pt-3 border-t border-slate-700">
+                          <p className="text-sm font-semibold text-white mb-2">Community Outing:</p>
+                          <div className="grid grid-cols-2 gap-3">
+                            {selectedNote.outinglocation && (
+                              <div>
+                                <p className="text-xs text-slate-400">Location</p>
+                                <p className="text-sm text-white">{selectedNote.outinglocation}</p>
+                              </div>
+                            )}
+                            {selectedNote.outingpurpose && (
+                              <div>
+                                <p className="text-xs text-slate-400">Purpose</p>
+                                <p className="text-sm text-white">{selectedNote.outingpurpose}</p>
+                              </div>
+                            )}
+                            {selectedNote.participationlevel && (
+                              <div>
+                                <p className="text-xs text-slate-400">Participation</p>
+                                <p className="text-sm text-white">{selectedNote.participationlevel}</p>
+                              </div>
+                            )}
                           </div>
-                        ) : null;
-                      })}
-                      {selectedNote.goalprogress && (
-                        <p className="text-slate-300 text-sm mt-3 pt-3 border-t border-slate-700">
-                          {selectedNote.goalprogress}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Behaviors */}
-                {selectedNote.behaviors?.length > 0 && (
-                  <div>
-                    <h4 className="text-lg font-bold text-emerald-400 mb-3">Behaviors</h4>
-                    <div className="bg-slate-800/50 rounded-lg p-4 space-y-3">
-                      <div className="flex flex-wrap gap-2">
-                        {selectedNote.behaviors.map(behavior => (
-                          <span key={behavior} className="px-3 py-1 bg-purple-600/20 text-purple-400 rounded-full text-sm font-semibold border border-purple-500/30">
-                            {behavior}
-                          </span>
-                        ))}
-                      </div>
-                      {selectedNote.behaviordetails && (
-                        <div>
-                          <p className="text-xs text-slate-400 mb-1">Details:</p>
-                          <p className="text-slate-300 text-sm">{selectedNote.behaviordetails}</p>
-                        </div>
-                      )}
-                      {selectedNote.behaviortriggers && (
-                        <div>
-                          <p className="text-xs text-slate-400 mb-1">Triggers:</p>
-                          <p className="text-slate-300 text-sm">{selectedNote.behaviortriggers}</p>
-                        </div>
-                      )}
-                      {selectedNote.behaviorinterventions && (
-                        <div>
-                          <p className="text-xs text-slate-400 mb-1">Interventions:</p>
-                          <p className="text-slate-300 text-sm">{selectedNote.behaviorinterventions}</p>
                         </div>
                       )}
                     </div>
                   </div>
                 )}
 
-                {/* Community Outing */}
-                {selectedNote.communityouting && (
-                  <div>
-                    <h4 className="text-lg font-bold text-emerald-400 mb-3">Community Outing</h4>
-                    <div className="bg-slate-800/50 rounded-lg p-4 space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        {selectedNote.outinglocation && (
-                          <div>
-                            <p className="text-xs text-slate-400 mb-1">Location</p>
-                            <p className="text-white font-semibold">{selectedNote.outinglocation}</p>
-                          </div>
-                        )}
-                        {selectedNote.outingduration && (
-                          <div>
-                            <p className="text-xs text-slate-400 mb-1">Duration</p>
-                            <p className="text-white font-semibold">{selectedNote.outingduration}</p>
-                          </div>
-                        )}
-                      </div>
-                      {selectedNote.choiceoffered && (
-                        <div>
-                          <p className="text-xs text-slate-400 mb-1">Choice Offered:</p>
-                          <p className="text-slate-300 text-sm">{selectedNote.choiceoffered}</p>
-                        </div>
-                      )}
-                      {selectedNote.choicetaken && (
-                        <div>
-                          <p className="text-xs text-slate-400 mb-1">Choice Taken:</p>
-                          <p className="text-slate-300 text-sm">{selectedNote.choicetaken}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Mood & Well-being */}
+                {/* SECTION 5 — HEALTH, BEHAVIOR, & WELLNESS */}
                 <div>
-                  <h4 className="text-lg font-bold text-emerald-400 mb-3">Mood & Well-being</h4>
-                  <div className="grid grid-cols-3 gap-3">
+                  <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2">
+                    <Stethoscope size={18} />
+                    Health, Behavior & Wellness
+                  </h4>
+                  <div className="grid grid-cols-3 gap-3 mb-3">
                     <div className="bg-slate-800/50 rounded-lg p-3">
                       <p className="text-xs text-slate-400 mb-1">Mood</p>
                       <p className="text-white font-semibold">{selectedNote.mood}</p>
@@ -1429,27 +1810,140 @@ const DailyNotesPage = () => {
                       <p className="text-white font-semibold">{selectedNote.sleep}</p>
                     </div>
                   </div>
+                  {selectedNote.healthChanges && (
+                    <div className="bg-slate-800/50 rounded-lg p-4 mb-3">
+                      <p className="text-xs text-slate-400 mb-2">Changes Noted:</p>
+                      <p className="text-slate-300 text-sm whitespace-pre-wrap">{selectedNote.healthChanges}</p>
+                    </div>
+                  )}
+                  {selectedNote.noChangesBaseline && (
+                    <div className="flex items-center gap-2 text-slate-400 text-sm">
+                      <CheckCircle size={16} />
+                      <span>No changes from baseline were observed</span>
+                    </div>
+                  )}
                 </div>
 
-                {/* Narrative */}
-                {selectedNote.narrative && (
+                {/* SECTION 6 — ADDITIONAL SUPPORTS */}
+                {selectedNote.additionalSupportsNarrative && (
                   <div>
-                    <h4 className="text-lg font-bold text-emerald-400 mb-3">Daily Narrative</h4>
+                    <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2">
+                      <Users size={18} />
+                      Additional Supports Provided
+                    </h4>
                     <div className="bg-slate-800/50 rounded-lg p-4">
-                      <p className="text-slate-300 text-sm whitespace-pre-wrap">{selectedNote.narrative}</p>
+                      <p className="text-slate-300 text-sm whitespace-pre-wrap">{selectedNote.additionalSupportsNarrative}</p>
                     </div>
                   </div>
                 )}
 
-                {/* Incident */}
-                {selectedNote.incidentreported && (
+                {/* SECTION 7 — MEDICATION ADMINISTRATION */}
+                {(selectedNote.medicationsAdministered || selectedNote.prnMedications?.length > 0) && (
                   <div>
-                    <h4 className="text-lg font-bold text-orange-400 mb-3 flex items-center gap-2">
-                      <AlertCircle size={20} />
-                      Incident Reported
+                    <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2">
+                      <Bell size={18} />
+                      Medication Administration
+                    </h4>
+                    <div className="bg-slate-800/50 rounded-lg p-4 space-y-3">
+                      {selectedNote.medicationsAdministered && (
+                        <div>
+                          <p className="text-xs text-slate-400 mb-1">Medications Administered:</p>
+                          <p className="text-white font-semibold">{selectedNote.medicationsAdministered}</p>
+                          {selectedNote.medicationsAdministered === 'No' && selectedNote.medicationsNotAdministeredReason && (
+                            <p className="text-slate-300 text-sm mt-2">{selectedNote.medicationsNotAdministeredReason}</p>
+                          )}
+                        </div>
+                      )}
+                      {selectedNote.medicationRefusals && (
+                        <div>
+                          <p className="text-xs text-slate-400 mb-1">Refusals / Missed Doses:</p>
+                          <p className="text-slate-300 text-sm">{selectedNote.medicationRefusals}</p>
+                        </div>
+                      )}
+                      {selectedNote.sideEffectsObserved && (
+                        <div>
+                          <p className="text-xs text-slate-400 mb-1">Side Effects Observed:</p>
+                          <p className="text-slate-300 text-sm">{selectedNote.sideEffectsObserved}</p>
+                        </div>
+                      )}
+                      {selectedNote.prnMedications?.length > 0 && (
+                        <div>
+                          <p className="text-xs text-slate-400 mb-1">PRN Medications Given:</p>
+                          <div className="space-y-2 mt-2">
+                            {selectedNote.prnMedications.map((med, index) => (
+                              <div key={index} className="bg-slate-900/50 rounded p-3">
+                                <p className="font-semibold text-white">{med.medication}</p>
+                                <p className="text-sm text-slate-400">Amount: {med.amount} • Time: {med.time}</p>
+                                <p className="text-sm text-slate-300 mt-1">Reason: {med.reason}</p>
+                                <p className="text-sm text-slate-300">Outcome: {med.outcome}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* SECTION 8 — SAFETY & INCIDENT SCREENING */}
+                {(selectedNote.safetyIssues || selectedNote.safetyNarrative) && (
+                  <div>
+                    <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2">
+                      <AlertCircle size={18} />
+                      Safety & Incident Screening
                     </h4>
                     <div className="bg-red-900/20 border border-red-500/50 rounded-lg p-4">
-                      <p className="text-slate-300 text-sm whitespace-pre-wrap">{selectedNote.incidentdetails}</p>
+                      {selectedNote.safetyNarrative && (
+                        <p className="text-slate-300 text-sm whitespace-pre-wrap mb-3">{selectedNote.safetyNarrative}</p>
+                      )}
+                      {selectedNote.incidentReportCompleted && (
+                        <p className="text-sm text-slate-400">
+                          Incident Report: {selectedNote.incidentReportCompleted}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* SECTION 9 — INDEPENDENT LIVING SKILLS */}
+                {selectedNote.livingSkills?.length > 0 && (
+                  <div>
+                    <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2">
+                      <HomeIcon size={18} />
+                      Independent Living Skills Practiced
+                    </h4>
+                    <div className="bg-slate-800/50 rounded-lg p-4 space-y-3">
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {selectedNote.livingSkills.map(skill => {
+                          const skillLabel = livingSkills.find(s => s.value === skill)?.label || skill;
+                          return (
+                            <span key={skill} className="px-3 py-1 bg-blue-600/20 text-blue-400 rounded-full text-xs font-semibold border border-blue-500/30">
+                              {skillLabel}
+                            </span>
+                          );
+                        })}
+                        {selectedNote.livingSkillsOther && (
+                          <span className="px-3 py-1 bg-blue-600/20 text-blue-400 rounded-full text-xs font-semibold border border-blue-500/30">
+                            {selectedNote.livingSkillsOther}
+                          </span>
+                        )}
+                      </div>
+                      {selectedNote.livingSkillsNarrative && (
+                        <p className="text-slate-300 text-sm whitespace-pre-wrap">{selectedNote.livingSkillsNarrative}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Original Narrative (for backward compatibility) */}
+                {selectedNote.narrative && !selectedNote.ispGoalsNarrative && !selectedNote.choiceAutonomyNarrative && (
+                  <div>
+                    <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2">
+                      <MessageSquare size={18} />
+                      Daily Narrative
+                    </h4>
+                    <div className="bg-slate-800/50 rounded-lg p-4">
+                      <p className="text-slate-300 text-sm whitespace-pre-wrap">{selectedNote.narrative}</p>
                     </div>
                   </div>
                 )}

@@ -205,6 +205,7 @@ const IndividualProfilePage = () => {
     }
   }, [activeTab, individualId]);
 
+
   const fetchIndividual = async () => {
     try {
       setLoading(true);
@@ -590,6 +591,7 @@ const IndividualProfilePage = () => {
   const viewDocument = (url) => {
     window.open(url, '_blank');
   };
+
 
   // Outcome Management
   const addOutcome = () => {
@@ -2110,6 +2112,8 @@ Page {pageIndex + 1} of {pdfPages.length}
                 </>
               )}
             </div>
+
+            
           )}
 
         </div>

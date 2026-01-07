@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   TrendingUp, Users, Calendar, Filter, Download, ArrowLeft,
   BarChart3, PieChart, Activity, AlertTriangle, CheckCircle,
-  Clock, Target, Heart, Pill, FileText, MapPin, Brain,
+  Clock, Target, Heart, Pill, FileText, MapPin, Brain,CreditCard,
   ChevronRight, ChevronDown, Loader2, Search, X, Menu,
   Home, Settings, Bell, Shield, Zap, Sparkles, Award,
   TrendingDown, ArrowUp, ArrowDown, Minus, Eye, Share2,
@@ -68,14 +68,17 @@ const AnalyticsPage = () => {
     PERMISSIONS.FULL_ACCESS
   ]);
 
+ // Menu items (same as IncidentsPage)
   const menuItems = [
     { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
     { id: 'individual', icon: Users, label: 'Individuals', badge: null },
     { id: 'medicine', icon: Pill, label: 'Medications', badge: null },
     { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: '3' },
+    { id: 'billing', icon: CreditCard, label: 'Billing', badge: null },
     { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null },
     { id: 'settings', icon: Settings, label: 'Settings', badge: null },
   ];
+
 
   const timeRanges = [
     { value: '7days', label: 'Last 7 Days' },
@@ -556,11 +559,11 @@ const AnalyticsPage = () => {
                     </div>
                     <div className="flex items-center gap-3">
                       <button 
-                        onClick={() => router.push('/dashboard')}
+                        onClick={() => router.push('/')}
                         className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-5 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 border border-slate-700"
                       >
                         <ArrowLeft size={18} />
-                        Back to Dashboard
+                        Back to Home
                       </button>
                       {canExportReports && (
                         <button 
