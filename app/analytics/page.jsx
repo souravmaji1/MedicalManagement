@@ -2,14 +2,17 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  TrendingUp, Users, Calendar, Filter, Download, ArrowLeft,
+  TrendingUp, Users, Calendar, Filter, Download, ArrowLeft, Palette, Music,
   BarChart3, PieChart, Activity, AlertTriangle, CheckCircle,
-  Clock, Target, Heart, Pill, FileText, MapPin, Brain,CreditCard,
+  Clock, Target, Heart, Pill, FileText, MapPin, Brain, CreditCard,
   ChevronRight, ChevronDown, Loader2, Search, X, Menu,
   Home, Settings, Bell, Shield, Zap, Sparkles, Award,
   TrendingDown, ArrowUp, ArrowDown, Minus, Eye, Share2,
   RefreshCcw, Calendar as CalendarIcon, User, Home as HomeIcon,
-  Printer
+  Printer, Pill as PillIcon, BookOpen, Utensils, Shirt, Bath, Bed,
+  Smile, Frown, Meh, MessageSquare, Target as TargetIcon,
+  CheckSquare, ClipboardList, Stethoscope, Bell as BellIcon,
+  ExternalLink, File, Link
 } from 'lucide-react';
 import { ScrollArea } from "../../components/ui/scroll-area";
 import { useUser, UserButton } from '@clerk/nextjs';
@@ -23,7 +26,20 @@ const supabase = createClient(
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJiaWtjeGFseXB0dGZncmx4c3RmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MzcxODcwOCwiZXhwIjoyMDY5Mjk0NzA4fQ.4BLQyvPA0eB745Sfdn2Tl4oCDRTzNhLXrJ8Os8wOXfs'
 );
 
-// main
+// Parse JSON data from Supabase
+const parseJSONData = (data) => {
+  if (!data) return null;
+  if (typeof data === 'string') {
+    try {
+      return JSON.parse(data);
+    } catch (error) {
+      console.error('Error parsing JSON:', error);
+      return null;
+    }
+  }
+  return data;
+};
+
 const AnalyticsPage = () => {
   const { user, isLoaded } = useUser();
   const router = useRouter();
@@ -40,6 +56,11 @@ const AnalyticsPage = () => {
   const [currentPage, setCurrentPage] = useState('analytics');
   const [selectedIndividual, setSelectedIndividual] = useState(null);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [fullIndividualData, setFullIndividualData] = useState(null);
+  const [loadingFullData, setLoadingFullData] = useState(false);
+  const [individualDocuments, setIndividualDocuments] = useState([]);
+  const [loadingDocuments, setLoadingDocuments] = useState(false);
+  
   const [analyticsData, setAnalyticsData] = useState({
     totalIndividuals: 0,
     activeIndividuals: 0,
@@ -68,7 +89,7 @@ const AnalyticsPage = () => {
     PERMISSIONS.FULL_ACCESS
   ]);
 
- // Menu items (same as IncidentsPage)
+  // Menu items
   const menuItems = [
     { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
     { id: 'individual', icon: Users, label: 'Individuals', badge: null },
@@ -78,7 +99,6 @@ const AnalyticsPage = () => {
     { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null },
     { id: 'settings', icon: Settings, label: 'Settings', badge: null },
   ];
-
 
   const timeRanges = [
     { value: '7days', label: 'Last 7 Days' },
@@ -105,6 +125,73 @@ const AnalyticsPage = () => {
     }
   }, [individuals, filterTimeRange, filterFacility]);
 
+  // Fetch full individual data when selected for print
+  useEffect(() => {
+    if (selectedIndividual && !fullIndividualData) {
+      fetchFullIndividualData(selectedIndividual.id);
+      fetchIndividualDocuments(selectedIndividual.id);
+    }
+  }, [selectedIndividual]);
+
+  const fetchIndividualDocuments = async (individualId) => {
+    try {
+      setLoadingDocuments(true);
+      
+      const { data, error } = await supabase
+        .from('individual_documents')
+        .select('*')
+        .eq('individual_id', individualId)
+        .order('uploaded_at', { ascending: false });
+
+      if (error) throw error;
+      
+      setIndividualDocuments(data || []);
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+    } finally {
+      setLoadingDocuments(false);
+    }
+  };
+
+  const fetchFullIndividualData = async (individualId) => {
+    try {
+      setLoadingFullData(true);
+      
+      // Fetch main individual data
+      const { data: individualData, error: individualError } = await supabase
+        .from('individuals')
+        .select('*')
+        .eq('id', individualId)
+        .single();
+
+      if (individualError) throw individualError;
+      
+      if (individualData) {
+        // Parse all JSON fields
+        const parsedData = {
+          ...individualData,
+          medications: parseJSONData(individualData.medications) || [],
+          marhistory: parseJSONData(individualData.marhistory) || [],
+          dailynotes: parseJSONData(individualData.dailynotes) || [],
+          incidents: parseJSONData(individualData.incidents) || [],
+          goals: parseJSONData(individualData.goals) || [],
+          outcomes: parseJSONData(individualData.outcomes) || [],
+          riskplans: parseJSONData(individualData.riskplans) || [],
+          medicalalerts: parseJSONData(individualData.medicalalerts) || [],
+          behavioralalerts: parseJSONData(individualData.behavioralalerts) || [],
+          rightsrestrictions: parseJSONData(individualData.rightsrestrictions) || [],
+          hcbsdomains: parseJSONData(individualData.hcbsdomains) || []
+        };
+        
+        setFullIndividualData(parsedData);
+      }
+    } catch (error) {
+      console.error('Error fetching full individual data:', error);
+    } finally {
+      setLoadingFullData(false);
+    }
+  };
+
   const fetchIndividuals = async () => {
     try {
       setLoading(true);
@@ -128,7 +215,18 @@ const AnalyticsPage = () => {
       const { data, error } = await query;
 
       if (error) throw error;
-      setIndividuals(data || []);
+      
+      // Parse all individuals' data
+      const parsedData = (data || []).map(individual => ({
+        ...individual,
+        medications: parseJSONData(individual.medications) || [],
+        marhistory: parseJSONData(individual.marhistory) || [],
+        dailynotes: parseJSONData(individual.dailynotes) || [],
+        incidents: parseJSONData(individual.incidents) || [],
+        goals: parseJSONData(individual.goals) || []
+      }));
+      
+      setIndividuals(parsedData);
     } catch (error) {
       console.error('Error fetching individuals:', error);
     } finally {
@@ -299,15 +397,6 @@ const AnalyticsPage = () => {
     return colors[index % colors.length];
   };
 
-  const getTrendIndicator = (value, previousValue) => {
-    if (value > previousValue) {
-      return { icon: ArrowUp, color: 'text-green-400', trend: '+' };
-    } else if (value < previousValue) {
-      return { icon: ArrowDown, color: 'text-red-400', trend: '-' };
-    }
-    return { icon: Minus, color: 'text-slate-400', trend: '' };
-  };
-
   const filteredIndividuals = individuals.filter(ind => {
     const matchesSearch = 
       ind.firstname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -321,6 +410,35 @@ const AnalyticsPage = () => {
   });
 
   const facilities = [...new Set(individuals.map(ind => ind.homeassignment))].filter(Boolean);
+
+  // Helper function to get mood icon
+  const getMoodIcon = (mood) => {
+    const icons = {
+      'Happy': Smile,
+      'Calm': Smile,
+      'Excited': Smile,
+      'Neutral': Meh,
+      'Anxious': Frown,
+      'Sad': Frown,
+      'Frustrated': Frown
+    };
+    return icons[mood] || Meh;
+  };
+
+  // Helper function to get activity icon
+  const getActivityIcon = (activityType) => {
+    const icons = {
+      'arts-crafts': Palette,
+      'music': Music,
+      'reading': BookOpen,
+      'exercise': Activity,
+      'social': Users,
+      'community': MapPin,
+      'cognitive': Brain,
+      'group': Users
+    };
+    return icons[activityType] || Activity;
+  };
 
   // NavBar Component
   const NavBar = () => (
@@ -375,7 +493,7 @@ const AnalyticsPage = () => {
           </div>
           <div className="relative">
             <div className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-emerald-500/50">
-                 <UserButton afterSignOutUrl="/" />
+              <UserButton afterSignOutUrl="/" />
             </div>
             <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-900"></div>
           </div>
@@ -529,6 +647,13 @@ const AnalyticsPage = () => {
           .no-print {
             display: none !important;
           }
+          .print-section {
+            page-break-inside: avoid;
+            margin-bottom: 30px;
+          }
+          .print-page-break {
+            page-break-before: always;
+          }
         }
       `}</style>
 
@@ -603,835 +728,1096 @@ const AnalyticsPage = () => {
                         <select
                           value={filterFacility}
                           onChange={(e) => setFilterFacility(e.target.value)}
-                          className="bg-slate-900/50 border border-slate-700/50 rounded-xl px-5Continue13:45py-3 text-white focus:outline-none focus:border-emerald-500 hover:border-emerald-500/50 transition-all font-semibold"
->
-<option value="all">All Facilities</option>
-{facilities.map(facility => (
-<option key={facility} value={facility}>{facility}</option>
-))}
-</select>
-<button
-onClick={() => {
-setFilterTimeRange('30days');
-setFilterFacility('all');
-setSearchTerm('');
-}}
-className="p-3 bg-slate-900/50 hover:bg-slate-800 border border-slate-700/50 hover:border-emerald-500/50 rounded-xl transition-all"
->
-<RefreshCcw size={20} className="text-slate-400 hover:text-emerald-400" />
-</button>
-</div>
-</div>
-</div>
-              {/* Key Metrics Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {/* Total Individuals */}
-                <div className="group relative bg-gradient-to-br from-emerald-600/20 to-teal-500/20 backdrop-blur-sm border border-emerald-500/30 rounded-2xl p-6 hover:border-emerald-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/20 overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-600 to-teal-500 opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-all duration-300"></div>
-                  <div className="relative z-10">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="w-14 h-14 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300">
-                        <Users className="text-white" size={26} />
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <TrendingUp className="text-emerald-400" size={18} />
-                        <span className="text-sm font-bold text-emerald-400">
-                          +5%
-                        </span>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-slate-400 text-sm font-medium">Total Individuals</p>
-                      <div className="flex items-end gap-2">
-                        <p className="text-4xl font-black text-white">{analyticsData.totalIndividuals}</p>
-                        <Sparkles className="text-lime-400 mb-2 animate-pulse" size={20} />
-                      </div>
-                      <p className="text-xs text-emerald-400 font-medium mt-2">
-                        {analyticsData.activeIndividuals} active
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Average Compliance */}
-                <div className="group relative bg-gradient-to-br from-blue-600/20 to-cyan-500/20 backdrop-blur-sm border border-blue-500/30 rounded-2xl p-6 hover:border-blue-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/20 overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-600 to-cyan-500 opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-all duration-300"></div>
-                  <div className="relative z-10">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300">
-                        <CheckCircle className="text-white" size={26} />
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <TrendingUp className="text-blue-400" size={18} />
-                        <span className="text-sm font-bold text-blue-400">
-                          +3%
-                        </span>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-slate-400 text-sm font-medium">Avg Compliance</p>
-                      <div className="flex items-end gap-2">
-                        <p className="text-4xl font-black text-white">{analyticsData.avgComplianceScore}%</p>
-                      </div>
-                      <div className="w-full bg-slate-700 rounded-full h-2 mt-3">
-                        <div 
-                          className="h-full bg-gradient-to-r from-blue-600 to-cyan-500 rounded-full transition-all duration-1000"
-                          style={{width: `${analyticsData.avgComplianceScore}%`}}
-                        ></div>
+                          className="bg-slate-900/50 border border-slate-700/50 rounded-xl px-5 py-3 text-white focus:outline-none focus:border-emerald-500 hover:border-emerald-500/50 transition-all font-semibold"
+                        >
+                          <option value="all">All Facilities</option>
+                          {facilities.map(facility => (
+                            <option key={facility} value={facility}>{facility}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => {
+                            setFilterTimeRange('30days');
+                            setFilterFacility('all');
+                            setSearchTerm('');
+                          }}
+                          className="p-3 bg-slate-900/50 hover:bg-slate-800 border border-slate-700/50 hover:border-emerald-500/50 rounded-xl transition-all"
+                        >
+                          <RefreshCcw size={20} className="text-slate-400 hover:text-emerald-400" />
+                        </button>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Total Daily Notes */}
-                <div className="group relative bg-gradient-to-br from-purple-600/20 to-pink-500/20 backdrop-blur-sm border border-purple-500/30 rounded-2xl p-6 hover:border-purple-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/20 overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-600 to-pink-500 opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-all duration-300"></div>
-                  <div className="relative z-10">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="w-14 h-14 bg-gradient-to-br from-purple-600 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300">
-                        <FileText className="text-white" size={26} />
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <TrendingUp className="text-purple-400" size={18} />
-                        <span className="text-sm font-bold text-purple-400">
-                          +12%
-                        </span>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-slate-400 text-sm font-medium">Daily Notes</p>
-                      <div className="flex items-end gap-2">
-                        <p className="text-4xl font-black text-white">{analyticsData.totalDailyNotes}</p>
-                      </div>
-                      <p className="text-xs text-purple-400 font-medium mt-2">
-                        in selected period
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Total Incidents */}
-                <div className="group relative bg-gradient-to-br from-orange-600/20 to-red-500/20 backdrop-blur-sm border border-orange-500/30 rounded-2xl p-6 hover:border-orange-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-orange-500/20 overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-600 to-red-500 opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-all duration-300"></div>
-                  <div className="relative z-10">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="w-14 h-14 bg-gradient-to-br from-orange-600 to-red-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300">
-                        <AlertTriangle className="text-white" size={26} />
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <TrendingDown className="text-green-400" size={18} />
-                        <span className="text-sm font-bold text-green-400">
-                          -8%
-                        </span>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-slate-400 text-sm font-medium">Total Incidents</p>
-                      <div className="flex items-end gap-2">
-                        <p className="text-4xl font-black text-white">{analyticsData.totalIncidents}</p>
-                      </div>
-                      <p className="text-xs text-orange-400 font-medium mt-2">
-                        {analyticsData.behavioralIncidents} behavioral
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Secondary Metrics */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 rounded-xl p-4 hover:border-emerald-500/30 transition-all">
-                  <div className="flex items-center justify-between mb-2">
-                    <Pill className="text-blue-400" size={20} />
-                    <span className="text-2xl font-bold text-white">{analyticsData.totalMedications}</span>
-                  </div>
-                  <p className="text-slate-400 text-sm">Active Medications</p>
-                  <div className="mt-2 flex items-center gap-2">
-                    <div className="flex-1 bg-slate-700 rounded-full h-1.5">
-                      <div 
-                        className="h-full bg-blue-500 rounded-full" 
-                        style={{width: `${analyticsData.medicationCompliance}%`}}
-                      ></div>
-                    </div>
-                    <span className="text-xs text-slate-500">{analyticsData.medicationCompliance}%</span>
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 rounded-xl p-4 hover:border-emerald-500/30 transition-all">
-                  <div className="flex items-center justify-between mb-2">
-                    <Target className="text-green-400" size={20} />
-                    <span className="text-2xl font-bold text-white">{analyticsData.avgGoalProgress}%</span>
-                  </div>
-                  <p className="text-slate-400 text-sm">Avg Goal Progress</p>
-                  <div className="mt-2 flex items-center gap-2">
-                    <div className="flex-1 bg-slate-700 rounded-full h-1.5">
-                      <div 
-                        className="h-full bg-green-500 rounded-full" 
-                        style={{width: `${analyticsData.avgGoalProgress}%`}}
-                      ></div>
-                    </div>
-                    <span className="text-xs text-slate-500">{analyticsData.goalAchievements} completed</span>
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 rounded-xl p-4 hover:border-emerald-500/30 transition-all">
-                  <div className="flex items-center justify-between mb-2">
-                    <MapPin className="text-purple-400" size={20} />
-                    <span className="text-2xl font-bold text-white">{analyticsData.communityOutings}</span>
-                  </div>
-                  <p className="text-slate-400 text-sm">Community Outings</p>
-                  <div className="mt-2 flex items-center gap-2">
-                    <div className="flex-1 bg-slate-700 rounded-full h-1.5">
-                      <div 
-                        className="h-full bg-purple-500 rounded-full" 
-                        style={{width: `${analyticsData.hcbsCompliance}%`}}
-                      ></div>
-                    </div>
-                    <span className="text-xs text-slate-500">{analyticsData.hcbsCompliance}% HCBS</span>
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 rounded-xl p-4 hover:border-emerald-500/30 transition-all">
-                  <div className="flex items-center justify-between mb-2">
-                    <Brain className="text-cyan-400" size={20} />
-                    <span className="text-2xl font-bold text-white">{analyticsData.behavioralIncidents}</span>
-                  </div>
-                  <p className="text-slate-400 text-sm">Behavioral Events</p>
-                  <div className="mt-2">
-                    <span className="text-xs text-slate-500">
-                      {analyticsData.totalIncidents > 0 
-                        ? Math.round((analyticsData.behavioralIncidents / analyticsData.totalIncidents) * 100)
-                        : 0}% of all incidents
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Individual Performance Table */}
-              <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-emerald-500/30 transition-all duration-300">
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h3 className="text-2xl font-bold text-white mb-2">Individual Performance</h3>
-                    <p className="text-slate-400">Detailed metrics for each individual</p>
-                  </div>
-                  <button
-                    onClick={() => setShowFilterMenu(!showFilterMenu)}
-                    className="flex items-center gap-2 bg-slate-900/50 hover:bg-slate-800 text-white rounded-xl px-5 py-3 border border-slate-700/50 hover:border-emerald-500/50 transition-all duration-300 font-semibold"
-                  >
-                    <Filter size={18} />
-                    Filter
-                  </button>
-                </div>
-
-                {filteredIndividuals.length === 0 ? (
-                  <div className="text-center py-16">
-                    <Users className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                    <h4 className="text-xl font-bold text-slate-400 mb-2">No individuals found</h4>
-                    <p className="text-slate-500">Try adjusting your filters</p>
-                  </div>
-                ) : (
-                  <ScrollArea className="h-[600px]">
-                    <div className="pr-4">
-                      <table className="w-full">
-                        <thead className="sticky top-0 bg-slate-900/95 backdrop-blur-sm z-10">
-                          <tr className="border-b border-slate-700/50">
-                            <th className="text-left py-4 px-4 text-slate-400 font-bold text-xs uppercase tracking-wider">Individual</th>
-                            <th className="text-left py-4 px-4 text-slate-400 font-bold text-xs uppercase tracking-wider">Compliance</th>
-                            <th className="text-left py-4 px-4 text-slate-400 font-bold text-xs uppercase tracking-wider">Daily Notes</th>
-                            <th className="text-left py-4 px-4 text-slate-400 font-bold text-xs uppercase tracking-wider">Medications</th>
-                            <th className="text-left py-4 px-4 text-slate-400 font-bold text-xs uppercase tracking-wider">Incidents</th>
-                            <th className="text-left py-4 px-4 text-slate-400 font-bold text-xs uppercase tracking-wider">Goals</th>
-                            <th className="text-left py-4 px-4 text-slate-400 font-bold text-xs uppercase tracking-wider">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredIndividuals.map((individual, idx) => {
-                            const dailyNotesCount = individual.dailynotes?.filter(note => 
-                              new Date(note.date) >= new Date(new Date().setDate(new Date().getDate() - 30))
-                            ).length || 0;
-                            const medicationsCount = individual.medications?.filter(med => med.status === 'Active').length || 0;
-                            const incidentsCount = individual.incidents?.filter(inc => 
-                              new Date(inc.dateoccurred) >= new Date(new Date().setDate(new Date().getDate() - 30))
-                            ).length || 0;
-                            const goalProgress = individual.goals?.length > 0
-                              ? Math.round(individual.goals.reduce((acc, g) => acc + (g.progress || 0), 0) / individual.goals.length)
-                              : 0;
-
-                            return (
-                              <tr key={individual.id} 
-                                onClick={() => setSelectedIndividual(individual)}
-                                className="border-b border-slate-700/30 hover:bg-slate-900/50 transition-all duration-300 group cursor-pointer">
-                                <td className="py-5 px-4">
-                                  <div className="flex items-center gap-3">
-                                    <div className={`w-12 h-12 bg-gradient-to-br ${getColorClass(idx)} rounded-xl flex items-center justify-center text-white font-bold shadow-lg group-hover:scale-110 transition-all duration-300`}>
-                                      {getInitials(individual.firstname, individual.lastname)}
-                                    </div>
-                                    <div>
-                                      <p className="text-white font-semibold group-hover:text-emerald-400 transition-colors">
-                                        {individual.firstname} {individual.lastname}
-                                      </p>
-                                      <p className="text-slate-500 text-xs font-mono">{individual.individualid}</p>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="py-5 px-4">
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-full bg-slate-700 rounded-full h-2 w-24">
-                                      <div 
-                                        className={`h-full rounded-full ${
-                                          individual.compliance_score >= 95 ? 'bg-lime-500' : 
-                                          individual.compliance_score >= 85 ? 'bg-yellow-500' : 
-                                          'bg-red-500'
-                                        }`} 
-                                        style={{width: `${individual.compliance_score}%`}}
-                                      ></div>
-                                    </div>
-                                    <span className="text-sm font-bold text-white">{individual.compliance_score}%</span>
-                                  </div>
-                                </td>
-                                <td className="py-5 px-4">
-                                  <div className="flex items-center gap-2">
-                                    <FileText size={14} className="text-purple-400" />
-                                    <span className="text-white font-semibold">{dailyNotesCount}</span>
-                                  </div>
-                                </td>
-                                <td className="py-5 px-4">
-                                  <div className="flex items-center gap-2">
-                                    <Pill size={14} className="text-blue-400" />
-                                    <span className="text-white font-semibold">{medicationsCount}</span>
-                                  </div>
-                                </td>
-                                <td className="py-5 px-4">
-                                  <div className="flex items-center gap-2">
-                                    <AlertTriangle size={14} className={incidentsCount > 0 ? 'text-orange-400' : 'text-slate-600'} />
-                                    <span className={`font-semibold ${incidentsCount > 0 ? 'text-white' : 'text-slate-600'}`}>
-                                      {incidentsCount}
-                                    </span>
-                                  </div>
-                                </td>
-                                <td className="py-5 px-4">
-                                  <div className="flex items-center gap-2">
-                                    <Target size={14} className="text-green-400" />
-                                    <span className="text-white font-semibold">{goalProgress}%</span>
-                                  </div>
-                                </td>
-                                <td className="py-5 px-4">
-                                  <div className="flex items-center gap-2">
-                                    <button 
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        router.push(`/individual/${individual.id}`);
-                                      }}
-                                      className="p-2 hover:bg-emerald-500/20 rounded-lg transition-all group/btn"
-                                    >
-                                      <Eye size={16} className="text-emerald-400 group-hover/btn:scale-110 transition-all" />
-                                    </button>
-                                    <button 
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        // Generate individual report
-                                      }}
-                                      className="p-2 hover:bg-blue-500/20 rounded-lg transition-all group/btn"
-                                    >
-                                      <Share2 size={16} className="text-blue-400 group-hover/btn:scale-110 transition-all" />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </ScrollArea>
-                )}
-
-                <div className="flex items-center justify-between mt-6 pt-6 border-t border-slate-700/50">
-                  <p className="text-slate-400 text-sm">
-                    Showing <span className="text-white font-semibold">{filteredIndividuals.length}</span> of <span className="text-white font-semibold">{individuals.length}</span> individuals
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <button className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-semibold transition-all">
-                      Previous
-                    </button>
-                    <button className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition-all">
-                      Next
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Charts Section */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-emerald-500/30 transition-all duration-300">
-                  <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                    <BarChart3 className="text-emerald-400" size={24} />
-                    Compliance Trends
-                  </h3>
-                  <div className="h-64 flex items-center justify-center border-2 border-dashed border-slate-700 rounded-xl">
-                    <div className="text-center">
-                      <TrendingUp className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                      <p className="text-slate-500">Chart visualization coming soon</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-emerald-500/30 transition-all duration-300">
-                  <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                    <PieChart className="text-blue-400" size={24} />
-                    Incident Distribution
-                  </h3>
-                  <div className="h-64 flex items-center justify-center border-2 border-dashed border-slate-700 rounded-xl">
-                    <div className="text-center">
-                      <PieChart className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                      <p className="text-slate-500">Chart visualization coming soon</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </main>
-        </ScrollArea>
-      </div>
-    </div>
-
-    {/* Individual Detail Modal */}
-    {selectedIndividual && (
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 no-print">
-        <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
-          <div className="flex items-center justify-between p-6 border-b border-slate-700">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center text-white font-bold text-xl">
-                {getInitials(selectedIndividual.firstname, selectedIndividual.lastname)}
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold text-white">
-                  {selectedIndividual.firstname} {selectedIndividual.lastname}
-                </h3>
-                <p className="text-slate-400 text-sm">ID: {selectedIndividual.individualid}</p>
-              </div>
-            </div>
-            <button 
-              onClick={() => setSelectedIndividual(null)}
-              className="p-2 hover:bg-slate-700 rounded-lg transition-all"
-            >
-              <X className="text-slate-400" size={24} />
-            </button>
-          </div>
-
-          <ScrollArea className="h-[calc(90vh-180px)]">
-            <div className="p-6 space-y-6">
-              {/* Quick Stats */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-slate-800/50 rounded-xl p-4">
-                  <p className="text-slate-400 text-xs mb-1">Compliance</p>
-                  <p className="text-2xl font-bold text-white">{selectedIndividual.compliance_score}%</p>
-                </div>
-                <div className="bg-slate-800/50 rounded-xl p-4">
-                  <p className="text-slate-400 text-xs mb-1">Daily Notes</p>
-                  <p className="text-2xl font-bold text-white">{selectedIndividual.dailynotes?.length || 0}</p>
-                </div>
-                <div className="bg-slate-800/50 rounded-xl p-4">
-                  <p className="text-slate-400 text-xs mb-1">Medications</p>
-                  <p className="text-2xl font-bold text-white">{selectedIndividual.medications?.length || 0}</p>
-                </div>
-                <div className="bg-slate-800/50 rounded-xl p-4">
-                  <p className="text-slate-400 text-xs mb-1">Incidents</p>
-                  <p className="text-2xl font-bold text-white">{selectedIndividual.incidents?.length || 0}</p>
-                </div>
-              </div>
-
-              {/* Detailed Sections */}
-              <div className="space-y-4">
-                <div className="bg-slate-800/30 rounded-xl p-4">
-                  <h4 className="text-white font-bold mb-3 flex items-center gap-2">
-                    <User size={18} />
-                    Basic Information
-                  </h4>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <p className="text-slate-500">Home Assignment</p>
-                      <p className="text-white font-semibold">{selectedIndividual.homeassignment}</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-500">Status</p>
-                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${
-                        selectedIndividual.status === 'Active' ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'
-                      }`}>
-                        {selectedIndividual.status}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-slate-500">Date of Birth</p>
-                      <p className="text-white font-semibold">{new Date(selectedIndividual.dateofbirth).toLocaleDateString()}</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-500">Admission Date</p>
-                      <p className="text-white font-semibold">{new Date(selectedIndividual.admissiondate).toLocaleDateString()}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-slate-800/30 rounded-xl p-4">
-                  <h4 className="text-white font-bold mb-3 flex items-center gap-2Continue13:48">
-<Target size={18} />
-Goals & Outcomes
-</h4>
-{selectedIndividual.goals?.length > 0 ? (
-<div className="space-y-2">
-{selectedIndividual.goals.slice(0, 3).map(goal => (
-<div key={goal.id} className="flex items-center justify-between">
-<p className="text-sm text-slate-300">{goal.description}</p>
-<span className="text-sm font-bold text-emerald-400">{goal.progress}%</span>
-</div>
-))}
-</div>
-) : (
-<p className="text-slate-500 text-sm">No goals defined</p>
-)}
-</div>
-                <div className="bg-slate-800/30 rounded-xl p-4">
-                  <h4 className="text-white font-bold mb-3 flex items-center gap-2">
-                    <AlertTriangle size={18} />
-                    Recent Incidents
-                  </h4>
-                  {selectedIndividual.incidents?.length > 0 ? (
-                    <div className="space-y-2">
-                      {selectedIndividual.incidents.slice(0, 3).map(incident => (
-                        <div key={incident.id} className="flex items-center justify-between text-sm">
-                          <p className="text-slate-300">{incident.incidenttype}</p>
-                          <span className="text-slate-500">{new Date(incident.dateoccurred).toLocaleDateString()}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-slate-500 text-sm">No incidents reported</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </ScrollArea>
-
-          <div className="p-6 border-t border-slate-700 flex justify-end gap-3">
-            <button
-              onClick={() => setSelectedIndividual(null)}
-              className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all"
-            >
-              Close
-            </button>
-            <button
-              onClick={handlePrintIndividual}
-              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-blue-500/50 transition-all flex items-center gap-2"
-            >
-              <Printer size={18} />
-              Print Report
-            </button>
-            <button
-              onClick={() => router.push(`/individual/${selectedIndividual.id}`)}
-              className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-emerald-500/50 transition-all"
-            >
-              View Full Profile
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
-
-    {/* Printable Content - Hidden on screen, visible in print */}
-    {selectedIndividual && (
-      <div id="printable-content" className="hidden print:block">
-        <div className="bg-white text-black p-8">
-          {/* Header */}
-          <div className="border-b-4 border-emerald-600 pb-6 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-4">
-                <div className="w-20 h-20 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-2xl flex items-center justify-center text-white font-bold text-3xl shadow-lg">
-                  {getInitials(selectedIndividual.firstname, selectedIndividual.lastname)}
-                </div>
-                <div>
-                  <h1 className="text-4xl font-black text-gray-900">
-                    {selectedIndividual.firstname} {selectedIndividual.lastname}
-                  </h1>
-                  <p className="text-gray-600 text-lg mt-1">Individual Profile Report</p>
-                  <p className="text-gray-500 text-sm font-mono mt-1">ID: {selectedIndividual.individualid}</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="bg-emerald-50 border-2 border-emerald-600 rounded-xl p-4">
-                  <p className="text-xs text-gray-600 mb-1">Report Generated</p>
-                  <p className="text-lg font-bold text-emerald-700">{new Date().toLocaleDateString()}</p>
-                  <p className="text-sm text-gray-500">{new Date().toLocaleTimeString()}</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border-l-4 border-emerald-600 p-4 rounded-r-lg">
-              <p className="text-sm font-semibold text-emerald-900">CareBridge Pro - IPMS Aligned EMR System</p>
-              <p className="text-xs text-gray-600">Alabama DD Compliant Electronic Medical Record</p>
-            </div>
-          </div>
-
-          {/* Quick Statistics Grid */}
-          <div className="grid grid-cols-4 gap-4 mb-8">
-            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border-2 border-emerald-200 rounded-xl p-5">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 bg-emerald-600 rounded-lg flex items-center justify-center">
-                  <CheckCircle className="text-white" size={20} />
-                </div>
-                <p className="text-xs text-gray-600 font-semibold uppercase">Compliance</p>
-              </div>
-              <p className="text-3xl font-black text-emerald-700">{selectedIndividual.compliance_score}%</p>
-              <div className="w-full bg-gray-200 rounded-full h-2 mt-3">
-                <div 
-                  className="h-full bg-emerald-600 rounded-full" 
-                  style={{width: `${selectedIndividual.compliance_score}%`}}
-                ></div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-200 rounded-xl p-5">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
-                  <FileText className="text-white" size={20} />
-                </div>
-                <p className="text-xs text-gray-600 font-semibold uppercase">Daily Notes</p>
-              </div>
-              <p className="text-3xl font-black text-purple-700">{selectedIndividual.dailynotes?.length || 0}</p>
-              <p className="text-xs text-gray-500 mt-2">Total documented</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl p-5">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <Pill className="text-white" size={20} />
-                </div>
-                <p className="text-xs text-gray-600 font-semibold uppercase">Medications</p>
-              </div>
-              <p className="text-3xl font-black text-blue-700">{selectedIndividual.medications?.filter(m => m.status === 'Active').length || 0}</p>
-              <p className="text-xs text-gray-500 mt-2">Active prescriptions</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-orange-50 to-orange-100 border-2 border-orange-200 rounded-xl p-5">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center">
-                  <AlertTriangle className="text-white" size={20} />
-                </div>
-                <p className="text-xs text-gray-600 font-semibold uppercase">Incidents</p>
-              </div>
-              <p className="text-3xl font-black text-orange-700">{selectedIndividual.incidents?.length || 0}</p>
-              <p className="text-xs text-gray-500 mt-2">Total reported</p>
-            </div>
-          </div>
-
-          {/* Basic Information Section */}
-          <div className="mb-8">
-            <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white p-4 rounded-t-xl flex items-center gap-2">
-              <User size={20} />
-              <h2 className="text-xl font-bold">Basic Information</h2>
-            </div>
-            <div className="border-2 border-gray-200 rounded-b-xl p-6">
-              <div className="grid grid-cols-3 gap-6">
-                <div>
-                  <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Full Name</p>
-                  <p className="text-lg font-bold text-gray-900">{selectedIndividual.firstname} {selectedIndividual.lastname}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Individual ID</p>
-                  <p className="text-lg font-bold text-gray-900 font-mono">{selectedIndividual.individualid}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Status</p>
-                  <span className={`inline-flex px-3 py-1 rounded-full text-sm font-bold ${
-                    selectedIndividual.status === 'Active' ? 'bg-green-100 text-green-700 border-2 border-green-300' : 'bg-yellow-100 text-yellow-700 border-2 border-yellow-300'
-                  }`}>
-                    {selectedIndividual.status}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Date of Birth</p>
-                  <p className="text-lg font-bold text-gray-900">{new Date(selectedIndividual.dateofbirth).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Admission Date</p>
-                  <p className="text-lg font-bold text-gray-900">{new Date(selectedIndividual.admissiondate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Home Assignment</p>
-                  <p className="text-lg font-bold text-gray-900">{selectedIndividual.homeassignment}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Goals & Progress Section */}
-          {selectedIndividual.goals && selectedIndividual.goals.length > 0 && (
-            <div className="mb-8">
-              <div className="bg-gradient-to-r from-green-700 to-emerald-600 text-white p-4 rounded-t-xl flex items-center gap-2">
-                <Target size={20} />
-                <h2 className="text-xl font-bold">Goals & Progress Tracking</h2>
-              </div>
-              <div className="border-2 border-gray-200 rounded-b-xl p-6">
-                <div className="space-y-4">
-                  {selectedIndividual.goals.map((goal, idx) => (
-                    <div key={goal.id || idx} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-bold text-gray-500 uppercase">Goal {idx + 1}</span>
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
-                              goal.status === 'Active' ? 'bg-green-100 text-green-700' :
-                              goal.status === 'Completed' ? 'bg-blue-100 text-blue-700' :
-                              'bg-gray-100 text-gray-700'
-                            }`}>
-                              {goal.status}
+                  {/* Key Metrics Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {/* Total Individuals */}
+                    <div className="group relative bg-gradient-to-br from-emerald-600/20 to-teal-500/20 backdrop-blur-sm border border-emerald-500/30 rounded-2xl p-6 hover:border-emerald-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/20 overflow-hidden">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-600 to-teal-500 opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-all duration-300"></div>
+                      <div className="relative z-10">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="w-14 h-14 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300">
+                            <Users className="text-white" size={26} />
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <TrendingUp className="text-emerald-400" size={18} />
+                            <span className="text-sm font-bold text-emerald-400">
+                              +5%
                             </span>
                           </div>
-                          <p className="text-sm font-semibold text-gray-900">{goal.description || 'No description provided'}</p>
                         </div>
-                        <div className="text-right ml-4">
-                          <p className="text-2xl font-black text-green-600">{goal.progress || 0}%</p>
+                        <div className="space-y-1">
+                          <p className="text-slate-400 text-sm font-medium">Total Individuals</p>
+                          <div className="flex items-end gap-2">
+                            <p className="text-4xl font-black text-white">{analyticsData.totalIndividuals}</p>
+                            <Sparkles className="text-lime-400 mb-2 animate-pulse" size={20} />
+                          </div>
+                          <p className="text-xs text-emerald-400 font-medium mt-2">
+                            {analyticsData.activeIndividuals} active
+                          </p>
                         </div>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-3">
-                        <div 
-                          className="h-full bg-gradient-to-r from-green-500 to-emerald-600 rounded-full transition-all" 
-                          style={{width: `${goal.progress || 0}%`}}
-                        ></div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
 
-          {/* Medications Section */}
-          // Replace the medications section in the printable content with this corrected version:
+                    {/* Average Compliance */}
+                    <div className="group relative bg-gradient-to-br from-blue-600/20 to-cyan-500/20 backdrop-blur-sm border border-blue-500/30 rounded-2xl p-6 hover:border-blue-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/20 overflow-hidden">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-600 to-cyan-500 opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-all duration-300"></div>
+                      <div className="relative z-10">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300">
+                            <CheckCircle className="text-white" size={26} />
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <TrendingUp className="text-blue-400" size={18} />
+                            <span className="text-sm font-bold text-blue-400">
+                              +3%
+                            </span>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-slate-400 text-sm font-medium">Avg Compliance</p>
+                          <div className="flex items-end gap-2">
+                            <p className="text-4xl font-black text-white">{analyticsData.avgComplianceScore}%</p>
+                          </div>
+                          <div className="w-full bg-slate-700 rounded-full h-2 mt-3">
+                            <div 
+                              className="h-full bg-gradient-to-r from-blue-600 to-cyan-500 rounded-full transition-all duration-1000"
+                              style={{width: `${analyticsData.avgComplianceScore}%`}}
+                            ></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
 
-{selectedIndividual.medications && selectedIndividual.medications.length > 0 && (
-  <div className="mb-8">
-    <div className="bg-gradient-to-r from-blue-700 to-cyan-600 text-white p-4 rounded-t-xl flex items-center gap-2">
-      <Pill size={20} />
-      <h2 className="text-xl font-bold">Medication Management</h2>
-    </div>
-    <div className="border-2 border-gray-200 rounded-b-xl">
-      <table className="w-full">
-        <thead className="bg-gray-50 border-b-2 border-gray-200">
-          <tr>
-            <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Medication Name</th>
-            <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Dosage</th>
-            <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Route</th>
-            <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Frequency</th>
-            <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Status</th>
-            <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Compliance</th>
-          </tr>
-        </thead>
-        <tbody>
-          {selectedIndividual.medications.map((med, idx) => (
-            <tr key={med.id || idx} className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-              <td className="py-3 px-4 text-sm font-semibold text-gray-900">
-                {med.medicationname || med.name || 'N/A'}
-              </td>
-              <td className="py-3 px-4 text-sm text-gray-700">{med.dosage || 'N/A'}</td>
-              <td className="py-3 px-4 text-sm text-gray-700">{med.route || 'N/A'}</td>
-              <td className="py-3 px-4 text-sm text-gray-700">{med.frequency || 'N/A'}</td>
-              <td className="py-3 px-4">
-                <span className={`text-xs px-2 py-1 rounded-full font-bold ${
-                  med.status === 'Active' ? 'bg-green-100 text-green-700' :
-                  med.status === 'On Hold' ? 'bg-yellow-100 text-yellow-700' :
-                  'bg-red-100 text-red-700'
-                }`}>
-                  {med.status || 'Active'}
-                </span>
-              </td>
-              <td className="py-3 px-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-20 bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="h-full bg-blue-600 rounded-full" 
-                      style={{width: `${med.compliance || 0}%`}}
-                    ></div>
+                    {/* Total Daily Notes */}
+                    <div className="group relative bg-gradient-to-br from-purple-600/20 to-pink-500/20 backdrop-blur-sm border border-purple-500/30 rounded-2xl p-6 hover:border-purple-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/20 overflow-hidden">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-600 to-pink-500 opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-all duration-300"></div>
+                      <div className="relative z-10">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="w-14 h-14 bg-gradient-to-br from-purple-600 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300">
+                            <FileText className="text-white" size={26} />
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <TrendingUp className="text-purple-400" size={18} />
+                            <span className="text-sm font-bold text-purple-400">
+                              +12%
+                            </span>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-slate-400 text-sm font-medium">Daily Notes</p>
+                          <div className="flex items-end gap-2">
+                            <p className="text-4xl font-black text-white">{analyticsData.totalDailyNotes}</p>
+                          </div>
+                          <p className="text-xs text-purple-400 font-medium mt-2">
+                            in selected period
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Total Incidents */}
+                    <div className="group relative bg-gradient-to-br from-orange-600/20 to-red-500/20 backdrop-blur-sm border border-orange-500/30 rounded-2xl p-6 hover:border-orange-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-orange-500/20 overflow-hidden">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-600 to-red-500 opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-all duration-300"></div>
+                      <div className="relative z-10">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="w-14 h-14 bg-gradient-to-br from-orange-600 to-red-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300">
+                            <AlertTriangle className="text-white" size={26} />
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <TrendingDown className="text-green-400" size={18} />
+                            <span className="text-sm font-bold text-green-400">
+                              -8%
+                            </span>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-slate-400 text-sm font-medium">Total Incidents</p>
+                          <div className="flex items-end gap-2">
+                            <p className="text-4xl font-black text-white">{analyticsData.totalIncidents}</p>
+                          </div>
+                          <p className="text-xs text-orange-400 font-medium mt-2">
+                            {analyticsData.behavioralIncidents} behavioral
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <span className="text-xs font-bold text-gray-700">{med.compliance || 0}%</span>
+
+                  {/* Secondary Metrics */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 rounded-xl p-4 hover:border-emerald-500/30 transition-all">
+                      <div className="flex items-center justify-between mb-2">
+                        <Pill className="text-blue-400" size={20} />
+                        <span className="text-2xl font-bold text-white">{analyticsData.totalMedications}</span>
+                      </div>
+                      <p className="text-slate-400 text-sm">Active Medications</p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <div className="flex-1 bg-slate-700 rounded-full h-1.5">
+                          <div 
+                            className="h-full bg-blue-500 rounded-full" 
+                            style={{width: `${analyticsData.medicationCompliance}%`}}
+                          ></div>
+                        </div>
+                        <span className="text-xs text-slate-500">{analyticsData.medicationCompliance}%</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 rounded-xl p-4 hover:border-emerald-500/30 transition-all">
+                      <div className="flex items-center justify-between mb-2">
+                        <Target className="text-green-400" size={20} />
+                        <span className="text-2xl font-bold text-white">{analyticsData.avgGoalProgress}%</span>
+                      </div>
+                      <p className="text-slate-400 text-sm">Avg Goal Progress</p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <div className="flex-1 bg-slate-700 rounded-full h-1.5">
+                          <div 
+                            className="h-full bg-green-500 rounded-full" 
+                            style={{width: `${analyticsData.avgGoalProgress}%`}}
+                          ></div>
+                        </div>
+                        <span className="text-xs text-slate-500">{analyticsData.goalAchievements} completed</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 rounded-xl p-4 hover:border-emerald-500/30 transition-all">
+                      <div className="flex items-center justify-between mb-2">
+                        <MapPin className="text-purple-400" size={20} />
+                        <span className="text-2xl font-bold text-white">{analyticsData.communityOutings}</span>
+                      </div>
+                      <p className="text-slate-400 text-sm">Community Outings</p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <div className="flex-1 bg-slate-700 rounded-full h-1.5">
+                          <div 
+                            className="h-full bg-purple-500 rounded-full" 
+                            style={{width: `${analyticsData.hcbsCompliance}%`}}
+                          ></div>
+                        </div>
+                        <span className="text-xs text-slate-500">{analyticsData.hcbsCompliance}% HCBS</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 rounded-xl p-4 hover:border-emerald-500/30 transition-all">
+                      <div className="flex items-center justify-between mb-2">
+                        <Brain className="text-cyan-400" size={20} />
+                        <span className="text-2xl font-bold text-white">{analyticsData.behavioralIncidents}</span>
+                      </div>
+                      <p className="text-slate-400 text-sm">Behavioral Events</p>
+                      <div className="mt-2">
+                        <span className="text-xs text-slate-500">
+                          {analyticsData.totalIncidents > 0 
+                            ? Math.round((analyticsData.behavioralIncidents / analyticsData.totalIncidents) * 100)
+                            : 0}% of all incidents
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Individual Performance Table */}
+                  <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-emerald-500/30 transition-all duration-300">
+                    <div className="flex items-center justify-between mb-6">
+                      <div>
+                        <h3 className="text-2xl font-bold text-white mb-2">Individual Performance</h3>
+                        <p className="text-slate-400">Detailed metrics for each individual</p>
+                      </div>
+                      <button
+                        onClick={() => setShowFilterMenu(!showFilterMenu)}
+                        className="flex items-center gap-2 bg-slate-900/50 hover:bg-slate-800 text-white rounded-xl px-5 py-3 border border-slate-700/50 hover:border-emerald-500/50 transition-all duration-300 font-semibold"
+                      >
+                        <Filter size={18} />
+                        Filter
+                      </button>
+                    </div>
+
+                    {filteredIndividuals.length === 0 ? (
+                      <div className="text-center py-16">
+                        <Users className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                        <h4 className="text-xl font-bold text-slate-400 mb-2">No individuals found</h4>
+                        <p className="text-slate-500">Try adjusting your filters</p>
+                      </div>
+                    ) : (
+                      <ScrollArea className="h-[600px]">
+                        <div className="pr-4">
+                          <table className="w-full">
+                            <thead className="sticky top-0 bg-slate-900/95 backdrop-blur-sm z-10">
+                              <tr className="border-b border-slate-700/50">
+                                <th className="text-left py-4 px-4 text-slate-400 font-bold text-xs uppercase tracking-wider">Individual</th>
+                                <th className="text-left py-4 px-4 text-slate-400 font-bold text-xs uppercase tracking-wider">Compliance</th>
+                                <th className="text-left py-4 px-4 text-slate-400 font-bold text-xs uppercase tracking-wider">Daily Notes</th>
+                                <th className="text-left py-4 px-4 text-slate-400 font-bold text-xs uppercase tracking-wider">Medications</th>
+                                <th className="text-left py-4 px-4 text-slate-400 font-bold text-xs uppercase tracking-wider">Incidents</th>
+                                <th className="text-left py-4 px-4 text-slate-400 font-bold text-xs uppercase tracking-wider">Goals</th>
+                                <th className="text-left py-4 px-4 text-slate-400 font-bold text-xs uppercase tracking-wider">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {filteredIndividuals.map((individual, idx) => {
+                                const dailyNotesCount = individual.dailynotes?.filter(note => 
+                                  new Date(note.date) >= new Date(new Date().setDate(new Date().getDate() - 30))
+                                ).length || 0;
+                                const medicationsCount = individual.medications?.filter(med => med.status === 'Active').length || 0;
+                                const incidentsCount = individual.incidents?.filter(inc => 
+                                  new Date(inc.dateoccurred) >= new Date(new Date().setDate(new Date().getDate() - 30))
+                                ).length || 0;
+                                const goalProgress = individual.goals?.length > 0
+                                  ? Math.round(individual.goals.reduce((acc, g) => acc + (g.progress || 0), 0) / individual.goals.length)
+                                  : 0;
+
+                                return (
+                                  <tr key={individual.id} 
+                                    onClick={() => setSelectedIndividual(individual)}
+                                    className="border-b border-slate-700/30 hover:bg-slate-900/50 transition-all duration-300 group cursor-pointer">
+                                    <td className="py-5 px-4">
+                                      <div className="flex items-center gap-3">
+                                        <div className={`w-12 h-12 bg-gradient-to-br ${getColorClass(idx)} rounded-xl flex items-center justify-center text-white font-bold shadow-lg group-hover:scale-110 transition-all duration-300`}>
+                                          {getInitials(individual.firstname, individual.lastname)}
+                                        </div>
+                                        <div>
+                                          <p className="text-white font-semibold group-hover:text-emerald-400 transition-colors">
+                                            {individual.firstname} {individual.lastname}
+                                          </p>
+                                          <p className="text-slate-500 text-xs font-mono">{individual.individualid}</p>
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td className="py-5 px-4">
+                                      <div className="flex items-center gap-3">
+                                        <div className="w-full bg-slate-700 rounded-full h-2 w-24">
+                                          <div 
+                                            className={`h-full rounded-full ${
+                                              individual.compliance_score >= 95 ? 'bg-lime-500' : 
+                                              individual.compliance_score >= 85 ? 'bg-yellow-500' : 
+                                              'bg-red-500'
+                                            }`} 
+                                            style={{width: `${individual.compliance_score}%`}}
+                                          ></div>
+                                        </div>
+                                        <span className="text-sm font-bold text-white">{individual.compliance_score}%</span>
+                                      </div>
+                                    </td>
+                                    <td className="py-5 px-4">
+                                      <div className="flex items-center gap-2">
+                                        <FileText size={14} className="text-purple-400" />
+                                        <span className="text-white font-semibold">{dailyNotesCount}</span>
+                                      </div>
+                                    </td>
+                                    <td className="py-5 px-4">
+                                      <div className="flex items-center gap-2">
+                                        <Pill size={14} className="text-blue-400" />
+                                        <span className="text-white font-semibold">{medicationsCount}</span>
+                                      </div>
+                                    </td>
+                                    <td className="py-5 px-4">
+                                      <div className="flex items-center gap-2">
+                                        <AlertTriangle size={14} className={incidentsCount > 0 ? 'text-orange-400' : 'text-slate-600'} />
+                                        <span className={`font-semibold ${incidentsCount > 0 ? 'text-white' : 'text-slate-600'}`}>
+                                          {incidentsCount}
+                                        </span>
+                                      </div>
+                                    </td>
+                                    <td className="py-5 px-4">
+                                      <div className="flex items-center gap-2">
+                                        <Target size={14} className="text-green-400" />
+                                        <span className="text-white font-semibold">{goalProgress}%</span>
+                                      </div>
+                                    </td>
+                                    <td className="py-5 px-4">
+                                      <div className="flex items-center gap-2">
+                                        <button 
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            router.push(`/individual/${individual.id}`);
+                                          }}
+                                          className="p-2 hover:bg-emerald-500/20 rounded-lg transition-all group/btn"
+                                        >
+                                          <Eye size={16} className="text-emerald-400 group-hover/btn:scale-110 transition-all" />
+                                        </button>
+                                        <button 
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedIndividual(individual);
+                                          }}
+                                          className="p-2 hover:bg-blue-500/20 rounded-lg transition-all group/btn"
+                                        >
+                                          <Printer size={16} className="text-blue-400 group-hover/btn:scale-110 transition-all" />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </ScrollArea>
+                    )}
+
+                    <div className="flex items-center justify-between mt-6 pt-6 border-t border-slate-700/50">
+                      <p className="text-slate-400 text-sm">
+                        Showing <span className="text-white font-semibold">{filteredIndividuals.length}</span> of <span className="text-white font-semibold">{individuals.length}</span> individuals
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <button className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-semibold transition-all">
+                          Previous
+                        </button>
+                        <button className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition-all">
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Charts Section */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-emerald-500/30 transition-all duration-300">
+                      <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                        <BarChart3 className="text-emerald-400" size={24} />
+                        Compliance Trends
+                      </h3>
+                      <div className="h-64 flex items-center justify-center border-2 border-dashed border-slate-700 rounded-xl">
+                        <div className="text-center">
+                          <TrendingUp className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                          <p className="text-slate-500">Chart visualization coming soon</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-emerald-500/30 transition-all duration-300">
+                      <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                        <PieChart className="text-blue-400" size={24} />
+                        Incident Distribution
+                      </h3>
+                      <div className="h-64 flex items-center justify-center border-2 border-dashed border-slate-700 rounded-xl">
+                        <div className="text-center">
+                          <PieChart className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                          <p className="text-slate-500">Chart visualization coming soon</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </div>
-)}
+              </main>
+            </ScrollArea>
+          </div>
+        </div>
 
-          {/* Incidents Section */}
-          {selectedIndividual.incidents && selectedIndividual.incidents.length > 0 && (
-            <div className="mb-8">
-              <div className="bg-gradient-to-r from-orange-700 to-red-600 text-white p-4 rounded-t-xl flex items-center gap-2">
-                <AlertTriangle size={20} />
-                <h2 className="text-xl font-bold">Incident Reports</h2>
+        {/* Individual Detail Modal */}
+        {selectedIndividual && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 no-print">
+            <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+              <div className="flex items-center justify-between p-6 border-b border-slate-700">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center text-white font-bold text-xl">
+                    {getInitials(selectedIndividual.firstname, selectedIndividual.lastname)}
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-white">
+                      {selectedIndividual.firstname} {selectedIndividual.lastname}
+                    </h3>
+                    <p className="text-slate-400 text-sm">ID: {selectedIndividual.individualid}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => {
+                    setSelectedIndividual(null);
+                    setFullIndividualData(null);
+                    setIndividualDocuments([]);
+                  }}
+                  className="p-2 hover:bg-slate-700 rounded-lg transition-all"
+                >
+                  <X className="text-slate-400" size={24} />
+                </button>
               </div>
-              <div className="border-2 border-gray-200 rounded-b-xl">
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b-2 border-gray-200">
-                    <tr>
-                      <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Date</th>
-                      <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Incident Type</th>
-                      <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Severity</th>
-                      <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Description</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedIndividual.incidents.slice(0, 5).map((incident, idx) => (
-                      <tr key={incident.id || idx} className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                        <td className="py-3 px-4 text-sm font-semibold text-gray-900">
-                          {new Date(incident.dateoccurred).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-700">{incident.incidenttype || 'N/A'}</td>
-                        <td className="py-3 px-4">
-                          <span className={`text-xs px-2 py-1 rounded-full font-bold ${
-                            incident.severity === 'High' ? 'bg-red-100 text-red-700' :
-                            incident.severity === 'Medium' ? 'bg-orange-100 text-orange-700' :
-                            'bg-yellow-100 text-yellow-700'
+
+              <ScrollArea className="h-[calc(90vh-180px)]">
+                <div className="p-6 space-y-6">
+                  {/* Quick Stats */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-slate-800/50 rounded-xl p-4">
+                      <p className="text-slate-400 text-xs mb-1">Compliance</p>
+                      <p className="text-2xl font-bold text-white">{selectedIndividual.compliance_score}%</p>
+                    </div>
+                    <div className="bg-slate-800/50 rounded-xl p-4">
+                      <p className="text-slate-400 text-xs mb-1">Daily Notes</p>
+                      <p className="text-2xl font-bold text-white">{selectedIndividual.dailynotes?.length || 0}</p>
+                    </div>
+                    <div className="bg-slate-800/50 rounded-xl p-4">
+                      <p className="text-slate-400 text-xs mb-1">Medications</p>
+                      <p className="text-2xl font-bold text-white">{selectedIndividual.medications?.length || 0}</p>
+                    </div>
+                    <div className="bg-slate-800/50 rounded-xl p-4">
+                      <p className="text-slate-400 text-xs mb-1">Incidents</p>
+                      <p className="text-2xl font-bold text-white">{selectedIndividual.incidents?.length || 0}</p>
+                    </div>
+                  </div>
+
+                  {/* Detailed Sections */}
+                  <div className="space-y-4">
+                    <div className="bg-slate-800/30 rounded-xl p-4">
+                      <h4 className="text-white font-bold mb-3 flex items-center gap-2">
+                        <User size={18} />
+                        Basic Information
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-slate-500">Home Assignment</p>
+                          <p className="text-white font-semibold">{selectedIndividual.homeassignment}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500">Status</p>
+                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${
+                            selectedIndividual.status === 'Active' ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'
                           }`}>
-                            {incident.severity || 'Low'}
+                            {selectedIndividual.status}
                           </span>
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-700">{incident.description ? incident.description.substring(0, 60) + '...' : 'No description'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+                        </div>
+                        <div>
+                          <p className="text-slate-500">Date of Birth</p>
+                          <p className="text-white font-semibold">{new Date(selectedIndividual.dateofbirth).toLocaleDateString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500">Admission Date</p>
+                          <p className="text-white font-semibold">{new Date(selectedIndividual.admissiondate).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                    </div>
 
-          {/* Footer */}
-          <div className="mt-12 pt-6 border-t-2 border-gray-300">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Report Generated By</p>
-                <p className="text-sm font-bold text-gray-900">{userProfile?.fullname || 'System Administrator'}</p>
-                <p className="text-xs text-gray-500">{userProfile?.role_name || 'Administrator'} • {userProfile?.facility || 'CareBridge Pro'}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-gray-500 font-semibold uppercase mb-1">System Information</p>
-                <p className="text-sm font-bold text-gray-900">CareBridge Pro v2.0</p>
-                <p className="text-xs text-gray-500">IPMS Aligned • Alabama DD Compliant</p>
+                    {/* Medications Section */}
+                    {selectedIndividual.medications && selectedIndividual.medications.length > 0 && (
+                      <div className="bg-slate-800/30 rounded-xl p-4">
+                        <h4 className="text-white font-bold mb-3 flex items-center gap-2">
+                          <PillIcon size={18} />
+                          Medications ({selectedIndividual.medications.length})
+                        </h4>
+                        <div className="space-y-2">
+                          {selectedIndividual.medications.slice(0, 3).map(med => (
+                            <div key={med.id} className="flex items-center justify-between text-sm">
+                              <div>
+                                <p className="text-white font-medium">{med.medicationname || med.name}</p>
+                                <p className="text-slate-500 text-xs">{med.dosage} • {med.frequency}</p>
+                              </div>
+                              <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
+                                med.status === 'Active' ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'
+                              }`}>
+                                {med.status}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Daily Notes Section */}
+                    {selectedIndividual.dailynotes && selectedIndividual.dailynotes.length > 0 && (
+                      <div className="bg-slate-800/30 rounded-xl p-4">
+                        <h4 className="text-white font-bold mb-3 flex items-center gap-2">
+                          <FileText size={18} />
+                          Recent Daily Notes ({selectedIndividual.dailynotes.length})
+                        </h4>
+                        <div className="space-y-2">
+                          {selectedIndividual.dailynotes.slice(0, 3).map(note => (
+                            <div key={note.id} className="text-sm">
+                              <div className="flex justify-between mb-1">
+                                <p className="text-white">{new Date(note.date).toLocaleDateString()}</p>
+                                <span className="text-slate-500">{note.shift}</span>
+                              </div>
+                              {note.narrative && (
+                                <p className="text-slate-400 truncate">{note.narrative.substring(0, 80)}...</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Goals Section */}
+                    {selectedIndividual.goals && selectedIndividual.goals.length > 0 && (
+                      <div className="bg-slate-800/30 rounded-xl p-4">
+                        <h4 className="text-white font-bold mb-3 flex items-center gap-2">
+                          <Target size={18} />
+                          Goals & Outcomes ({selectedIndividual.goals.length})
+                        </h4>
+                        {selectedIndividual.goals.slice(0, 3).map(goal => (
+                          <div key={goal.id} className="flex items-center justify-between text-sm mb-2">
+                            <p className="text-slate-300 truncate flex-1 mr-2">{goal.description}</p>
+                            <span className="text-sm font-bold text-emerald-400 whitespace-nowrap">{goal.progress}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Incidents Section */}
+                    {selectedIndividual.incidents && selectedIndividual.incidents.length > 0 && (
+                      <div className="bg-slate-800/30 rounded-xl p-4">
+                        <h4 className="text-white font-bold mb-3 flex items-center gap-2">
+                          <AlertTriangle size={18} />
+                          Recent Incidents ({selectedIndividual.incidents.length})
+                        </h4>
+                        <div className="space-y-2">
+                          {selectedIndividual.incidents.slice(0, 3).map(incident => (
+                            <div key={incident.id} className="flex items-center justify-between text-sm">
+                              <p className="text-slate-300">{incident.incidenttype}</p>
+                              <span className="text-slate-500">{new Date(incident.dateoccurred).toLocaleDateString()}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Uploaded Documents Section */}
+                    {loadingDocuments ? (
+                      <div className="bg-slate-800/30 rounded-xl p-4">
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 size={20} className="text-emerald-500 animate-spin mr-2" />
+                          <p className="text-slate-400">Loading documents...</p>
+                        </div>
+                      </div>
+                    ) : individualDocuments.length > 0 && (
+                      <div className="bg-slate-800/30 rounded-xl p-4">
+                        <h4 className="text-white font-bold mb-3 flex items-center gap-2">
+                          <File size={18} />
+                          Uploaded Documents ({individualDocuments.length})
+                        </h4>
+                        <div className="space-y-2">
+                          {individualDocuments.slice(0, 3).map(doc => (
+                            <div key={doc.id} className="flex items-center justify-between text-sm">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-white truncate">{doc.document_name}</p>
+                                <p className="text-slate-500 text-xs">
+                                  {new Date(doc.uploaded_at).toLocaleDateString()} • {doc.uploaded_by}
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => window.open(doc.file_url, '_blank')}
+                                className="ml-2 p-1 hover:bg-slate-700 rounded transition-all"
+                                title="View Document"
+                              >
+                                <ExternalLink size={14} className="text-emerald-400" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </ScrollArea>
+
+              <div className="p-6 border-t border-slate-700 flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setSelectedIndividual(null);
+                    setFullIndividualData(null);
+                    setIndividualDocuments([]);
+                  }}
+                  className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={handlePrintIndividual}
+                  disabled={loadingFullData}
+                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-blue-500/50 transition-all flex items-center gap-2 disabled:opacity-50"
+                >
+                  {loadingFullData ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <Printer size={18} />
+                  )}
+                  {loadingFullData ? 'Loading Data...' : 'Print Full Report'}
+                </button>
+                <button
+                  onClick={() => router.push(`/individual/${selectedIndividual.id}`)}
+                  className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-emerald-500/50 transition-all"
+                >
+                  View Full Profile
+                </button>
               </div>
             </div>
-            <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <p className="text-xs text-gray-600 text-center">
-                <span className="font-semibold">CONFIDENTIAL:</span> This document contains protected health information (PHI) and is intended solely for authorized personnel. 
-                Unauthorized disclosure or distribution is prohibited by law.
-              </p>
+          </div>
+        )}
+      </div>
+
+      {/* Printable Content - UPDATED with all data */}
+      {fullIndividualData && (
+        <div id="printable-content" className="hidden print:block">
+          <div className="bg-white text-black p-8">
+            {/* Header */}
+            <div className="border-b-4 border-emerald-600 pb-6 mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-2xl flex items-center justify-center text-white font-bold text-3xl shadow-lg">
+                    {getInitials(fullIndividualData.firstname, fullIndividualData.lastname)}
+                  </div>
+                  <div>
+                    <h1 className="text-4xl font-black text-gray-900">
+                      {fullIndividualData.firstname} {fullIndividualData.lastname}
+                    </h1>
+                    <p className="text-gray-600 text-lg mt-1">Complete Profile Report</p>
+                    <p className="text-gray-500 text-sm font-mono mt-1">ID: {fullIndividualData.individualid}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="bg-emerald-50 border-2 border-emerald-600 rounded-xl p-4">
+                    <p className="text-xs text-gray-600 mb-1">Report Generated</p>
+                    <p className="text-lg font-bold text-emerald-700">{new Date().toLocaleDateString()}</p>
+                    <p className="text-sm text-gray-500">{new Date().toLocaleTimeString()}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border-l-4 border-emerald-600 p-4 rounded-r-lg">
+                <p className="text-sm font-semibold text-emerald-900">CareBridge Pro - IPMS Aligned EMR System</p>
+                <p className="text-xs text-gray-600">Alabama DD Compliant Electronic Medical Record</p>
+              </div>
+            </div>
+
+            {/* Quick Statistics Grid */}
+            <div className="grid grid-cols-4 gap-4 mb-8 print-section">
+              <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border-2 border-emerald-200 rounded-xl p-5">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 bg-emerald-600 rounded-lg flex items-center justify-center">
+                    <CheckCircle className="text-white" size={20} />
+                  </div>
+                  <p className="text-xs text-gray-600 font-semibold uppercase">Compliance</p>
+                </div>
+                <p className="text-3xl font-black text-emerald-700">{fullIndividualData.compliance_score || 0}%</p>
+                <div className="w-full bg-gray-200 rounded-full h-2 mt-3">
+                  <div 
+                    className="h-full bg-emerald-600 rounded-full" 
+                    style={{width: `${fullIndividualData.compliance_score || 0}%`}}
+                  ></div>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-200 rounded-xl p-5">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
+                    <FileText className="text-white" size={20} />
+                  </div>
+                  <p className="text-xs text-gray-600 font-semibold uppercase">Daily Notes</p>
+                </div>
+                <p className="text-3xl font-black text-purple-700">{fullIndividualData.dailynotes?.length || 0}</p>
+                <p className="text-xs text-gray-500 mt-2">Total documented</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl p-5">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                    <Pill className="text-white" size={20} />
+                  </div>
+                  <p className="text-xs text-gray-600 font-semibold uppercase">Medications</p>
+                </div>
+                <p className="text-3xl font-black text-blue-700">{fullIndividualData.medications?.filter(m => m.status === 'Active').length || 0}</p>
+                <p className="text-xs text-gray-500 mt-2">Active prescriptions</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-orange-50 to-orange-100 border-2 border-orange-200 rounded-xl p-5">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center">
+                    <AlertTriangle className="text-white" size={20} />
+                  </div>
+                  <p className="text-xs text-gray-600 font-semibold uppercase">Incidents</p>
+                </div>
+                <p className="text-3xl font-black text-orange-700">{fullIndividualData.incidents?.length || 0}</p>
+                <p className="text-xs text-gray-500 mt-2">Total reported</p>
+              </div>
+            </div>
+
+            {/* Basic Information Section */}
+            <div className="mb-8 print-section">
+              <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white p-4 rounded-t-xl flex items-center gap-2">
+                <User size={20} />
+                <h2 className="text-xl font-bold">Basic Information</h2>
+              </div>
+              <div className="border-2 border-gray-200 rounded-b-xl p-6">
+                <div className="grid grid-cols-3 gap-6">
+                  <div>
+                    <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Full Name</p>
+                    <p className="text-lg font-bold text-gray-900">{fullIndividualData.firstname} {fullIndividualData.lastname}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Individual ID</p>
+                    <p className="text-lg font-bold text-gray-900 font-mono">{fullIndividualData.individualid}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Status</p>
+                    <span className={`inline-flex px-3 py-1 rounded-full text-sm font-bold ${
+                      fullIndividualData.status === 'Active' ? 'bg-green-100 text-green-700 border-2 border-green-300' : 'bg-yellow-100 text-yellow-700 border-2 border-yellow-300'
+                    }`}>
+                      {fullIndividualData.status}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Date of Birth</p>
+                    <p className="text-lg font-bold text-gray-900">{new Date(fullIndividualData.dateofbirth).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Admission Date</p>
+                    <p className="text-lg font-bold text-gray-900">{new Date(fullIndividualData.admissiondate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Home Assignment</p>
+                    <p className="text-lg font-bold text-gray-900">{fullIndividualData.homeassignment}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Primary Diagnosis</p>
+                    <p className="text-lg font-bold text-gray-900">{fullIndividualData.primarydiagnosis || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Medicaid Number</p>
+                    <p className="text-lg font-bold text-gray-900 font-mono">{fullIndividualData.medicaidnumber || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Allergies</p>
+                    <p className="text-lg font-bold text-gray-900">{fullIndividualData.allergies || 'None reported'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Guardian Information */}
+            {fullIndividualData.guardianname && (
+              <div className="mb-8 print-section">
+                <div className="bg-gradient-to-r from-blue-900 to-blue-800 text-white p-4 rounded-t-xl flex items-center gap-2">
+                  <Shield size={20} />
+                  <h2 className="text-xl font-bold">Guardian & Emergency Contact</h2>
+                </div>
+                <div className="border-2 border-gray-200 rounded-b-xl p-6">
+                  <div className="grid grid-cols-3 gap-6">
+                    <div>
+                      <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Guardian Name</p>
+                      <p className="text-lg font-bold text-gray-900">{fullIndividualData.guardianname}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Guardian Phone</p>
+                      <p className="text-lg font-bold text-gray-900">{fullIndividualData.guardianphone || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Guardian Email</p>
+                      <p className="text-lg font-bold text-gray-900">{fullIndividualData.guardianemail || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Emergency Contact</p>
+                      <p className="text-lg font-bold text-gray-900">{fullIndividualData.emergencycontact || 'N/A'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Medications Section */}
+            {fullIndividualData.medications && fullIndividualData.medications.length > 0 && (
+              <div className="mb-8 print-section print-page-break">
+                <div className="bg-gradient-to-r from-blue-700 to-cyan-600 text-white p-4 rounded-t-xl flex items-center gap-2">
+                  <PillIcon size={20} />
+                  <h2 className="text-xl font-bold">Medication Management</h2>
+                </div>
+                <div className="border-2 border-gray-200 rounded-b-xl">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b-2 border-gray-200">
+                      <tr>
+                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Medication Name</th>
+                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Dosage</th>
+                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Route</th>
+                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Frequency</th>
+                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Status</th>
+                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Compliance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {fullIndividualData.medications.map((med, idx) => (
+                        <tr key={med.id || idx} className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                          <td className="py-3 px-4 text-sm font-semibold text-gray-900">
+                            {med.medicationname || med.name || 'N/A'}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-700">{med.dosage || 'N/A'}</td>
+                          <td className="py-3 px-4 text-sm text-gray-700">{med.route || 'N/A'}</td>
+                          <td className="py-3 px-4 text-sm text-gray-700">{med.frequency || 'N/A'}</td>
+                          <td className="py-3 px-4">
+                            <span className={`text-xs px-2 py-1 rounded-full font-bold ${
+                              med.status === 'Active' ? 'bg-green-100 text-green-700' :
+                              med.status === 'On Hold' ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-red-100 text-red-700'
+                            }`}>
+                              {med.status || 'Active'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-20 bg-gray-200 rounded-full h-2">
+                                <div 
+                                  className="h-full bg-blue-600 rounded-full" 
+                                  style={{width: `${med.compliance || 0}%`}}
+                                ></div>
+                              </div>
+                              <span className="text-xs font-bold text-gray-700">{med.compliance || 0}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Daily Notes Section */}
+            {fullIndividualData.dailynotes && fullIndividualData.dailynotes.length > 0 && (
+              <div className="mb-8 print-section">
+                <div className="bg-gradient-to-r from-purple-700 to-pink-600 text-white p-4 rounded-t-xl flex items-center gap-2">
+                  <ClipboardList size={20} />
+                  <h2 className="text-xl font-bold">Recent Daily Notes</h2>
+                </div>
+                <div className="border-2 border-gray-200 rounded-b-xl p-6">
+                  <div className="space-y-6">
+                    {fullIndividualData.dailynotes.slice(0, 5).map((note, idx) => {
+                      const MoodIcon = getMoodIcon(note.mood);
+                      return (
+                        <div key={note.id || idx} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-pink-500 rounded-lg flex items-center justify-center">
+                                <CalendarIcon className="text-white" size={20} />
+                              </div>
+                              <div>
+                                <h3 className="font-bold text-gray-900">
+                                  {new Date(note.date).toLocaleDateString('en-US', { 
+                                    weekday: 'long', 
+                                    year: 'numeric', 
+                                    month: 'long', 
+                                    day: 'numeric' 
+                                  })}
+                                </h3>
+                                <p className="text-sm text-gray-600">{note.shift} • Documented by {note.staffname || note.created_by}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <MoodIcon className="text-purple-600" size={20} />
+                              <span className="text-sm font-semibold text-gray-700">{note.mood}</span>
+                            </div>
+                          </div>
+                          
+                          {/* Activities */}
+                          {note.activities && note.activities.length > 0 && (
+                            <div className="mb-3">
+                              <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Activities</p>
+                              <div className="flex flex-wrap gap-2">
+                                {note.activities.map((activity, activityIdx) => {
+                                  const ActivityIcon = getActivityIcon(activity);
+                                  return (
+                                    <span key={activityIdx} className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-semibold">
+                                      <ActivityIcon size={12} />
+                                      {activity}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Narrative */}
+                          {(note.narrative || note.ispGoalsNarrative) && (
+                            <div className="mb-3">
+                              <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Summary</p>
+                              <p className="text-sm text-gray-700">{note.narrative || note.ispGoalsNarrative}</p>
+                            </div>
+                          )}
+                          
+                          {/* Health & Behavior */}
+                          <div className="grid grid-cols-3 gap-3 text-sm">
+                            <div>
+                              <p className="text-xs text-gray-500">Appetite</p>
+                              <p className="font-semibold text-gray-900">{note.appetite || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500">Sleep</p>
+                              <p className="font-semibold text-gray-900">{note.sleep || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500">Behaviors</p>
+                              <p className="font-semibold text-gray-900">{note.behaviors?.length || 0}</p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Goals & Progress Section */}
+            {fullIndividualData.goals && fullIndividualData.goals.length > 0 && (
+              <div className="mb-8 print-section print-page-break">
+                <div className="bg-gradient-to-r from-green-700 to-emerald-600 text-white p-4 rounded-t-xl flex items-center gap-2">
+                  <Target size={20} />
+                  <h2 className="text-xl font-bold">Goals & Progress Tracking</h2>
+                </div>
+                <div className="border-2 border-gray-200 rounded-b-xl p-6">
+                  <div className="space-y-4">
+                    {fullIndividualData.goals.map((goal, idx) => (
+                      <div key={goal.id || idx} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-bold text-gray-500 uppercase">Goal {idx + 1}</span>
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                                goal.status === 'Active' ? 'bg-green-100 text-green-700' :
+                                goal.status === 'Completed' ? 'bg-blue-100 text-blue-700' :
+                                'bg-gray-100 text-gray-700'
+                              }`}>
+                                {goal.status}
+                              </span>
+                            </div>
+                            <p className="text-sm font-semibold text-gray-900">{goal.description || 'No description provided'}</p>
+                          </div>
+                          <div className="text-right ml-4">
+                            <p className="text-2xl font-black text-green-600">{goal.progress || 0}%</p>
+                          </div>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-3">
+                          <div 
+                            className="h-full bg-gradient-to-r from-green-500 to-emerald-600 rounded-full transition-all" 
+                            style={{width: `${goal.progress || 0}%`}}
+                          ></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Incidents Section */}
+            {fullIndividualData.incidents && fullIndividualData.incidents.length > 0 && (
+              <div className="mb-8 print-section">
+                <div className="bg-gradient-to-r from-orange-700 to-red-600 text-white p-4 rounded-t-xl flex items-center gap-2">
+                  <AlertTriangle size={20} />
+                  <h2 className="text-xl font-bold">Incident Reports</h2>
+                </div>
+                <div className="border-2 border-gray-200 rounded-b-xl">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b-2 border-gray-200">
+                      <tr>
+                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Date</th>
+                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Incident Type</th>
+                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Severity</th>
+                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Description</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {fullIndividualData.incidents.slice(0, 5).map((incident, idx) => (
+                        <tr key={incident.id || idx} className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                          <td className="py-3 px-4 text-sm font-semibold text-gray-900">
+                            {new Date(incident.dateoccurred).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-700">{incident.incidenttype || 'N/A'}</td>
+                          <td className="py-3 px-4">
+                            <span className={`text-xs px-2 py-1 rounded-full font-bold ${
+                              incident.severity === 'High' ? 'bg-red-100 text-red-700' :
+                              incident.severity === 'Medium' ? 'bg-orange-100 text-orange-700' :
+                              'bg-yellow-100 text-yellow-700'
+                            }`}>
+                              {incident.severity || 'Low'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-700">{incident.description ? incident.description.substring(0, 60) + '...' : 'No description'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Uploaded Documents Section */}
+            {individualDocuments.length > 0 && (
+              <div className="mb-8 print-section print-page-break">
+                <div className="bg-gradient-to-r from-indigo-700 to-purple-600 text-white p-4 rounded-t-xl flex items-center gap-2">
+                  <File size={20} />
+                  <h2 className="text-xl font-bold">Uploaded Documents</h2>
+                </div>
+                <div className="border-2 border-gray-200 rounded-b-xl p-6">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b-2 border-gray-200">
+                      <tr>
+                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Document Name</th>
+                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Type</th>
+                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Uploaded By</th>
+                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Date</th>
+                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Signatures</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {individualDocuments.map((doc, idx) => (
+                        <tr key={doc.id} className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                          <td className="py-3 px-4 text-sm font-semibold text-gray-900">{doc.document_name}</td>
+                          <td className="py-3 px-4 text-sm text-gray-700">{doc.document_type?.replace('_', ' ').toUpperCase()}</td>
+                          <td className="py-3 px-4 text-sm text-gray-700">{doc.uploaded_by}</td>
+                          <td className="py-3 px-4 text-sm text-gray-700">
+                            {new Date(doc.uploaded_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="text-xs font-bold text-gray-700">{doc.signatures_count || 0}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="mt-4 text-sm text-gray-600">
+                    <p><strong>Note:</strong> Documents are stored securely and can be accessed through the individual's profile in the CareBridge Pro system.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="mt-12 pt-6 border-t-2 border-gray-300 print-section">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Report Generated By</p>
+                  <p className="text-sm font-bold text-gray-900">{userProfile?.fullname || 'System Administrator'}</p>
+                  <p className="text-xs text-gray-500">{userProfile?.role_name || 'Administrator'} • {userProfile?.facility || 'CareBridge Pro'}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-500 font-semibold uppercase mb-1">System Information</p>
+                  <p className="text-sm font-bold text-gray-900">CareBridge Pro v2.0</p>
+                  <p className="text-xs text-gray-500">IPMS Aligned • Alabama DD Compliant</p>
+                </div>
+              </div>
+              <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                <p className="text-xs text-gray-600 text-center">
+                  <span className="font-semibold">CONFIDENTIAL:</span> This document contains protected health information (PHI) and is intended solely for authorized personnel. 
+                  Unauthorized disclosure or distribution is prohibited by law.
+                </p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    )}
-  </div>
-</>
-);
+      )}
+    </>
+  );
 };
+
 export default AnalyticsPage;
