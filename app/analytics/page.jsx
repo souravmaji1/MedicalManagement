@@ -12,7 +12,7 @@ import {
   Printer, Pill as PillIcon, BookOpen, Utensils, Shirt, Bath, Bed,
   Smile, Frown, Meh, MessageSquare, Target as TargetIcon,
   CheckSquare, ClipboardList, Stethoscope, Bell as BellIcon,
-  ExternalLink, File, Link
+  ExternalLink, File, Link, ChevronUp, ChevronDown as ChevronDownIcon
 } from 'lucide-react';
 import { ScrollArea } from "../../components/ui/scroll-area";
 import { useUser, UserButton } from '@clerk/nextjs';
@@ -60,6 +60,7 @@ const AnalyticsPage = () => {
   const [loadingFullData, setLoadingFullData] = useState(false);
   const [individualDocuments, setIndividualDocuments] = useState([]);
   const [loadingDocuments, setLoadingDocuments] = useState(false);
+  const [expandedDailyNotes, setExpandedDailyNotes] = useState({});
   
   const [analyticsData, setAnalyticsData] = useState({
     totalIndividuals: 0,
@@ -75,6 +76,48 @@ const AnalyticsPage = () => {
     communityOutings: 0,
     goalAchievements: 0
   });
+
+  // Helper function to get mood icon
+  const getMoodIcon = (mood) => {
+    const icons = {
+      'Happy': Smile,
+      'Calm': Smile,
+      'Excited': Smile,
+      'Neutral': Meh,
+      'Anxious': Frown,
+      'Sad': Frown,
+      'Frustrated': Frown
+    };
+    return icons[mood] || Meh;
+  };
+
+  // Helper function to get activity icon
+  const getActivityIcon = (activityType) => {
+    const icons = {
+      'arts-crafts': Palette,
+      'music': Music,
+      'reading': BookOpen,
+      'exercise': Activity,
+      'social': Users,
+      'community': MapPin,
+      'cognitive': Brain,
+      'group': Users,
+      'arts & crafts': Palette,
+      'bath': Bath,
+      'bedtime': Bed,
+      'meal': Utensils,
+      'dressing': Shirt
+    };
+    return icons[activityType] || Activity;
+  };
+
+  // Toggle daily note expansion
+  const toggleDailyNote = (noteId) => {
+    setExpandedDailyNotes(prev => ({
+      ...prev,
+      [noteId]: !prev[noteId]
+    }));
+  };
 
   // Permission checks
   const canViewReports = hasAnyPermission([
@@ -410,35 +453,6 @@ const AnalyticsPage = () => {
   });
 
   const facilities = [...new Set(individuals.map(ind => ind.homeassignment))].filter(Boolean);
-
-  // Helper function to get mood icon
-  const getMoodIcon = (mood) => {
-    const icons = {
-      'Happy': Smile,
-      'Calm': Smile,
-      'Excited': Smile,
-      'Neutral': Meh,
-      'Anxious': Frown,
-      'Sad': Frown,
-      'Frustrated': Frown
-    };
-    return icons[mood] || Meh;
-  };
-
-  // Helper function to get activity icon
-  const getActivityIcon = (activityType) => {
-    const icons = {
-      'arts-crafts': Palette,
-      'music': Music,
-      'reading': BookOpen,
-      'exercise': Activity,
-      'social': Users,
-      'community': MapPin,
-      'cognitive': Brain,
-      'group': Users
-    };
-    return icons[activityType] || Activity;
-  };
 
   // NavBar Component
   const NavBar = () => (
@@ -1121,7 +1135,7 @@ const AnalyticsPage = () => {
           </div>
         </div>
 
-        {/* Individual Detail Modal */}
+        {/* Individual Detail Modal - UPDATED with complete daily notes */}
         {selectedIndividual && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 no-print">
             <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
@@ -1142,6 +1156,7 @@ const AnalyticsPage = () => {
                     setSelectedIndividual(null);
                     setFullIndividualData(null);
                     setIndividualDocuments([]);
+                    setExpandedDailyNotes({});
                   }}
                   className="p-2 hover:bg-slate-700 rounded-lg transition-all"
                 >
@@ -1172,7 +1187,7 @@ const AnalyticsPage = () => {
                   </div>
 
                   {/* Detailed Sections */}
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     <div className="bg-slate-800/30 rounded-xl p-4">
                       <h4 className="text-white font-bold mb-3 flex items-center gap-2">
                         <User size={18} />
@@ -1205,47 +1220,164 @@ const AnalyticsPage = () => {
                     {/* Medications Section */}
                     {selectedIndividual.medications && selectedIndividual.medications.length > 0 && (
                       <div className="bg-slate-800/30 rounded-xl p-4">
-                        <h4 className="text-white font-bold mb-3 flex items-center gap-2">
-                          <PillIcon size={18} />
-                          Medications ({selectedIndividual.medications.length})
-                        </h4>
-                        <div className="space-y-2">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-white font-bold flex items-center gap-2">
+                            <PillIcon size={18} />
+                            Medications ({selectedIndividual.medications.length})
+                          </h4>
+                        </div>
+                        <div className="space-y-3">
                           {selectedIndividual.medications.slice(0, 3).map(med => (
-                            <div key={med.id} className="flex items-center justify-between text-sm">
-                              <div>
+                            <div key={med.id} className="bg-slate-900/50 rounded-lg p-3">
+                              <div className="flex items-center justify-between mb-2">
                                 <p className="text-white font-medium">{med.medicationname || med.name}</p>
-                                <p className="text-slate-500 text-xs">{med.dosage} • {med.frequency}</p>
+                                <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
+                                  med.status === 'Active' ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'
+                                }`}>
+                                  {med.status}
+                                </span>
                               </div>
-                              <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
-                                med.status === 'Active' ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'
-                              }`}>
-                                {med.status}
-                              </span>
+                              <div className="grid grid-cols-2 gap-2 text-sm">
+                                <div>
+                                  <p className="text-slate-500 text-xs">Dosage</p>
+                                  <p className="text-white">{med.dosage || 'N/A'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-slate-500 text-xs">Frequency</p>
+                                  <p className="text-white">{med.frequency || 'N/A'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-slate-500 text-xs">Route</p>
+                                  <p className="text-white">{med.route || 'N/A'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-slate-500 text-xs">Compliance</p>
+                                  <p className="text-white">{med.compliance || 0}%</p>
+                                </div>
+                              </div>
                             </div>
                           ))}
                         </div>
                       </div>
                     )}
 
-                    {/* Daily Notes Section */}
+                    {/* Daily Notes Section - UPDATED with complete details */}
                     {selectedIndividual.dailynotes && selectedIndividual.dailynotes.length > 0 && (
                       <div className="bg-slate-800/30 rounded-xl p-4">
-                        <h4 className="text-white font-bold mb-3 flex items-center gap-2">
-                          <FileText size={18} />
-                          Recent Daily Notes ({selectedIndividual.dailynotes.length})
-                        </h4>
-                        <div className="space-y-2">
-                          {selectedIndividual.dailynotes.slice(0, 3).map(note => (
-                            <div key={note.id} className="text-sm">
-                              <div className="flex justify-between mb-1">
-                                <p className="text-white">{new Date(note.date).toLocaleDateString()}</p>
-                                <span className="text-slate-500">{note.shift}</span>
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-white font-bold flex items-center gap-2">
+                            <FileText size={18} />
+                            Recent Daily Notes ({selectedIndividual.dailynotes.length})
+                          </h4>
+                        </div>
+                        <div className="space-y-4">
+                          {selectedIndividual.dailynotes.slice(0, 5).map(note => {
+                            const isExpanded = expandedDailyNotes[note.id];
+                            const MoodIcon = getMoodIcon(note.mood);
+                            return (
+                              <div key={note.id} className="bg-slate-900/50 rounded-lg p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-pink-500 rounded-lg flex items-center justify-center">
+                                      <CalendarIcon className="text-white" size={16} />
+                                    </div>
+                                    <div>
+                                      <h5 className="text-white font-medium">
+                                        {new Date(note.date).toLocaleDateString('en-US', { 
+                                          weekday: 'short', 
+                                          month: 'short', 
+                                          day: 'numeric' 
+                                        })}
+                                      </h5>
+                                      <p className="text-xs text-slate-500">{note.shift} • {note.staffname || note.created_by}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <MoodIcon className="text-purple-400" size={18} />
+                                    <span className="text-sm text-slate-300">{note.mood}</span>
+                                  </div>
+                                </div>
+
+                                {/* Activities */}
+                                {note.activities && note.activities.length > 0 && (
+                                  <div className="mb-3">
+                                    <p className="text-xs text-slate-500 font-semibold mb-1">Activities</p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {note.activities.map((activity, idx) => {
+                                        const ActivityIcon = getActivityIcon(activity);
+                                        return (
+                                          <span key={idx} className="inline-flex items-center gap-1 px-2 py-1 bg-purple-900/30 text-purple-300 rounded text-xs font-medium">
+                                            <ActivityIcon size={12} />
+                                            {activity}
+                                          </span>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Narrative - Expandable */}
+                                {(note.narrative || note.ispGoalsNarrative) && (
+                                  <div className="mb-3">
+                                    <p className="text-xs text-slate-500 font-semibold mb-1">Summary</p>
+                                    <div className="relative">
+                                      <p className={`text-sm text-slate-300 ${!isExpanded && 'line-clamp-2'}`}>
+                                        {note.narrative || note.ispGoalsNarrative}
+                                      </p>
+                                      {note.narrative && note.narrative.length > 100 && (
+                                        <button
+                                          onClick={() => toggleDailyNote(note.id)}
+                                          className="mt-1 text-purple-400 hover:text-purple-300 text-xs font-medium flex items-center gap-1"
+                                        >
+                                          {isExpanded ? (
+                                            <>
+                                              Show less <ChevronUp size={12} />
+                                            </>
+                                          ) : (
+                                            <>
+                                              Read more <ChevronDownIcon size={12} />
+                                            </>
+                                          )}
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Health & Behavior */}
+                                <div className="grid grid-cols-3 gap-2 text-sm">
+                                  <div>
+                                    <p className="text-xs text-slate-500">Appetite</p>
+                                    <p className="text-white font-medium">{note.appetite || 'N/A'}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-slate-500">Sleep</p>
+                                    <p className="text-white font-medium">{note.sleep || 'N/A'}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-slate-500">Behaviors</p>
+                                    <p className="text-white font-medium">{note.behaviors?.length || 0}</p>
+                                  </div>
+                                </div>
+
+                                {/* Additional Details */}
+                                <div className="mt-3 pt-3 border-t border-slate-700 grid grid-cols-2 gap-3 text-xs">
+                                  {note.communityouting && (
+                                    <div className="flex items-center gap-1">
+                                      <MapPin size={12} className="text-green-400" />
+                                      <span className="text-green-400">Community Outing</span>
+                                    </div>
+                                  )}
+                                  {note.vitals && (
+                                    <div className="flex items-center gap-1">
+                                      <Activity size={12} className="text-blue-400" />
+                                      <span className="text-blue-400">Vitals Checked</span>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                              {note.narrative && (
-                                <p className="text-slate-400 truncate">{note.narrative.substring(0, 80)}...</p>
-                              )}
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -1257,12 +1389,36 @@ const AnalyticsPage = () => {
                           <Target size={18} />
                           Goals & Outcomes ({selectedIndividual.goals.length})
                         </h4>
-                        {selectedIndividual.goals.slice(0, 3).map(goal => (
-                          <div key={goal.id} className="flex items-center justify-between text-sm mb-2">
-                            <p className="text-slate-300 truncate flex-1 mr-2">{goal.description}</p>
-                            <span className="text-sm font-bold text-emerald-400 whitespace-nowrap">{goal.progress}%</span>
-                          </div>
-                        ))}
+                        <div className="space-y-3">
+                          {selectedIndividual.goals.slice(0, 3).map(goal => (
+                            <div key={goal.id} className="bg-slate-900/50 rounded-lg p-3">
+                              <div className="flex items-start justify-between mb-2">
+                                <p className="text-slate-300 flex-1 mr-2">{goal.description}</p>
+                                <div className="flex flex-col items-end">
+                                  <span className="text-lg font-bold text-emerald-400 whitespace-nowrap">{goal.progress}%</span>
+                                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold mt-1 ${
+                                    goal.status === 'Active' ? 'bg-green-900/30 text-green-400' :
+                                    goal.status === 'Completed' ? 'bg-blue-900/30 text-blue-400' :
+                                    'bg-yellow-900/30 text-yellow-400'
+                                  }`}>
+                                    {goal.status}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="w-full bg-slate-700 rounded-full h-2 mt-2">
+                                <div 
+                                  className="h-full bg-gradient-to-r from-green-500 to-emerald-600 rounded-full" 
+                                  style={{width: `${goal.progress}%`}}
+                                ></div>
+                              </div>
+                              {goal.targetdate && (
+                                <p className="text-xs text-slate-500 mt-2">
+                                  Target: {new Date(goal.targetdate).toLocaleDateString()}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
 
@@ -1273,11 +1429,26 @@ const AnalyticsPage = () => {
                           <AlertTriangle size={18} />
                           Recent Incidents ({selectedIndividual.incidents.length})
                         </h4>
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                           {selectedIndividual.incidents.slice(0, 3).map(incident => (
-                            <div key={incident.id} className="flex items-center justify-between text-sm">
-                              <p className="text-slate-300">{incident.incidenttype}</p>
-                              <span className="text-slate-500">{new Date(incident.dateoccurred).toLocaleDateString()}</span>
+                            <div key={incident.id} className="bg-slate-900/50 rounded-lg p-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-white font-medium">{incident.incidenttype}</p>
+                                <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
+                                  incident.severity === 'High' ? 'bg-red-900/30 text-red-400' :
+                                  incident.severity === 'Medium' ? 'bg-orange-900/30 text-orange-400' :
+                                  'bg-yellow-900/30 text-yellow-400'
+                                }`}>
+                                  {incident.severity || 'Low'}
+                                </span>
+                              </div>
+                              <p className="text-sm text-slate-300 mb-2">
+                                {incident.description ? incident.description.substring(0, 80) + '...' : 'No description'}
+                              </p>
+                              <div className="flex items-center justify-between text-xs text-slate-500">
+                                <span>{new Date(incident.dateoccurred).toLocaleDateString()}</span>
+                                <span>{incident.location || 'Location not specified'}</span>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -1300,19 +1471,32 @@ const AnalyticsPage = () => {
                         </h4>
                         <div className="space-y-2">
                           {individualDocuments.slice(0, 3).map(doc => (
-                            <div key={doc.id} className="flex items-center justify-between text-sm">
+                            <div key={doc.id} className="flex items-center justify-between text-sm bg-slate-900/50 rounded-lg p-3">
                               <div className="flex-1 min-w-0">
-                                <p className="text-white truncate">{doc.document_name}</p>
-                                <p className="text-slate-500 text-xs">
-                                  {new Date(doc.uploaded_at).toLocaleDateString()} • {doc.uploaded_by}
-                                </p>
+                                <p className="text-white truncate font-medium">{doc.document_name}</p>
+                                <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
+                                  <span className="flex items-center gap-1">
+                                    <User size={12} />
+                                    {doc.uploaded_by}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <CalendarIcon size={12} />
+                                    {new Date(doc.uploaded_at).toLocaleDateString()}
+                                  </span>
+                                  {doc.signatures_count > 0 && (
+                                    <span className="flex items-center gap-1">
+                                      <CheckSquare size={12} />
+                                      {doc.signatures_count} signature{doc.signatures_count !== 1 ? 's' : ''}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                               <button
                                 onClick={() => window.open(doc.file_url, '_blank')}
-                                className="ml-2 p-1 hover:bg-slate-700 rounded transition-all"
+                                className="ml-2 p-1.5 hover:bg-emerald-500/20 rounded transition-all"
                                 title="View Document"
                               >
-                                <ExternalLink size={14} className="text-emerald-400" />
+                                <ExternalLink size={16} className="text-emerald-400" />
                               </button>
                             </div>
                           ))}
@@ -1329,6 +1513,7 @@ const AnalyticsPage = () => {
                     setSelectedIndividual(null);
                     setFullIndividualData(null);
                     setIndividualDocuments([]);
+                    setExpandedDailyNotes({});
                   }}
                   className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all"
                 >
@@ -1356,466 +1541,466 @@ const AnalyticsPage = () => {
             </div>
           </div>
         )}
-      </div>
 
-      {/* Printable Content - UPDATED with all data */}
-      {fullIndividualData && (
-        <div id="printable-content" className="hidden print:block">
-          <div className="bg-white text-black p-8">
-            {/* Header */}
-            <div className="border-b-4 border-emerald-600 pb-6 mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-20 h-20 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-2xl flex items-center justify-center text-white font-bold text-3xl shadow-lg">
-                    {getInitials(fullIndividualData.firstname, fullIndividualData.lastname)}
+        {/* Printable Content - UPDATED with all data */}
+        {fullIndividualData && (
+          <div id="printable-content" className="hidden print:block">
+            <div className="bg-white text-black p-8">
+              {/* Header */}
+              <div className="border-b-4 border-emerald-600 pb-6 mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-20 h-20 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-2xl flex items-center justify-center text-white font-bold text-3xl shadow-lg">
+                      {getInitials(fullIndividualData.firstname, fullIndividualData.lastname)}
+                    </div>
+                    <div>
+                      <h1 className="text-4xl font-black text-gray-900">
+                        {fullIndividualData.firstname} {fullIndividualData.lastname}
+                      </h1>
+                      <p className="text-gray-600 text-lg mt-1">Complete Profile Report</p>
+                      <p className="text-gray-500 text-sm font-mono mt-1">ID: {fullIndividualData.individualid}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h1 className="text-4xl font-black text-gray-900">
-                      {fullIndividualData.firstname} {fullIndividualData.lastname}
-                    </h1>
-                    <p className="text-gray-600 text-lg mt-1">Complete Profile Report</p>
-                    <p className="text-gray-500 text-sm font-mono mt-1">ID: {fullIndividualData.individualid}</p>
+                  <div className="text-right">
+                    <div className="bg-emerald-50 border-2 border-emerald-600 rounded-xl p-4">
+                      <p className="text-xs text-gray-600 mb-1">Report Generated</p>
+                      <p className="text-lg font-bold text-emerald-700">{new Date().toLocaleDateString()}</p>
+                      <p className="text-sm text-gray-500">{new Date().toLocaleTimeString()}</p>
+                    </div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="bg-emerald-50 border-2 border-emerald-600 rounded-xl p-4">
-                    <p className="text-xs text-gray-600 mb-1">Report Generated</p>
-                    <p className="text-lg font-bold text-emerald-700">{new Date().toLocaleDateString()}</p>
-                    <p className="text-sm text-gray-500">{new Date().toLocaleTimeString()}</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border-l-4 border-emerald-600 p-4 rounded-r-lg">
-                <p className="text-sm font-semibold text-emerald-900">CareBridge Pro - IPMS Aligned EMR System</p>
-                <p className="text-xs text-gray-600">Alabama DD Compliant Electronic Medical Record</p>
-              </div>
-            </div>
-
-            {/* Quick Statistics Grid */}
-            <div className="grid grid-cols-4 gap-4 mb-8 print-section">
-              <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border-2 border-emerald-200 rounded-xl p-5">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 bg-emerald-600 rounded-lg flex items-center justify-center">
-                    <CheckCircle className="text-white" size={20} />
-                  </div>
-                  <p className="text-xs text-gray-600 font-semibold uppercase">Compliance</p>
-                </div>
-                <p className="text-3xl font-black text-emerald-700">{fullIndividualData.compliance_score || 0}%</p>
-                <div className="w-full bg-gray-200 rounded-full h-2 mt-3">
-                  <div 
-                    className="h-full bg-emerald-600 rounded-full" 
-                    style={{width: `${fullIndividualData.compliance_score || 0}%`}}
-                  ></div>
+                
+                <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border-l-4 border-emerald-600 p-4 rounded-r-lg">
+                  <p className="text-sm font-semibold text-emerald-900">CareBridge Pro - IPMS Aligned EMR System</p>
+                  <p className="text-xs text-gray-600">Alabama DD Compliant Electronic Medical Record</p>
                 </div>
               </div>
 
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-200 rounded-xl p-5">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
-                    <FileText className="text-white" size={20} />
+              {/* Quick Statistics Grid */}
+              <div className="grid grid-cols-4 gap-4 mb-8 print-section">
+                <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border-2 border-emerald-200 rounded-xl p-5">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 bg-emerald-600 rounded-lg flex items-center justify-center">
+                      <CheckCircle className="text-white" size={20} />
+                    </div>
+                    <p className="text-xs text-gray-600 font-semibold uppercase">Compliance</p>
                   </div>
-                  <p className="text-xs text-gray-600 font-semibold uppercase">Daily Notes</p>
-                </div>
-                <p className="text-3xl font-black text-purple-700">{fullIndividualData.dailynotes?.length || 0}</p>
-                <p className="text-xs text-gray-500 mt-2">Total documented</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl p-5">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                    <Pill className="text-white" size={20} />
-                  </div>
-                  <p className="text-xs text-gray-600 font-semibold uppercase">Medications</p>
-                </div>
-                <p className="text-3xl font-black text-blue-700">{fullIndividualData.medications?.filter(m => m.status === 'Active').length || 0}</p>
-                <p className="text-xs text-gray-500 mt-2">Active prescriptions</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-orange-50 to-orange-100 border-2 border-orange-200 rounded-xl p-5">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center">
-                    <AlertTriangle className="text-white" size={20} />
-                  </div>
-                  <p className="text-xs text-gray-600 font-semibold uppercase">Incidents</p>
-                </div>
-                <p className="text-3xl font-black text-orange-700">{fullIndividualData.incidents?.length || 0}</p>
-                <p className="text-xs text-gray-500 mt-2">Total reported</p>
-              </div>
-            </div>
-
-            {/* Basic Information Section */}
-            <div className="mb-8 print-section">
-              <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white p-4 rounded-t-xl flex items-center gap-2">
-                <User size={20} />
-                <h2 className="text-xl font-bold">Basic Information</h2>
-              </div>
-              <div className="border-2 border-gray-200 rounded-b-xl p-6">
-                <div className="grid grid-cols-3 gap-6">
-                  <div>
-                    <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Full Name</p>
-                    <p className="text-lg font-bold text-gray-900">{fullIndividualData.firstname} {fullIndividualData.lastname}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Individual ID</p>
-                    <p className="text-lg font-bold text-gray-900 font-mono">{fullIndividualData.individualid}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Status</p>
-                    <span className={`inline-flex px-3 py-1 rounded-full text-sm font-bold ${
-                      fullIndividualData.status === 'Active' ? 'bg-green-100 text-green-700 border-2 border-green-300' : 'bg-yellow-100 text-yellow-700 border-2 border-yellow-300'
-                    }`}>
-                      {fullIndividualData.status}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Date of Birth</p>
-                    <p className="text-lg font-bold text-gray-900">{new Date(fullIndividualData.dateofbirth).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Admission Date</p>
-                    <p className="text-lg font-bold text-gray-900">{new Date(fullIndividualData.admissiondate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Home Assignment</p>
-                    <p className="text-lg font-bold text-gray-900">{fullIndividualData.homeassignment}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Primary Diagnosis</p>
-                    <p className="text-lg font-bold text-gray-900">{fullIndividualData.primarydiagnosis || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Medicaid Number</p>
-                    <p className="text-lg font-bold text-gray-900 font-mono">{fullIndividualData.medicaidnumber || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Allergies</p>
-                    <p className="text-lg font-bold text-gray-900">{fullIndividualData.allergies || 'None reported'}</p>
+                  <p className="text-3xl font-black text-emerald-700">{fullIndividualData.compliance_score || 0}%</p>
+                  <div className="w-full bg-gray-200 rounded-full h-2 mt-3">
+                    <div 
+                      className="h-full bg-emerald-600 rounded-full" 
+                      style={{width: `${fullIndividualData.compliance_score || 0}%`}}
+                    ></div>
                   </div>
                 </div>
-              </div>
-            </div>
 
-            {/* Guardian Information */}
-            {fullIndividualData.guardianname && (
+                <div className="bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-200 rounded-xl p-5">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
+                      <FileText className="text-white" size={20} />
+                    </div>
+                    <p className="text-xs text-gray-600 font-semibold uppercase">Daily Notes</p>
+                  </div>
+                  <p className="text-3xl font-black text-purple-700">{fullIndividualData.dailynotes?.length || 0}</p>
+                  <p className="text-xs text-gray-500 mt-2">Total documented</p>
+                </div>
+
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-xl p-5">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                      <Pill className="text-white" size={20} />
+                    </div>
+                    <p className="text-xs text-gray-600 font-semibold uppercase">Medications</p>
+                  </div>
+                  <p className="text-3xl font-black text-blue-700">{fullIndividualData.medications?.filter(m => m.status === 'Active').length || 0}</p>
+                  <p className="text-xs text-gray-500 mt-2">Active prescriptions</p>
+                </div>
+
+                <div className="bg-gradient-to-br from-orange-50 to-orange-100 border-2 border-orange-200 rounded-xl p-5">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center">
+                      <AlertTriangle className="text-white" size={20} />
+                    </div>
+                    <p className="text-xs text-gray-600 font-semibold uppercase">Incidents</p>
+                  </div>
+                  <p className="text-3xl font-black text-orange-700">{fullIndividualData.incidents?.length || 0}</p>
+                  <p className="text-xs text-gray-500 mt-2">Total reported</p>
+                </div>
+              </div>
+
+              {/* Basic Information Section */}
               <div className="mb-8 print-section">
-                <div className="bg-gradient-to-r from-blue-900 to-blue-800 text-white p-4 rounded-t-xl flex items-center gap-2">
-                  <Shield size={20} />
-                  <h2 className="text-xl font-bold">Guardian & Emergency Contact</h2>
+                <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white p-4 rounded-t-xl flex items-center gap-2">
+                  <User size={20} />
+                  <h2 className="text-xl font-bold">Basic Information</h2>
                 </div>
                 <div className="border-2 border-gray-200 rounded-b-xl p-6">
                   <div className="grid grid-cols-3 gap-6">
                     <div>
-                      <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Guardian Name</p>
-                      <p className="text-lg font-bold text-gray-900">{fullIndividualData.guardianname}</p>
+                      <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Full Name</p>
+                      <p className="text-lg font-bold text-gray-900">{fullIndividualData.firstname} {fullIndividualData.lastname}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Guardian Phone</p>
-                      <p className="text-lg font-bold text-gray-900">{fullIndividualData.guardianphone || 'N/A'}</p>
+                      <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Individual ID</p>
+                      <p className="text-lg font-bold text-gray-900 font-mono">{fullIndividualData.individualid}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Guardian Email</p>
-                      <p className="text-lg font-bold text-gray-900">{fullIndividualData.guardianemail || 'N/A'}</p>
+                      <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Status</p>
+                      <span className={`inline-flex px-3 py-1 rounded-full text-sm font-bold ${
+                        fullIndividualData.status === 'Active' ? 'bg-green-100 text-green-700 border-2 border-green-300' : 'bg-yellow-100 text-yellow-700 border-2 border-yellow-300'
+                      }`}>
+                        {fullIndividualData.status}
+                      </span>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Emergency Contact</p>
-                      <p className="text-lg font-bold text-gray-900">{fullIndividualData.emergencycontact || 'N/A'}</p>
+                      <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Date of Birth</p>
+                      <p className="text-lg font-bold text-gray-900">{new Date(fullIndividualData.dateofbirth).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Admission Date</p>
+                      <p className="text-lg font-bold text-gray-900">{new Date(fullIndividualData.admissiondate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Home Assignment</p>
+                      <p className="text-lg font-bold text-gray-900">{fullIndividualData.homeassignment}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Primary Diagnosis</p>
+                      <p className="text-lg font-bold text-gray-900">{fullIndividualData.primarydiagnosis || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Medicaid Number</p>
+                      <p className="text-lg font-bold text-gray-900 font-mono">{fullIndividualData.medicaidnumber || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Allergies</p>
+                      <p className="text-lg font-bold text-gray-900">{fullIndividualData.allergies || 'None reported'}</p>
                     </div>
                   </div>
                 </div>
               </div>
-            )}
 
-            {/* Medications Section */}
-            {fullIndividualData.medications && fullIndividualData.medications.length > 0 && (
-              <div className="mb-8 print-section print-page-break">
-                <div className="bg-gradient-to-r from-blue-700 to-cyan-600 text-white p-4 rounded-t-xl flex items-center gap-2">
-                  <PillIcon size={20} />
-                  <h2 className="text-xl font-bold">Medication Management</h2>
+              {/* Guardian Information */}
+              {fullIndividualData.guardianname && (
+                <div className="mb-8 print-section">
+                  <div className="bg-gradient-to-r from-blue-900 to-blue-800 text-white p-4 rounded-t-xl flex items-center gap-2">
+                    <Shield size={20} />
+                    <h2 className="text-xl font-bold">Guardian & Emergency Contact</h2>
+                  </div>
+                  <div className="border-2 border-gray-200 rounded-b-xl p-6">
+                    <div className="grid grid-cols-3 gap-6">
+                      <div>
+                        <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Guardian Name</p>
+                        <p className="text-lg font-bold text-gray-900">{fullIndividualData.guardianname}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Guardian Phone</p>
+                        <p className="text-lg font-bold text-gray-900">{fullIndividualData.guardianphone || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Guardian Email</p>
+                        <p className="text-lg font-bold text-gray-900">{fullIndividualData.guardianemail || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Emergency Contact</p>
+                        <p className="text-lg font-bold text-gray-900">{fullIndividualData.emergencycontact || 'N/A'}</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="border-2 border-gray-200 rounded-b-xl">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 border-b-2 border-gray-200">
-                      <tr>
-                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Medication Name</th>
-                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Dosage</th>
-                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Route</th>
-                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Frequency</th>
-                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Status</th>
-                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Compliance</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {fullIndividualData.medications.map((med, idx) => (
-                        <tr key={med.id || idx} className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                          <td className="py-3 px-4 text-sm font-semibold text-gray-900">
-                            {med.medicationname || med.name || 'N/A'}
-                          </td>
-                          <td className="py-3 px-4 text-sm text-gray-700">{med.dosage || 'N/A'}</td>
-                          <td className="py-3 px-4 text-sm text-gray-700">{med.route || 'N/A'}</td>
-                          <td className="py-3 px-4 text-sm text-gray-700">{med.frequency || 'N/A'}</td>
-                          <td className="py-3 px-4">
-                            <span className={`text-xs px-2 py-1 rounded-full font-bold ${
-                              med.status === 'Active' ? 'bg-green-100 text-green-700' :
-                              med.status === 'On Hold' ? 'bg-yellow-100 text-yellow-700' :
-                              'bg-red-100 text-red-700'
-                            }`}>
-                              {med.status || 'Active'}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2">
-                              <div className="w-20 bg-gray-200 rounded-full h-2">
-                                <div 
-                                  className="h-full bg-blue-600 rounded-full" 
-                                  style={{width: `${med.compliance || 0}%`}}
-                                ></div>
-                              </div>
-                              <span className="text-xs font-bold text-gray-700">{med.compliance || 0}%</span>
-                            </div>
-                          </td>
+              )}
+
+              {/* Medications Section */}
+              {fullIndividualData.medications && fullIndividualData.medications.length > 0 && (
+                <div className="mb-8 print-section print-page-break">
+                  <div className="bg-gradient-to-r from-blue-700 to-cyan-600 text-white p-4 rounded-t-xl flex items-center gap-2">
+                    <PillIcon size={20} />
+                    <h2 className="text-xl font-bold">Medication Management</h2>
+                  </div>
+                  <div className="border-2 border-gray-200 rounded-b-xl">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b-2 border-gray-200">
+                        <tr>
+                          <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Medication Name</th>
+                          <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Dosage</th>
+                          <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Route</th>
+                          <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Frequency</th>
+                          <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Status</th>
+                          <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Compliance</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {fullIndividualData.medications.map((med, idx) => (
+                          <tr key={med.id || idx} className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                            <td className="py-3 px-4 text-sm font-semibold text-gray-900">
+                              {med.medicationname || med.name || 'N/A'}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-700">{med.dosage || 'N/A'}</td>
+                            <td className="py-3 px-4 text-sm text-gray-700">{med.route || 'N/A'}</td>
+                            <td className="py-3 px-4 text-sm text-gray-700">{med.frequency || 'N/A'}</td>
+                            <td className="py-3 px-4">
+                              <span className={`text-xs px-2 py-1 rounded-full font-bold ${
+                                med.status === 'Active' ? 'bg-green-100 text-green-700' :
+                                med.status === 'On Hold' ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-red-100 text-red-700'
+                              }`}>
+                                {med.status || 'Active'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2">
+                                <div className="w-20 bg-gray-200 rounded-full h-2">
+                                  <div 
+                                    className="h-full bg-blue-600 rounded-full" 
+                                    style={{width: `${med.compliance || 0}%`}}
+                                  ></div>
+                                </div>
+                                <span className="text-xs font-bold text-gray-700">{med.compliance || 0}%</span>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Daily Notes Section */}
-            {fullIndividualData.dailynotes && fullIndividualData.dailynotes.length > 0 && (
-              <div className="mb-8 print-section">
-                <div className="bg-gradient-to-r from-purple-700 to-pink-600 text-white p-4 rounded-t-xl flex items-center gap-2">
-                  <ClipboardList size={20} />
-                  <h2 className="text-xl font-bold">Recent Daily Notes</h2>
-                </div>
-                <div className="border-2 border-gray-200 rounded-b-xl p-6">
-                  <div className="space-y-6">
-                    {fullIndividualData.dailynotes.slice(0, 5).map((note, idx) => {
-                      const MoodIcon = getMoodIcon(note.mood);
-                      return (
-                        <div key={note.id || idx} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-pink-500 rounded-lg flex items-center justify-center">
-                                <CalendarIcon className="text-white" size={20} />
+              {/* Daily Notes Section */}
+              {fullIndividualData.dailynotes && fullIndividualData.dailynotes.length > 0 && (
+                <div className="mb-8 print-section">
+                  <div className="bg-gradient-to-r from-purple-700 to-pink-600 text-white p-4 rounded-t-xl flex items-center gap-2">
+                    <ClipboardList size={20} />
+                    <h2 className="text-xl font-bold">Recent Daily Notes</h2>
+                  </div>
+                  <div className="border-2 border-gray-200 rounded-b-xl p-6">
+                    <div className="space-y-6">
+                      {fullIndividualData.dailynotes.slice(0, 5).map((note, idx) => {
+                        const MoodIcon = getMoodIcon(note.mood);
+                        return (
+                          <div key={note.id || idx} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-pink-500 rounded-lg flex items-center justify-center">
+                                  <CalendarIcon className="text-white" size={20} />
+                                </div>
+                                <div>
+                                  <h3 className="font-bold text-gray-900">
+                                    {new Date(note.date).toLocaleDateString('en-US', { 
+                                      weekday: 'long', 
+                                      year: 'numeric', 
+                                      month: 'long', 
+                                      day: 'numeric' 
+                                    })}
+                                  </h3>
+                                  <p className="text-sm text-gray-600">{note.shift} • Documented by {note.staffname || note.created_by}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <MoodIcon className="text-purple-600" size={20} />
+                                <span className="text-sm font-semibold text-gray-700">{note.mood}</span>
+                              </div>
+                            </div>
+                            
+                            {/* Activities */}
+                            {note.activities && note.activities.length > 0 && (
+                              <div className="mb-3">
+                                <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Activities</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {note.activities.map((activity, activityIdx) => {
+                                    const ActivityIcon = getActivityIcon(activity);
+                                    return (
+                                      <span key={activityIdx} className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-semibold">
+                                        <ActivityIcon size={12} />
+                                        {activity}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Narrative */}
+                            {(note.narrative || note.ispGoalsNarrative) && (
+                              <div className="mb-3">
+                                <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Summary</p>
+                                <p className="text-sm text-gray-700">{note.narrative || note.ispGoalsNarrative}</p>
+                              </div>
+                            )}
+                            
+                            {/* Health & Behavior */}
+                            <div className="grid grid-cols-3 gap-3 text-sm">
+                              <div>
+                                <p className="text-xs text-gray-500">Appetite</p>
+                                <p className="font-semibold text-gray-900">{note.appetite || 'N/A'}</p>
                               </div>
                               <div>
-                                <h3 className="font-bold text-gray-900">
-                                  {new Date(note.date).toLocaleDateString('en-US', { 
-                                    weekday: 'long', 
-                                    year: 'numeric', 
-                                    month: 'long', 
-                                    day: 'numeric' 
-                                  })}
-                                </h3>
-                                <p className="text-sm text-gray-600">{note.shift} • Documented by {note.staffname || note.created_by}</p>
+                                <p className="text-xs text-gray-500">Sleep</p>
+                                <p className="font-semibold text-gray-900">{note.sleep || 'N/A'}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-500">Behaviors</p>
+                                <p className="font-semibold text-gray-900">{note.behaviors?.length || 0}</p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <MoodIcon className="text-purple-600" size={20} />
-                              <span className="text-sm font-semibold text-gray-700">{note.mood}</span>
-                            </div>
                           </div>
-                          
-                          {/* Activities */}
-                          {note.activities && note.activities.length > 0 && (
-                            <div className="mb-3">
-                              <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Activities</p>
-                              <div className="flex flex-wrap gap-2">
-                                {note.activities.map((activity, activityIdx) => {
-                                  const ActivityIcon = getActivityIcon(activity);
-                                  return (
-                                    <span key={activityIdx} className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-semibold">
-                                      <ActivityIcon size={12} />
-                                      {activity}
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* Narrative */}
-                          {(note.narrative || note.ispGoalsNarrative) && (
-                            <div className="mb-3">
-                              <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Summary</p>
-                              <p className="text-sm text-gray-700">{note.narrative || note.ispGoalsNarrative}</p>
-                            </div>
-                          )}
-                          
-                          {/* Health & Behavior */}
-                          <div className="grid grid-cols-3 gap-3 text-sm">
-                            <div>
-                              <p className="text-xs text-gray-500">Appetite</p>
-                              <p className="font-semibold text-gray-900">{note.appetite || 'N/A'}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-500">Sleep</p>
-                              <p className="font-semibold text-gray-900">{note.sleep || 'N/A'}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-500">Behaviors</p>
-                              <p className="font-semibold text-gray-900">{note.behaviors?.length || 0}</p>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Goals & Progress Section */}
-            {fullIndividualData.goals && fullIndividualData.goals.length > 0 && (
-              <div className="mb-8 print-section print-page-break">
-                <div className="bg-gradient-to-r from-green-700 to-emerald-600 text-white p-4 rounded-t-xl flex items-center gap-2">
-                  <Target size={20} />
-                  <h2 className="text-xl font-bold">Goals & Progress Tracking</h2>
+              {/* Goals & Progress Section */}
+              {fullIndividualData.goals && fullIndividualData.goals.length > 0 && (
+                <div className="mb-8 print-section print-page-break">
+                  <div className="bg-gradient-to-r from-green-700 to-emerald-600 text-white p-4 rounded-t-xl flex items-center gap-2">
+                    <Target size={20} />
+                    <h2 className="text-xl font-bold">Goals & Progress Tracking</h2>
+                  </div>
+                  <div className="border-2 border-gray-200 rounded-b-xl p-6">
+                    <div className="space-y-4">
+                      {fullIndividualData.goals.map((goal, idx) => (
+                        <div key={goal.id || idx} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xs font-bold text-gray-500 uppercase">Goal {idx + 1}</span>
+                                <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                                  goal.status === 'Active' ? 'bg-green-100 text-green-700' :
+                                  goal.status === 'Completed' ? 'bg-blue-100 text-blue-700' :
+                                  'bg-gray-100 text-gray-700'
+                                }`}>
+                                  {goal.status}
+                                </span>
+                              </div>
+                              <p className="text-sm font-semibold text-gray-900">{goal.description || 'No description provided'}</p>
+                            </div>
+                            <div className="text-right ml-4">
+                              <p className="text-2xl font-black text-green-600">{goal.progress || 0}%</p>
+                            </div>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-3">
+                            <div 
+                              className="h-full bg-gradient-to-r from-green-500 to-emerald-600 rounded-full transition-all" 
+                              style={{width: `${goal.progress || 0}%`}}
+                            ></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <div className="border-2 border-gray-200 rounded-b-xl p-6">
-                  <div className="space-y-4">
-                    {fullIndividualData.goals.map((goal, idx) => (
-                      <div key={goal.id || idx} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-bold text-gray-500 uppercase">Goal {idx + 1}</span>
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
-                                goal.status === 'Active' ? 'bg-green-100 text-green-700' :
-                                goal.status === 'Completed' ? 'bg-blue-100 text-blue-700' :
-                                'bg-gray-100 text-gray-700'
+              )}
+
+              {/* Incidents Section */}
+              {fullIndividualData.incidents && fullIndividualData.incidents.length > 0 && (
+                <div className="mb-8 print-section">
+                  <div className="bg-gradient-to-r from-orange-700 to-red-600 text-white p-4 rounded-t-xl flex items-center gap-2">
+                    <AlertTriangle size={20} />
+                    <h2 className="text-xl font-bold">Incident Reports</h2>
+                  </div>
+                  <div className="border-2 border-gray-200 rounded-b-xl">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b-2 border-gray-200">
+                        <tr>
+                          <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Date</th>
+                          <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Incident Type</th>
+                          <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Severity</th>
+                          <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Description</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {fullIndividualData.incidents.slice(0, 5).map((incident, idx) => (
+                          <tr key={incident.id || idx} className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                            <td className="py-3 px-4 text-sm font-semibold text-gray-900">
+                              {new Date(incident.dateoccurred).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-700">{incident.incidenttype || 'N/A'}</td>
+                            <td className="py-3 px-4">
+                              <span className={`text-xs px-2 py-1 rounded-full font-bold ${
+                                incident.severity === 'High' ? 'bg-red-100 text-red-700' :
+                                incident.severity === 'Medium' ? 'bg-orange-100 text-orange-700' :
+                                'bg-yellow-100 text-yellow-700'
                               }`}>
-                                {goal.status}
+                                {incident.severity || 'Low'}
                               </span>
-                            </div>
-                            <p className="text-sm font-semibold text-gray-900">{goal.description || 'No description provided'}</p>
-                          </div>
-                          <div className="text-right ml-4">
-                            <p className="text-2xl font-black text-green-600">{goal.progress || 0}%</p>
-                          </div>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-3">
-                          <div 
-                            className="h-full bg-gradient-to-r from-green-500 to-emerald-600 rounded-full transition-all" 
-                            style={{width: `${goal.progress || 0}%`}}
-                          ></div>
-                        </div>
-                      </div>
-                    ))}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-700">{incident.description ? incident.description.substring(0, 60) + '...' : 'No description'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Incidents Section */}
-            {fullIndividualData.incidents && fullIndividualData.incidents.length > 0 && (
-              <div className="mb-8 print-section">
-                <div className="bg-gradient-to-r from-orange-700 to-red-600 text-white p-4 rounded-t-xl flex items-center gap-2">
-                  <AlertTriangle size={20} />
-                  <h2 className="text-xl font-bold">Incident Reports</h2>
-                </div>
-                <div className="border-2 border-gray-200 rounded-b-xl">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 border-b-2 border-gray-200">
-                      <tr>
-                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Date</th>
-                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Incident Type</th>
-                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Severity</th>
-                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Description</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {fullIndividualData.incidents.slice(0, 5).map((incident, idx) => (
-                        <tr key={incident.id || idx} className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                          <td className="py-3 px-4 text-sm font-semibold text-gray-900">
-                            {new Date(incident.dateoccurred).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                          </td>
-                          <td className="py-3 px-4 text-sm text-gray-700">{incident.incidenttype || 'N/A'}</td>
-                          <td className="py-3 px-4">
-                            <span className={`text-xs px-2 py-1 rounded-full font-bold ${
-                              incident.severity === 'High' ? 'bg-red-100 text-red-700' :
-                              incident.severity === 'Medium' ? 'bg-orange-100 text-orange-700' :
-                              'bg-yellow-100 text-yellow-700'
-                            }`}>
-                              {incident.severity || 'Low'}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-sm text-gray-700">{incident.description ? incident.description.substring(0, 60) + '...' : 'No description'}</td>
+              {/* Uploaded Documents Section */}
+              {individualDocuments.length > 0 && (
+                <div className="mb-8 print-section print-page-break">
+                  <div className="bg-gradient-to-r from-indigo-700 to-purple-600 text-white p-4 rounded-t-xl flex items-center gap-2">
+                    <File size={20} />
+                    <h2 className="text-xl font-bold">Uploaded Documents</h2>
+                  </div>
+                  <div className="border-2 border-gray-200 rounded-b-xl p-6">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b-2 border-gray-200">
+                        <tr>
+                          <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Document Name</th>
+                          <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Type</th>
+                          <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Uploaded By</th>
+                          <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Date</th>
+                          <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Signatures</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* Uploaded Documents Section */}
-            {individualDocuments.length > 0 && (
-              <div className="mb-8 print-section print-page-break">
-                <div className="bg-gradient-to-r from-indigo-700 to-purple-600 text-white p-4 rounded-t-xl flex items-center gap-2">
-                  <File size={20} />
-                  <h2 className="text-xl font-bold">Uploaded Documents</h2>
-                </div>
-                <div className="border-2 border-gray-200 rounded-b-xl p-6">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 border-b-2 border-gray-200">
-                      <tr>
-                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Document Name</th>
-                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Type</th>
-                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Uploaded By</th>
-                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Date</th>
-                        <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Signatures</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {individualDocuments.map((doc, idx) => (
-                        <tr key={doc.id} className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                          <td className="py-3 px-4 text-sm font-semibold text-gray-900">{doc.document_name}</td>
-                          <td className="py-3 px-4 text-sm text-gray-700">{doc.document_type?.replace('_', ' ').toUpperCase()}</td>
-                          <td className="py-3 px-4 text-sm text-gray-700">{doc.uploaded_by}</td>
-                          <td className="py-3 px-4 text-sm text-gray-700">
-                            {new Date(doc.uploaded_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className="text-xs font-bold text-gray-700">{doc.signatures_count || 0}</span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <div className="mt-4 text-sm text-gray-600">
-                    <p><strong>Note:</strong> Documents are stored securely and can be accessed through the individual's profile in the CareBridge Pro system.</p>
+                      </thead>
+                      <tbody>
+                        {individualDocuments.map((doc, idx) => (
+                          <tr key={doc.id} className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                            <td className="py-3 px-4 text-sm font-semibold text-gray-900">{doc.document_name}</td>
+                            <td className="py-3 px-4 text-sm text-gray-700">{doc.document_type?.replace('_', ' ').toUpperCase()}</td>
+                            <td className="py-3 px-4 text-sm text-gray-700">{doc.uploaded_by}</td>
+                            <td className="py-3 px-4 text-sm text-gray-700">
+                              {new Date(doc.uploaded_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="text-xs font-bold text-gray-700">{doc.signatures_count || 0}</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div className="mt-4 text-sm text-gray-600">
+                      <p><strong>Note:</strong> Documents are stored securely and can be accessed through the individual's profile in the CareBridge Pro system.</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Footer */}
-            <div className="mt-12 pt-6 border-t-2 border-gray-300 print-section">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Report Generated By</p>
-                  <p className="text-sm font-bold text-gray-900">{userProfile?.fullname || 'System Administrator'}</p>
-                  <p className="text-xs text-gray-500">{userProfile?.role_name || 'Administrator'} • {userProfile?.facility || 'CareBridge Pro'}</p>
+              {/* Footer */}
+              <div className="mt-12 pt-6 border-t-2 border-gray-300 print-section">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Report Generated By</p>
+                    <p className="text-sm font-bold text-gray-900">{userProfile?.fullname || 'System Administrator'}</p>
+                    <p className="text-xs text-gray-500">{userProfile?.role_name || 'Administrator'} • {userProfile?.facility || 'CareBridge Pro'}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500 font-semibold uppercase mb-1">System Information</p>
+                    <p className="text-sm font-bold text-gray-900">CareBridge Pro v2.0</p>
+                    <p className="text-xs text-gray-500">IPMS Aligned • Alabama DD Compliant</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs text-gray-500 font-semibold uppercase mb-1">System Information</p>
-                  <p className="text-sm font-bold text-gray-900">CareBridge Pro v2.0</p>
-                  <p className="text-xs text-gray-500">IPMS Aligned • Alabama DD Compliant</p>
+                <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <p className="text-xs text-gray-600 text-center">
+                    <span className="font-semibold">CONFIDENTIAL:</span> This document contains protected health information (PHI) and is intended solely for authorized personnel. 
+                    Unauthorized disclosure or distribution is prohibited by law.
+                  </p>
                 </div>
-              </div>
-              <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-3">
-                <p className="text-xs text-gray-600 text-center">
-                  <span className="font-semibold">CONFIDENTIAL:</span> This document contains protected health information (PHI) and is intended solely for authorized personnel. 
-                  Unauthorized disclosure or distribution is prohibited by law.
-                </p>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </>
   );
 };
