@@ -1865,7 +1865,8 @@ Delete
                                   </span>
                                   <span className="flex items-center gap-1">
                                     <Calendar size={14} />
-                                    {new Date(doc.uploaded_at).toLocaleDateString()}
+                                    {new Date(doc.uploaded_at).toLocaleDateString()} {new Date(doc.uploaded_at).toLocaleTimeString()}
+
                                   </span>
                                   <span className="flex items-center gap-1">
                                     <Type size={14} />

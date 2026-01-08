@@ -300,6 +300,25 @@ const MedicationsPage = () => {
     reviewRequiredCount: 0
   });
 
+  const [showWellnessModal, setShowWellnessModal] = useState(false);
+const [wellnessData, setWellnessData] = useState([]);
+const [wellnessForm, setWellnessForm] = useState({
+  type: '', // 'appointment', 'medical_history', 'vital_signs'
+  date: '',
+  title: '',
+  provider: '',
+  location: '',
+  notes: '',
+  status: 'Scheduled', // For appointments
+  // Vital signs fields
+  bloodPressure: '',
+  heartRate: '',
+  temperature: '',
+  weight: '',
+  height: '',
+  oxygenSaturation: ''
+});
+
   // Permission checks
   const canViewMedications = hasAnyPermission([
     PERMISSIONS.MAR_CREATE,
@@ -441,7 +460,33 @@ const MedicationsPage = () => {
     return data;
   };
 
-  
+
+  const fetchWellnessData = async (individualId) => {
+  try {
+    const { data, error } = await supabase
+      .from('individuals')
+      .select('wellness_data')
+      .eq('id', individualId)
+      .single();
+    
+    if (error) throw error;
+    
+    const wellness = parseJSONData(data?.wellness_data) || [];
+    setWellnessData(wellness);
+    
+    // Update local state
+    setIndividuals(prev => prev.map(ind => 
+      ind.id === individualId 
+        ? { ...ind, wellness_data: wellness } 
+        : ind
+    ));
+  } catch (error) {
+    console.error('Error fetching wellness data:', error);
+    setWellnessData([]);
+  }
+};
+
+
     // Load PDF.js and jsPDF on component mount
     useEffect(() => {
       const script = document.createElement('script');
@@ -911,6 +956,7 @@ const MedicationsPage = () => {
     if (selectedIndividual) {
       fetchMedications(selectedIndividual.id);
       fetchMARHistory(selectedIndividual.id);
+      fetchWellnessData(selectedIndividual.id);
     }
   }, [selectedIndividual]);
 
@@ -963,6 +1009,70 @@ const MedicationsPage = () => {
       setLoading(false);
     }
   };
+
+
+const handleWellnessEntry = async (e) => {
+  e.preventDefault();
+  
+  try {
+    const newWellnessEntry = {
+      id: Date.now().toString(),
+      ...wellnessForm,
+      created_date: new Date().toISOString(),
+      created_by: userProfile.fullname,
+      created_by_role: userProfile.role_name
+    };
+
+    const updatedWellness = [...wellnessData, newWellnessEntry];
+    
+    // Update in Supabase
+    const { error } = await supabase
+      .from('individuals')
+      .update({ 
+        wellness_data: updatedWellness,
+        last_activity: new Date().toISOString()
+      })
+      .eq('id', selectedIndividual.id);
+
+    if (error) throw error;
+
+    // Update local state immediately
+    setWellnessData(updatedWellness);
+    
+    // Update the individual in the individuals array
+    setIndividuals(prev => prev.map(ind => 
+      ind.id === selectedIndividual.id 
+        ? { ...ind, wellness_data: updatedWellness } 
+        : ind
+    ));
+    
+    setShowWellnessModal(false);
+    resetWellnessForm();
+    alert('Wellness entry added successfully!');
+  } catch (error) {
+    console.error('Error adding wellness entry:', error);
+    alert('Error adding wellness entry. Please try again.');
+  }
+};
+
+const resetWellnessForm = () => {
+  setWellnessForm({
+    type: '',
+    date: '',
+    title: '',
+    provider: '',
+    location: '',
+    notes: '',
+    status: 'Scheduled',
+    bloodPressure: '',
+    heartRate: '',
+    temperature: '',
+    weight: '',
+    height: '',
+    oxygenSaturation: ''
+  });
+};
+
 
   const applyFiltersWithData = (data) => {
     let filtered = [...data];
@@ -2696,7 +2806,8 @@ const MedicationsPage = () => {
                                   </span>
                                   <span className="flex items-center gap-1">
                                     <Calendar size={14} />
-                                    {new Date(doc.uploaded_at).toLocaleDateString()}
+                                    {new Date(doc.uploaded_at).toLocaleDateString()} {new Date(doc.uploaded_at).toLocaleTimeString()}
+
                                   </span>
                                   <span className="flex items-center gap-1">
                                     <Type size={14} />
@@ -2849,6 +2960,15 @@ Page {pageIndex + 1} of {pdfPages.length}
 
                             <canvas ref={canvasRef} className="hidden" />
                           </div>
+
+
+
+
+
+
+
+
+
 
                           {/* Signature Tools */}
                           <div className="space-y-6">
@@ -3040,6 +3160,474 @@ Page {pageIndex + 1} of {pdfPages.length}
                 </>
               )}
             </div>
+
+
+
+{/* Wellness Monitoring Section */}
+<div className="mt-8">
+  <div className="flex items-center justify-between mb-6">
+    <div>
+      <h3 className="text-xl font-bold text-white flex items-center gap-2">
+        <Stethoscope size={24} className="text-pink-400" />
+        Wellness Monitoring
+      </h3>
+      <p className="text-slate-400">Track appointments, medical history, and vital signs</p>
+    </div>
+    <button
+      onClick={() => setShowWellnessModal(true)}
+      className="flex items-center gap-2 bg-gradient-to-r from-pink-600 to-rose-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-2xl hover:shadow-pink-500/50 transition-all duration-300"
+    >
+      <Plus size={18} />
+      Add Entry
+    </button>
+  </div>
+
+  {/* Wellness Stats Cards */}
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div className="bg-gradient-to-br from-blue-600/20 to-cyan-500/20 border border-blue-500/30 rounded-xl p-4">
+      <div className="flex items-center gap-3">
+        <Calendar className="text-blue-400" size={24} />
+        <div>
+          <p className="text-slate-400 text-sm">Upcoming Appointments</p>
+          <p className="text-white text-2xl font-bold">
+            {wellnessData.filter(w => w.type === 'appointment' && w.status === 'Scheduled').length}
+          </p>
+        </div>
+      </div>
+    </div>
+    
+    <div className="bg-gradient-to-br from-green-600/20 to-emerald-500/20 border border-green-500/30 rounded-xl p-4">
+      <div className="flex items-center gap-3">
+        <FileText className="text-green-400" size={24} />
+        <div>
+          <p className="text-slate-400 text-sm">Medical History Records</p>
+          <p className="text-white text-2xl font-bold">
+            {wellnessData.filter(w => w.type === 'medical_history').length}
+          </p>
+        </div>
+      </div>
+    </div>
+    
+    <div className="bg-gradient-to-br from-purple-600/20 to-pink-500/20 border border-purple-500/30 rounded-xl p-4">
+      <div className="flex items-center gap-3">
+        <HeartPulse className="text-purple-400" size={24} />
+        <div>
+          <p className="text-slate-400 text-sm">Vital Signs Recorded</p>
+          <p className="text-white text-2xl font-bold">
+            {wellnessData.filter(w => w.type === 'vital_signs').length}
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* Wellness Entries List */}
+  <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+    {wellnessData.length === 0 ? (
+      <div className="text-center py-12">
+        <Stethoscope className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+        <h4 className="text-xl font-bold text-slate-400 mb-2">No wellness records found</h4>
+        <p className="text-slate-500">Add appointments, medical history, or vital signs</p>
+      </div>
+    ) : (
+      <ScrollArea className="h-[400px]">
+        <div className="space-y-3">
+          {wellnessData
+            .sort((a, b) => new Date(b.created_date) - new Date(a.created_date))
+            .map((entry) => (
+              <div key={entry.id} className="bg-slate-900/50 border border-slate-700 rounded-lg p-4 hover:border-pink-500/30 transition-all">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-3 flex-1">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                      entry.type === 'appointment' ? 'bg-blue-600/20' :
+                      entry.type === 'medical_history' ? 'bg-green-600/20' :
+                      'bg-purple-600/20'
+                    }`}>
+                      {entry.type === 'appointment' && <Calendar className="text-blue-400" size={20} />}
+                      {entry.type === 'medical_history' && <FileText className="text-green-400" size={20} />}
+                      {entry.type === 'vital_signs' && <HeartPulse className="text-purple-400" size={20} />}
+                    </div>
+                    
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="text-white font-bold">{entry.title}</h4>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                          entry.type === 'appointment' ? 'bg-blue-900/30 text-blue-400' :
+                          entry.type === 'medical_history' ? 'bg-green-900/30 text-green-400' :
+                          'bg-purple-900/30 text-purple-400'
+                        }`}>
+                          {entry.type.replace('_', ' ').toUpperCase()}
+                        </span>
+                        {entry.status && (
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                            entry.status === 'Scheduled' ? 'bg-yellow-900/30 text-yellow-400' :
+                            entry.status === 'Completed' ? 'bg-green-900/30 text-green-400' :
+                            'bg-red-900/30 text-red-400'
+                          }`}>
+                            {entry.status}
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4 mb-2 text-sm">
+                        {entry.date && (
+                          <div>
+                            <p className="text-slate-400">Date</p>
+                            <p className="text-white">{new Date(entry.date).toLocaleDateString()}</p>
+                          </div>
+                        )}
+                        {entry.provider && (
+                          <div>
+                            <p className="text-slate-400">Provider</p>
+                            <p className="text-white">{entry.provider}</p>
+                          </div>
+                        )}
+                        {entry.location && (
+                          <div>
+                            <p className="text-slate-400">Location</p>
+                            <p className="text-white">{entry.location}</p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Vital Signs Display */}
+                      {entry.type === 'vital_signs' && (
+                        <div className="grid grid-cols-3 gap-3 mt-3 p-3 bg-slate-800 rounded-lg">
+                          {entry.bloodPressure && (
+                            <div>
+                              <p className="text-slate-400 text-xs">Blood Pressure</p>
+                              <p className="text-white font-semibold">{entry.bloodPressure}</p>
+                            </div>
+                          )}
+                          {entry.heartRate && (
+                            <div>
+                              <p className="text-slate-400 text-xs">Heart Rate</p>
+                              <p className="text-white font-semibold">{entry.heartRate} bpm</p>
+                            </div>
+                          )}
+                          {entry.temperature && (
+                            <div>
+                              <p className="text-slate-400 text-xs">Temperature</p>
+                              <p className="text-white font-semibold">{entry.temperature}°F</p>
+                            </div>
+                          )}
+                          {entry.weight && (
+                            <div>
+                              <p className="text-slate-400 text-xs">Weight</p>
+                              <p className="text-white font-semibold">{entry.weight} lbs</p>
+                            </div>
+                          )}
+                          {entry.height && (
+                            <div>
+                              <p className="text-slate-400 text-xs">Height</p>
+                              <p className="text-white font-semibold">{entry.height}</p>
+                            </div>
+                          )}
+                          {entry.oxygenSaturation && (
+                            <div>
+                              <p className="text-slate-400 text-xs">O2 Saturation</p>
+                              <p className="text-white font-semibold">{entry.oxygenSaturation}%</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {entry.notes && (
+                        <div className="mt-2">
+                          <p className="text-slate-400 text-xs mb-1">Notes</p>
+                          <p className="text-slate-300 text-sm bg-slate-800 rounded p-2">{entry.notes}</p>
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center gap-2 mt-2 text-xs text-slate-500">
+                        <User size={12} />
+                        <span>Added by {entry.created_by}</span>
+                        <span>•</span>
+                        <span>{new Date(entry.created_date).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {canDeleteMedications && (
+                    <button
+                      onClick={() => {
+                        if (confirm('Are you sure you want to delete this wellness entry?')) {
+                          const updated = wellnessData.filter(w => w.id !== entry.id);
+                          supabase
+                            .from('individuals')
+                            .update({ wellness_data: updated })
+                            .eq('id', selectedIndividual.id)
+                            .then(() => {
+                              setWellnessData(updated);
+                              alert('Wellness entry deleted successfully!');
+                            });
+                        }
+                      }}
+                      className="p-2 hover:bg-red-500/20 rounded-lg transition-all"
+                    >
+                      <Trash2 size={16} className="text-red-400" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+        </div>
+      </ScrollArea>
+    )}
+  </div>
+</div>
+
+
+{/* Wellness Entry Modal */}
+{showWellnessModal && (
+  <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
+      <div className="flex items-center justify-between p-6 border-b border-slate-700">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-gradient-to-br from-pink-600 to-rose-500 rounded-xl flex items-center justify-center">
+            <Stethoscope className="text-white" size={24} />
+          </div>
+          <div>
+            <h3 className="text-2xl font-bold text-white">Add Wellness Entry</h3>
+            <p className="text-slate-400 text-sm">Track appointments, medical history, or vital signs</p>
+          </div>
+        </div>
+        <button 
+          onClick={() => setShowWellnessModal(false)}
+          className="p-2 hover:bg-slate-700 rounded-lg transition-all"
+        >
+          <X className="text-slate-400" size={24} />
+        </button>
+      </div>
+
+      <ScrollArea className="h-[calc(90vh-180px)]">
+        <form onSubmit={handleWellnessEntry} className="p-6 space-y-6">
+          {/* Entry Type Selection */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-3">Entry Type *</label>
+            <div className="grid grid-cols-3 gap-3">
+              <button
+                type="button"
+                onClick={() => setWellnessForm({...wellnessForm, type: 'appointment'})}
+                className={`p-4 rounded-xl border-2 transition-all ${
+                  wellnessForm.type === 'appointment'
+                    ? 'border-blue-500 bg-blue-600/20'
+                    : 'border-slate-600 hover:border-slate-500 bg-slate-900/50'
+                }`}
+              >
+                <Calendar className={`mx-auto mb-2 ${wellnessForm.type === 'appointment' ? 'text-blue-400' : 'text-slate-400'}`} size={24} />
+                <p className={`text-sm font-semibold ${wellnessForm.type === 'appointment' ? 'text-white' : 'text-slate-400'}`}>Appointment</p>
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => setWellnessForm({...wellnessForm, type: 'medical_history'})}
+                className={`p-4 rounded-xl border-2 transition-all ${
+                  wellnessForm.type === 'medical_history'
+                    ? 'border-green-500 bg-green-600/20'
+                    : 'border-slate-600 hover:border-slate-500 bg-slate-900/50'
+                }`}
+              >
+                <FileText className={`mx-auto mb-2 ${wellnessForm.type === 'medical_history' ? 'text-green-400' : 'text-slate-400'}`} size={24} />
+                <p className={`text-sm font-semibold ${wellnessForm.type === 'medical_history' ? 'text-white' : 'text-slate-400'}`}>Medical History</p>
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => setWellnessForm({...wellnessForm, type: 'vital_signs'})}
+                className={`p-4 rounded-xl border-2 transition-all ${
+                  wellnessForm.type === 'vital_signs'
+                    ? 'border-purple-500 bg-purple-600/20'
+                    : 'border-slate-600 hover:border-slate-500 bg-slate-900/50'
+                }`}
+              >
+                <HeartPulse className={`mx-auto mb-2 ${wellnessForm.type === 'vital_signs' ? 'text-purple-400' : 'text-slate-400'}`} size={24} />
+                <p className={`text-sm font-semibold ${wellnessForm.type === 'vital_signs' ? 'text-white' : 'text-slate-400'}`}>Vital Signs</p>
+              </button>
+            </div>
+          </div>
+
+          {wellnessForm.type && (
+            <>
+              {/* Common Fields */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Title *</label>
+                  <input
+                    type="text"
+                    value={wellnessForm.title}
+                    onChange={(e) => setWellnessForm({...wellnessForm, title: e.target.value})}
+                    required
+                    placeholder={
+                      wellnessForm.type === 'appointment' ? 'e.g., Annual Physical' :
+                      wellnessForm.type === 'medical_history' ? 'e.g., Diagnosis Update' :
+                      'e.g., Weekly Vitals Check'
+                    }
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-pink-500 transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Date *</label>
+                  <input
+                    type="date"
+                    value={wellnessForm.date}
+                    onChange={(e) => setWellnessForm({...wellnessForm, date: e.target.value})}
+                    required
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-pink-500 transition-all"
+                  />
+                </div>
+
+                {wellnessForm.type === 'appointment' && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Status</label>
+                    <select
+                      value={wellnessForm.status}
+                      onChange={(e) => setWellnessForm({...wellnessForm, status: e.target.value})}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-pink-500 transition-all"
+                    >
+                      <option value="Scheduled">Scheduled</option>
+                      <option value="Completed">Completed</option>
+                      <option value="Cancelled">Cancelled</option>
+                      <option value="No Show">No Show</option>
+                    </select>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Provider/Doctor</label>
+                  <input
+                    type="text"
+                    value={wellnessForm.provider}
+                    onChange={(e) => setWellnessForm({...wellnessForm, provider: e.target.value})}
+                    placeholder="e.g., Dr. Smith"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-pink-500 transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Location</label>
+                  <input
+                    type="text"
+                    value={wellnessForm.location}
+                    onChange={(e) => setWellnessForm({...wellnessForm, location: e.target.value})}
+                    placeholder="e.g., Main Street Clinic"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-pink-500 transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Vital Signs Fields */}
+              {wellnessForm.type === 'vital_signs' && (
+                <div>
+                  <h4 className="text-lg font-bold text-purple-400 mb-4">Vital Signs</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Blood Pressure</label>
+                      <input
+                        type="text"
+                        value={wellnessForm.bloodPressure}
+                        onChange={(e) => setWellnessForm({...wellnessForm, bloodPressure: e.target.value})}
+                        placeholder="120/80"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 transition-all"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Heart Rate (bpm)</label>
+                      <input
+                        type="number"
+                        value={wellnessForm.heartRate}
+                        onChange={(e) => setWellnessForm({...wellnessForm, heartRate: e.target.value})}
+                        placeholder="72"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 transition-all"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Temperature (°F)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={wellnessForm.temperature}
+                        onChange={(e) => setWellnessForm({...wellnessForm, temperature: e.target.value})}
+                        placeholder="98.6"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 transition-all"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Weight (lbs)</label>
+                      <input
+                        type="number"
+                        value={wellnessForm.weight}
+                        onChange={(e) => setWellnessForm({...wellnessForm, weight: e.target.value})}
+                        placeholder="150"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 transition-all"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Height</label>
+                      <input
+                        type="text"
+                        value={wellnessForm.height}
+                        onChange={(e) => setWellnessForm({...wellnessForm, height: e.target.value})}
+                        placeholder="5'8\"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 transition-all"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">O2 Saturation (%)</label>
+                      <input
+                        type="number"
+                        value={wellnessForm.oxygenSaturation}
+                        onChange={(e) => setWellnessForm({...wellnessForm, oxygenSaturation: e.target.value})}
+                        placeholder="98"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Notes</label>
+                <textarea
+                  value={wellnessForm.notes}
+                  onChange={(e) => setWellnessForm({...wellnessForm, notes: e.target.value})}
+                  rows="4"
+                  placeholder="Additional details, observations, or instructions..."
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-pink-500 transition-all resize-none"
+                />
+              </div>
+
+              {/* Form Actions */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setShowWellnessModal(false)}
+                  className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-pink-600 to-rose-500 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-pink-500/50 transition-all"
+                >
+                  <Save size={18} />
+                  Save Entry
+                </button>
+              </div>
+            </>
+          )}
+        </form>
+      </ScrollArea>
+    </div>
+  </div>
+)}
 
 
 
@@ -3485,6 +4073,12 @@ Page {pageIndex + 1} of {pdfPages.length}
           </div>
         </div>
       )}
+
+
+
+
+
+      
     </div>
   );
 };
