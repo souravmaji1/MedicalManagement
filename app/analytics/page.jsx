@@ -12,7 +12,10 @@ import {
   Printer, Pill as PillIcon, BookOpen, Utensils, Shirt, Bath, Bed,
   Smile, Frown, Meh, MessageSquare, Target as TargetIcon,
   CheckSquare, ClipboardList, Stethoscope, Bell as BellIcon,
-  ExternalLink, File, Link, ChevronUp, ChevronDown as ChevronDownIcon
+  ExternalLink, File, Link, ChevronUp, ChevronDown as ChevronDownIcon,
+  Phone, Mail, Map, FileSpreadsheet, Clipboard, Shield as ShieldIcon,
+  UserCheck, Activity as ActivityIcon, Droplets, Thermometer,
+  HeartPulse, Eye as EyeIcon, BrainCircuit, Wind, AlertCircle
 } from 'lucide-react';
 import { ScrollArea } from "../../components/ui/scroll-area";
 import { useUser, UserButton } from '@clerk/nextjs';
@@ -40,6 +43,64 @@ const parseJSONData = (data) => {
   return data;
 };
 
+// Helper function to get mood icon
+const getMoodIcon = (mood) => {
+  const icons = {
+    'Happy': Smile,
+    'Calm': Smile,
+    'Excited': Smile,
+    'Neutral': Meh,
+    'Anxious': Frown,
+    'Sad': Frown,
+    'Frustrated': Frown
+  };
+  return icons[mood] || Meh;
+};
+
+// Helper function to get activity icon
+const getActivityIcon = (activityType) => {
+  const icons = {
+    'arts-crafts': Palette,
+    'music': Music,
+    'reading': BookOpen,
+    'exercise': Activity,
+    'social': Users,
+    'community': MapPin,
+    'cognitive': Brain,
+    'group': Users,
+    'arts & crafts': Palette,
+    'bath': Bath,
+    'bedtime': Bed,
+    'meal': Utensils,
+    'dressing': Shirt
+  };
+  return icons[activityType] || Activity;
+};
+
+// Helper function to format date
+const formatDate = (dateString) => {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
+};
+
+// Helper function to format datetime
+const formatDateTime = (dateString) => {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  return date.toLocaleString('en-US', { 
+    year: 'numeric', 
+    month: 'short', 
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
 const AnalyticsPage = () => {
   const { user, isLoaded } = useUser();
   const router = useRouter();
@@ -61,6 +122,7 @@ const AnalyticsPage = () => {
   const [individualDocuments, setIndividualDocuments] = useState([]);
   const [loadingDocuments, setLoadingDocuments] = useState(false);
   const [expandedDailyNotes, setExpandedDailyNotes] = useState({});
+  const [activeTab, setActiveTab] = useState('overview');
   
   const [analyticsData, setAnalyticsData] = useState({
     totalIndividuals: 0,
@@ -76,48 +138,6 @@ const AnalyticsPage = () => {
     communityOutings: 0,
     goalAchievements: 0
   });
-
-  // Helper function to get mood icon
-  const getMoodIcon = (mood) => {
-    const icons = {
-      'Happy': Smile,
-      'Calm': Smile,
-      'Excited': Smile,
-      'Neutral': Meh,
-      'Anxious': Frown,
-      'Sad': Frown,
-      'Frustrated': Frown
-    };
-    return icons[mood] || Meh;
-  };
-
-  // Helper function to get activity icon
-  const getActivityIcon = (activityType) => {
-    const icons = {
-      'arts-crafts': Palette,
-      'music': Music,
-      'reading': BookOpen,
-      'exercise': Activity,
-      'social': Users,
-      'community': MapPin,
-      'cognitive': Brain,
-      'group': Users,
-      'arts & crafts': Palette,
-      'bath': Bath,
-      'bedtime': Bed,
-      'meal': Utensils,
-      'dressing': Shirt
-    };
-    return icons[activityType] || Activity;
-  };
-
-  // Toggle daily note expansion
-  const toggleDailyNote = (noteId) => {
-    setExpandedDailyNotes(prev => ({
-      ...prev,
-      [noteId]: !prev[noteId]
-    }));
-  };
 
   // Permission checks
   const canViewReports = hasAnyPermission([
@@ -137,7 +157,7 @@ const AnalyticsPage = () => {
     { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
     { id: 'individual', icon: Users, label: 'Individuals', badge: null },
     { id: 'medicine', icon: Pill, label: 'Medications', badge: null },
-    { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: '3' },
+    { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: null },
     { id: 'billing', icon: CreditCard, label: 'Billing', badge: null },
     { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null },
     { id: 'settings', icon: Settings, label: 'Settings', badge: null },
@@ -150,6 +170,16 @@ const AnalyticsPage = () => {
     { value: '6months', label: 'Last 6 Months' },
     { value: '1year', label: 'Last Year' },
     { value: 'all', label: 'All Time' }
+  ];
+
+  // Tabs for individual detail modal
+  const detailTabs = [
+    { id: 'overview', label: 'Overview', icon: User },
+    { id: 'medical', label: 'Medical', icon: Stethoscope },
+    { id: 'behavioral', label: 'Behavioral', icon: Brain },
+    { id: 'goals', label: 'Goals & Outcomes', icon: Target },
+    { id: 'documents', label: 'Documents', icon: File },
+    { id: 'history', label: 'History', icon: Clock }
   ];
 
   useEffect(() => {
@@ -168,7 +198,7 @@ const AnalyticsPage = () => {
     }
   }, [individuals, filterTimeRange, filterFacility]);
 
-  // Fetch full individual data when selected for print
+  // Fetch full individual data when selected
   useEffect(() => {
     if (selectedIndividual && !fullIndividualData) {
       fetchFullIndividualData(selectedIndividual.id);
@@ -223,7 +253,12 @@ const AnalyticsPage = () => {
           medicalalerts: parseJSONData(individualData.medicalalerts) || [],
           behavioralalerts: parseJSONData(individualData.behavioralalerts) || [],
           rightsrestrictions: parseJSONData(individualData.rightsrestrictions) || [],
-          hcbsdomains: parseJSONData(individualData.hcbsdomains) || []
+          hcbsdomains: parseJSONData(individualData.hcbsdomains) || [],
+          wellness_data: parseJSONData(individualData.wellness_data) || [],
+          incidenttrends: parseJSONData(individualData.incidenttrends) || {},
+          behaviorincidents: parseJSONData(individualData.behaviorincidents) || [],
+          misseddoses: parseJSONData(individualData.misseddoses) || [],
+          mederrors: parseJSONData(individualData.mederrors) || []
         };
         
         setFullIndividualData(parsedData);
@@ -266,7 +301,10 @@ const AnalyticsPage = () => {
         marhistory: parseJSONData(individual.marhistory) || [],
         dailynotes: parseJSONData(individual.dailynotes) || [],
         incidents: parseJSONData(individual.incidents) || [],
-        goals: parseJSONData(individual.goals) || []
+        goals: parseJSONData(individual.goals) || [],
+        wellness_data: parseJSONData(individual.wellness_data) || [],
+        outcomes: parseJSONData(individual.outcomes) || [],
+        riskplans: parseJSONData(individual.riskplans) || []
       }));
       
       setIndividuals(parsedData);
@@ -332,7 +370,8 @@ const AnalyticsPage = () => {
         );
         totalIncidents += recentIncidents.length;
         behavioralIncidents += recentIncidents.filter(inc => 
-          inc.incidenttype === 'Behavioral Emergency'
+          inc.incidenttype === 'Behavioral Emergency' || 
+          inc.incidenttype?.toLowerCase().includes('behavior')
         ).length;
       }
 
@@ -398,11 +437,11 @@ const AnalyticsPage = () => {
       return;
     }
 
-    const headers = ['Name', 'ID', 'Home', 'Status', 'Compliance', 'Daily Notes', 'Medications', 'Incidents', 'Goals Progress'];
+    const headers = ['Name', 'ID', 'Home', 'Status', 'Compliance', 'Daily Notes', 'Medications', 'Incidents', 'Goals Progress', 'Last Activity'];
     const csvContent = [
       headers.join(','),
       ...filteredIndividuals.map(ind => [
-        `${ind.firstname} ${ind.lastname}`,
+        `"${ind.firstname} ${ind.lastname}"`,
         ind.individualid,
         ind.homeassignment,
         ind.status,
@@ -410,7 +449,8 @@ const AnalyticsPage = () => {
         ind.dailynotes?.length || 0,
         ind.medications?.length || 0,
         ind.incidents?.length || 0,
-        ind.goals ? Math.round(ind.goals.reduce((acc, g) => acc + (g.progress || 0), 0) / (ind.goals.length || 1)) : 0
+        ind.goals ? Math.round(ind.goals.reduce((acc, g) => acc + (g.progress || 0), 0) / (ind.goals.length || 1)) : 0,
+        formatDateTime(ind.last_activity)
       ].join(','))
     ].join('\n');
 
@@ -438,6 +478,13 @@ const AnalyticsPage = () => {
       'from-cyan-500 to-teal-600'
     ];
     return colors[index % colors.length];
+  };
+
+  const toggleDailyNote = (noteId) => {
+    setExpandedDailyNotes(prev => ({
+      ...prev,
+      [noteId]: !prev[noteId]
+    }));
   };
 
   const filteredIndividuals = individuals.filter(ind => {
@@ -558,7 +605,7 @@ const AnalyticsPage = () => {
               key={item.id}
               onClick={() => {
                 setCurrentPage(item.id);
-                if (item.id !== 'reports') {
+                if (item.id !== 'analytics') {
                   router.push(`/${item.id === 'dashboard' ? 'dashboard' : item.id}`);
                 }
                 if (window.innerWidth < 1024) setSidebarOpen(false);
@@ -601,6 +648,738 @@ const AnalyticsPage = () => {
           </div>
         </div>
       </div>
+    </div>
+  );
+
+  // Individual Detail Modal Component with tabs
+  const IndividualDetailModal = () => {
+    if (!selectedIndividual) return null;
+
+    const TabContent = () => {
+      switch (activeTab) {
+        case 'overview':
+          return <OverviewTab individual={selectedIndividual} fullData={fullIndividualData} />;
+        case 'medical':
+          return <MedicalTab individual={selectedIndividual} fullData={fullIndividualData} />;
+        case 'behavioral':
+          return <BehavioralTab individual={selectedIndividual} fullData={fullIndividualData} />;
+        case 'goals':
+          return <GoalsTab individual={selectedIndividual} fullData={fullIndividualData} />;
+        case 'documents':
+          return <DocumentsTab documents={individualDocuments} loading={loadingDocuments} />;
+        case 'history':
+          return <HistoryTab individual={selectedIndividual} fullData={fullIndividualData} />;
+        default:
+          return <OverviewTab individual={selectedIndividual} fullData={fullIndividualData} />;
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 no-print">
+        <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
+          <div className="flex items-center justify-between p-6 border-b border-slate-700">
+            <div className="flex items-center gap-3">
+              <div className="w-16 h-16 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center text-white font-bold text-2xl">
+                {getInitials(selectedIndividual.firstname, selectedIndividual.lastname)}
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold text-white">
+                  {selectedIndividual.firstname} {selectedIndividual.lastname}
+                </h3>
+                <p className="text-slate-400 text-sm">ID: {selectedIndividual.individualid} • {selectedIndividual.homeassignment}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handlePrintIndividual}
+                disabled={loadingFullData}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-blue-500/50 transition-all disabled:opacity-50"
+              >
+                {loadingFullData ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <Printer size={18} />
+                )}
+                {loadingFullData ? 'Loading...' : 'Print'}
+              </button>
+              <button 
+                onClick={() => {
+                  setSelectedIndividual(null);
+                  setFullIndividualData(null);
+                  setIndividualDocuments([]);
+                  setExpandedDailyNotes({});
+                  setActiveTab('overview');
+                }}
+                className="p-2 hover:bg-slate-700 rounded-lg transition-all"
+              >
+                <X className="text-slate-400" size={24} />
+              </button>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div className="border-b border-slate-700">
+            <div className="flex overflow-x-auto">
+              {detailTabs.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center gap-2 px-6 py-4 font-semibold transition-all whitespace-nowrap ${
+                      isActive
+                        ? 'text-emerald-400 border-b-2 border-emerald-400 bg-emerald-400/5'
+                        : 'text-slate-400 hover:text-slate-300 hover:bg-slate-700/50'
+                    }`}
+                  >
+                    <Icon size={18} />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Tab Content */}
+          <ScrollArea className="h-[calc(90vh-180px)]">
+            <div className="p-6">
+              <TabContent />
+            </div>
+          </ScrollArea>
+
+          <div className="p-6 border-t border-slate-700 flex justify-end gap-3">
+            <button
+              onClick={() => {
+                setSelectedIndividual(null);
+                setFullIndividualData(null);
+                setIndividualDocuments([]);
+                setExpandedDailyNotes({});
+                setActiveTab('overview');
+              }}
+              className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all"
+            >
+              Close
+            </button>
+            <button
+              onClick={() => router.push(`/individual/${selectedIndividual.id}`)}
+              className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-emerald-500/50 transition-all"
+            >
+              View Full Profile
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Tab Components
+  const OverviewTab = ({ individual, fullData }) => (
+    <div className="space-y-6">
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-slate-800/50 rounded-xl p-4">
+          <p className="text-slate-400 text-xs mb-1">Compliance</p>
+          <p className="text-2xl font-bold text-white">{individual.compliance_score || 0}%</p>
+        </div>
+        <div className="bg-slate-800/50 rounded-xl p-4">
+          <p className="text-slate-400 text-xs mb-1">Daily Notes</p>
+          <p className="text-2xl font-bold text-white">{individual.dailynotes?.length || 0}</p>
+        </div>
+        <div className="bg-slate-800/50 rounded-xl p-4">
+          <p className="text-slate-400 text-xs mb-1">Medications</p>
+          <p className="text-2xl font-bold text-white">{individual.medications?.length || 0}</p>
+        </div>
+        <div className="bg-slate-800/50 rounded-xl p-4">
+          <p className="text-slate-400 text-xs mb-1">Incidents</p>
+          <p className="text-2xl font-bold text-white">{individual.incidents?.length || 0}</p>
+        </div>
+      </div>
+
+      {/* Basic Information */}
+      <div className="bg-slate-800/30 rounded-xl p-4">
+        <h4 className="text-white font-bold mb-3 flex items-center gap-2">
+          <User size={18} />
+          Basic Information
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div>
+            <p className="text-slate-500 text-sm">Full Name</p>
+            <p className="text-white font-semibold">{individual.firstname} {individual.lastname}</p>
+          </div>
+          <div>
+            <p className="text-slate-500 text-sm">Individual ID</p>
+            <p className="text-white font-semibold font-mono">{individual.individualid}</p>
+          </div>
+          <div>
+            <p className="text-slate-500 text-sm">Status</p>
+            <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${
+              individual.status === 'Active' ? 'bg-green-900/30 text-green-400' : 
+              individual.status === 'Pending' ? 'bg-yellow-900/30 text-yellow-400' :
+              'bg-red-900/30 text-red-400'
+            }`}>
+              {individual.status}
+            </span>
+          </div>
+          <div>
+            <p className="text-slate-500 text-sm">Date of Birth</p>
+            <p className="text-white font-semibold">{formatDate(individual.dateofbirth)}</p>
+          </div>
+          <div>
+            <p className="text-slate-500 text-sm">Gender</p>
+            <p className="text-white font-semibold">{individual.gender || 'N/A'}</p>
+          </div>
+          <div>
+            <p className="text-slate-500 text-sm">Admission Date</p>
+            <p className="text-white font-semibold">{formatDate(individual.admissiondate)}</p>
+          </div>
+          <div>
+            <p className="text-slate-500 text-sm">Home Assignment</p>
+            <p className="text-white font-semibold">{individual.homeassignment}</p>
+          </div>
+          <div>
+            <p className="text-slate-500 text-sm">Primary Diagnosis</p>
+            <p className="text-white font-semibold">{individual.primarydiagnosis || 'N/A'}</p>
+          </div>
+          <div>
+            <p className="text-slate-500 text-sm">Location</p>
+            <p className="text-white font-semibold">{individual.location || 'N/A'}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Contact Information */}
+      <div className="bg-slate-800/30 rounded-xl p-4">
+        <h4 className="text-white font-bold mb-3 flex items-center gap-2">
+          <Phone size={18} />
+          Contact Information
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <p className="text-slate-500 text-sm">Phone</p>
+            <p className="text-white font-semibold">{individual.phone || 'N/A'}</p>
+          </div>
+          <div>
+            <p className="text-slate-500 text-sm">Email</p>
+            <p className="text-white font-semibold">{individual.email || 'N/A'}</p>
+          </div>
+          <div>
+            <p className="text-slate-500 text-sm">Medicaid Number</p>
+            <p className="text-white font-semibold font-mono">{individual.medicaidnumber || 'N/A'}</p>
+          </div>
+          <div>
+            <p className="text-slate-500 text-sm">Emergency Contact</p>
+            <p className="text-white font-semibold">{individual.emergencycontact || 'N/A'}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Guardian Information */}
+      {individual.guardianname && (
+        <div className="bg-slate-800/30 rounded-xl p-4">
+          <h4 className="text-white font-bold mb-3 flex items-center gap-2">
+            <ShieldIcon size={18} />
+            Guardian Information
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <p className="text-slate-500 text-sm">Guardian Name</p>
+              <p className="text-white font-semibold">{individual.guardianname}</p>
+            </div>
+            <div>
+              <p className="text-slate-500 text-sm">Guardian Phone</p>
+              <p className="text-white font-semibold">{individual.guardianphone || 'N/A'}</p>
+            </div>
+            <div>
+              <p className="text-slate-500 text-sm">Guardian Email</p>
+              <p className="text-white font-semibold">{individual.guardianemail || 'N/A'}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Recent Activity */}
+      <div className="bg-slate-800/30 rounded-xl p-4">
+        <h4 className="text-white font-bold mb-3 flex items-center gap-2">
+          <ActivityIcon size={18} />
+          Recent Activity
+        </h4>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-slate-400 text-sm">Last Updated</span>
+            <span className="text-white font-semibold">{formatDateTime(individual.updated_at)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-slate-400 text-sm">Created On</span>
+            <span className="text-white font-semibold">{formatDateTime(individual.created_at)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-slate-400 text-sm">Last Activity</span>
+            <span className="text-white font-semibold">{formatDateTime(individual.last_activity)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const MedicalTab = ({ individual, fullData }) => (
+    <div className="space-y-6">
+      {/* Medications */}
+      {fullData?.medications && fullData.medications.length > 0 && (
+        <div className="bg-slate-800/30 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-white font-bold flex items-center gap-2">
+              <PillIcon size={18} />
+              Medications ({fullData.medications.length})
+            </h4>
+          </div>
+          <div className="space-y-3">
+            {fullData.medications.slice(0, 5).map(med => (
+              <div key={med.id} className="bg-slate-900/50 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-white font-medium">{med.medicationname || med.name}</p>
+                  <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
+                    med.status === 'Active' ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'
+                  }`}>
+                    {med.status}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                  <div>
+                    <p className="text-slate-500 text-xs">Dosage</p>
+                    <p className="text-white">{med.dosage || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500 text-xs">Frequency</p>
+                    <p className="text-white">{med.frequency || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500 text-xs">Route</p>
+                    <p className="text-white">{med.route || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500 text-xs">Compliance</p>
+                    <p className="text-white">{med.compliance || 0}%</p>
+                  </div>
+                </div>
+                {med.specialinstructions && (
+                  <p className="text-xs text-slate-400 mt-2">{med.specialinstructions}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Allergies */}
+      {individual.allergies && (
+        <div className="bg-slate-800/30 rounded-xl p-4">
+          <h4 className="text-white font-bold mb-3 flex items-center gap-2">
+            <AlertCircle size={18} />
+            Allergies
+          </h4>
+          <p className="text-white">{individual.allergies}</p>
+        </div>
+      )}
+
+      {/* Medical Alerts */}
+      {fullData?.medicalalerts && fullData.medicalalerts.length > 0 && (
+        <div className="bg-slate-800/30 rounded-xl p-4">
+          <h4 className="text-white font-bold mb-3 flex items-center gap-2">
+            <AlertTriangle size={18} />
+            Medical Alerts ({fullData.medicalalerts.length})
+          </h4>
+          <div className="space-y-2">
+            {fullData.medicalalerts.map(alert => (
+              <div key={alert.id} className="bg-red-900/20 border border-red-500/30 rounded-lg p-3">
+                <p className="text-red-400 font-medium">{alert.description}</p>
+                <p className="text-red-300 text-xs mt-1">Severity: {alert.severity}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Wellness Data */}
+      {fullData?.wellness_data && fullData.wellness_data.length > 0 && (
+        <div className="bg-slate-800/30 rounded-xl p-4">
+          <h4 className="text-white font-bold mb-3 flex items-center gap-2">
+            <HeartPulse size={18} />
+            Wellness Data ({fullData.wellness_data.length})
+          </h4>
+          <div className="space-y-3">
+            {fullData.wellness_data.slice(0, 3).map((wellness, idx) => (
+              <div key={idx} className="bg-slate-900/50 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-white font-medium">{wellness.title || 'Wellness Entry'}</p>
+                  <span className="text-xs text-slate-500">{formatDate(wellness.date)}</span>
+                </div>
+                {wellness.notes && (
+                  <p className="text-sm text-slate-300">{wellness.notes}</p>
+                )}
+                {(wellness.bloodPressure || wellness.heartRate || wellness.temperature) && (
+                  <div className="grid grid-cols-3 gap-2 mt-2 text-sm">
+                    {wellness.bloodPressure && (
+                      <div>
+                        <p className="text-slate-500 text-xs">BP</p>
+                        <p className="text-white">{wellness.bloodPressure}</p>
+                      </div>
+                    )}
+                    {wellness.heartRate && (
+                      <div>
+                        <p className="text-slate-500 text-xs">HR</p>
+                        <p className="text-white">{wellness.heartRate} bpm</p>
+                      </div>
+                    )}
+                    {wellness.temperature && (
+                      <div>
+                        <p className="text-slate-500 text-xs">Temp</p>
+                        <p className="text-white">{wellness.temperature}°F</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const BehavioralTab = ({ individual, fullData }) => (
+    <div className="space-y-6">
+      {/* Behavioral Alerts */}
+      {fullData?.behavioralalerts && fullData.behavioralalerts.length > 0 && (
+        <div className="bg-slate-800/30 rounded-xl p-4">
+          <h4 className="text-white font-bold mb-3 flex items-center gap-2">
+            <Brain size={18} />
+            Behavioral Alerts ({fullData.behavioralalerts.length})
+          </h4>
+          <div className="space-y-2">
+            {fullData.behavioralalerts.map(alert => (
+              <div key={alert.id} className="bg-orange-900/20 border border-orange-500/30 rounded-lg p-3">
+                <p className="text-orange-400 font-medium">{alert.description}</p>
+                <p className="text-orange-300 text-xs mt-1">Severity: {alert.severity}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recent Incidents */}
+      {fullData?.incidents && fullData.incidents.length > 0 && (
+        <div className="bg-slate-800/30 rounded-xl p-4">
+          <h4 className="text-white font-bold mb-3 flex items-center gap-2">
+            <AlertTriangle size={18} />
+            Recent Incidents ({fullData.incidents.length})
+          </h4>
+          <div className="space-y-3">
+            {fullData.incidents.slice(0, 5).map(incident => (
+              <div key={incident.id} className="bg-slate-900/50 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-white font-medium">{incident.incidenttype}</p>
+                  <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
+                    incident.severity === 'High' ? 'bg-red-900/30 text-red-400' :
+                    incident.severity === 'Medium' ? 'bg-orange-900/30 text-orange-400' :
+                    'bg-yellow-900/30 text-yellow-400'
+                  }`}>
+                    {incident.severity || 'Low'}
+                  </span>
+                </div>
+                <p className="text-sm text-slate-300 mb-2">
+                  {incident.description ? incident.description.substring(0, 100) + '...' : 'No description'}
+                </p>
+                <div className="flex items-center justify-between text-xs text-slate-500">
+                  <span>{formatDate(incident.dateoccurred)}</span>
+                  <span>{incident.location || 'Location not specified'}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Risk Plans */}
+      {fullData?.riskplans && fullData.riskplans.length > 0 && (
+        <div className="bg-slate-800/30 rounded-xl p-4">
+          <h4 className="text-white font-bold mb-3 flex items-center gap-2">
+            <ShieldIcon size={18} />
+            Risk Plans ({fullData.riskplans.length})
+          </h4>
+          <div className="space-y-2">
+            {fullData.riskplans.map(plan => (
+              <div key={plan.id} className="bg-purple-900/20 border border-purple-500/30 rounded-lg p-3">
+                <p className="text-purple-400 font-medium">{plan.description}</p>
+                <p className="text-purple-300 text-xs mt-1">Status: {plan.status}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const GoalsTab = ({ individual, fullData }) => (
+    <div className="space-y-6">
+      {/* Goals */}
+      {fullData?.goals && fullData.goals.length > 0 && (
+        <div className="bg-slate-800/30 rounded-xl p-4">
+          <h4 className="text-white font-bold mb-3 flex items-center gap-2">
+            <Target size={18} />
+            Goals & Outcomes ({fullData.goals.length})
+          </h4>
+          <div className="space-y-3">
+            {fullData.goals.map(goal => (
+              <div key={goal.id} className="bg-slate-900/50 rounded-lg p-3">
+                <div className="flex items-start justify-between mb-2">
+                  <p className="text-slate-300 flex-1 mr-2">{goal.description}</p>
+                  <div className="flex flex-col items-end">
+                    <span className="text-lg font-bold text-emerald-400 whitespace-nowrap">{goal.progress || 0}%</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold mt-1 ${
+                      goal.status === 'Active' ? 'bg-green-900/30 text-green-400' :
+                      goal.status === 'Completed' ? 'bg-blue-900/30 text-blue-400' :
+                      'bg-yellow-900/30 text-yellow-400'
+                    }`}>
+                      {goal.status}
+                    </span>
+                  </div>
+                </div>
+                <div className="w-full bg-slate-700 rounded-full h-2 mt-2">
+                  <div 
+                    className="h-full bg-gradient-to-r from-green-500 to-emerald-600 rounded-full" 
+                    style={{width: `${goal.progress || 0}%`}}
+                  ></div>
+                </div>
+                {goal.targetdate && (
+                  <div className="flex items-center justify-between mt-2 text-xs text-slate-500">
+                    <span>Target: {formatDate(goal.targetdate)}</span>
+                    <span>Frequency: {goal.frequency || 'N/A'}</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Outcomes */}
+      {fullData?.outcomes && fullData.outcomes.length > 0 && (
+        <div className="bg-slate-800/30 rounded-xl p-4">
+          <h4 className="text-white font-bold mb-3 flex items-center gap-2">
+            <CheckSquare size={18} />
+            Outcomes ({fullData.outcomes.length})
+          </h4>
+          <div className="space-y-2">
+            {fullData.outcomes.map(outcome => (
+              <div key={outcome.id} className="bg-emerald-900/20 border border-emerald-500/30 rounded-lg p-3">
+                <p className="text-emerald-400">{outcome.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* HCBS Domains */}
+      {fullData?.hcbsdomains && fullData.hcbsdomains.length > 0 && (
+        <div className="bg-slate-800/30 rounded-xl p-4">
+          <h4 className="text-white font-bold mb-3 flex items-center gap-2">
+            <HomeIcon size={18} />
+            HCBS Domains ({fullData.hcbsdomains.length})
+          </h4>
+          <div className="flex flex-wrap gap-2">
+            {fullData.hcbsdomains.map((domain, idx) => (
+              <span key={idx} className="px-3 py-1 bg-blue-900/30 text-blue-400 rounded-full text-sm">
+                {domain}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const DocumentsTab = ({ documents, loading }) => (
+    <div className="space-y-6">
+      <div className="bg-slate-800/30 rounded-xl p-4">
+        <h4 className="text-white font-bold mb-3 flex items-center gap-2">
+          <File size={18} />
+          Uploaded Documents ({documents.length})
+        </h4>
+        {loading ? (
+          <div className="flex items-center justify-center py-4">
+            <Loader2 size={20} className="text-emerald-500 animate-spin mr-2" />
+            <p className="text-slate-400">Loading documents...</p>
+          </div>
+        ) : documents.length === 0 ? (
+          <p className="text-slate-400 text-center py-4">No documents uploaded</p>
+        ) : (
+          <div className="space-y-2">
+            {documents.map(doc => (
+              <div key={doc.id} className="flex items-center justify-between text-sm bg-slate-900/50 rounded-lg p-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-white truncate font-medium">{doc.document_name}</p>
+                  <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
+                    <span className="flex items-center gap-1">
+                      <User size={12} />
+                      {doc.uploaded_by}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <CalendarIcon size={12} />
+                      {formatDateTime(doc.uploaded_at)}
+                    </span>
+                    {doc.signatures_count > 0 && (
+                      <span className="flex items-center gap-1">
+                        <CheckSquare size={12} />
+                        {doc.signatures_count} signature{doc.signatures_count !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={() => window.open(doc.file_url, '_blank')}
+                  className="ml-2 p-1.5 hover:bg-emerald-500/20 rounded transition-all"
+                  title="View Document"
+                >
+                  <ExternalLink size={16} className="text-emerald-400" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const HistoryTab = ({ individual, fullData }) => (
+    <div className="space-y-6">
+      {/* Daily Notes */}
+      {fullData?.dailynotes && fullData.dailynotes.length > 0 && (
+        <div className="bg-slate-800/30 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-white font-bold flex items-center gap-2">
+              <ClipboardList size={18} />
+              Recent Daily Notes ({fullData.dailynotes.length})
+            </h4>
+          </div>
+          <div className="space-y-4">
+            {fullData.dailynotes.slice(0, 5).map(note => {
+              const isExpanded = expandedDailyNotes[note.id];
+              const MoodIcon = getMoodIcon(note.mood);
+              return (
+                <div key={note.id} className="bg-slate-900/50 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-pink-500 rounded-lg flex items-center justify-center">
+                        <CalendarIcon className="text-white" size={16} />
+                      </div>
+                      <div>
+                        <h5 className="text-white font-medium">
+                          {formatDate(note.date)}
+                        </h5>
+                        <p className="text-xs text-slate-500">{note.shift} • {note.staffname || note.created_by}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <MoodIcon className="text-purple-400" size={18} />
+                      <span className="text-sm text-slate-300">{note.mood}</span>
+                    </div>
+                  </div>
+
+                  {/* Activities */}
+                  {note.activities && note.activities.length > 0 && (
+                    <div className="mb-3">
+                      <p className="text-xs text-slate-500 font-semibold mb-1">Activities</p>
+                      <div className="flex flex-wrap gap-1">
+                        {note.activities.map((activity, idx) => {
+                          const ActivityIcon = getActivityIcon(activity);
+                          return (
+                            <span key={idx} className="inline-flex items-center gap-1 px-2 py-1 bg-purple-900/30 text-purple-300 rounded text-xs font-medium">
+                              <ActivityIcon size={12} />
+                              {activity}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Narrative */}
+                  {(note.narrative || note.ispGoalsNarrative) && (
+                    <div className="mb-3">
+                      <p className="text-xs text-slate-500 font-semibold mb-1">Summary</p>
+                      <div className="relative">
+                        <p className={`text-sm text-slate-300 ${!isExpanded && 'line-clamp-2'}`}>
+                          {note.narrative || note.ispGoalsNarrative}
+                        </p>
+                        {note.narrative && note.narrative.length > 100 && (
+                          <button
+                            onClick={() => toggleDailyNote(note.id)}
+                            className="mt-1 text-purple-400 hover:text-purple-300 text-xs font-medium flex items-center gap-1"
+                          >
+                            {isExpanded ? (
+                              <>
+                                Show less <ChevronUp size={12} />
+                              </>
+                            ) : (
+                              <>
+                                Read more <ChevronDownIcon size={12} />
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Health & Behavior */}
+                  <div className="grid grid-cols-3 gap-2 text-sm">
+                    <div>
+                      <p className="text-xs text-slate-500">Appetite</p>
+                      <p className="text-white font-medium">{note.appetite || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500">Sleep</p>
+                      <p className="text-white font-medium">{note.sleep || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500">Behaviors</p>
+                      <p className="text-white font-medium">{note.behaviors?.length || 0}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* MAR History */}
+      {fullData?.marhistory && fullData.marhistory.length > 0 && (
+        <div className="bg-slate-800/30 rounded-xl p-4">
+          <h4 className="text-white font-bold mb-3 flex items-center gap-2">
+            <Pill size={18} />
+            Recent MAR History ({fullData.marhistory.length})
+          </h4>
+          <div className="space-y-2">
+            {fullData.marhistory.slice(0, 5).map(entry => (
+              <div key={entry.id} className="flex items-center justify-between bg-slate-900/50 rounded-lg p-3">
+                <div>
+                  <p className="text-white font-medium">{entry.medication_name}</p>
+                  <p className="text-xs text-slate-400">{formatDateTime(entry.date)} • {entry.time}</p>
+                </div>
+                <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
+                  entry.status === 'Given' ? 'bg-green-900/30 text-green-400' :
+                  entry.status === 'Refused' ? 'bg-red-900/30 text-red-400' :
+                  'bg-yellow-900/30 text-yellow-400'
+                }`}>
+                  {entry.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -656,17 +1435,20 @@ const AnalyticsPage = () => {
             top: 0;
             width: 100%;
             background: white !important;
-            padding: 40px;
+            padding: 20px;
           }
           .no-print {
             display: none !important;
           }
           .print-section {
             page-break-inside: avoid;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
           }
           .print-page-break {
             page-break-before: always;
+          }
+          .print-hidden {
+            display: none !important;
           }
         }
       `}</style>
@@ -1011,6 +1793,7 @@ const AnalyticsPage = () => {
                                             {individual.firstname} {individual.lastname}
                                           </p>
                                           <p className="text-slate-500 text-xs font-mono">{individual.individualid}</p>
+                                          <p className="text-slate-500 text-xs">{individual.homeassignment}</p>
                                         </div>
                                       </div>
                                     </td>
@@ -1063,6 +1846,7 @@ const AnalyticsPage = () => {
                                             router.push(`/individual/${individual.id}`);
                                           }}
                                           className="p-2 hover:bg-emerald-500/20 rounded-lg transition-all group/btn"
+                                          title="View Full Profile"
                                         >
                                           <Eye size={16} className="text-emerald-400 group-hover/btn:scale-110 transition-all" />
                                         </button>
@@ -1072,8 +1856,9 @@ const AnalyticsPage = () => {
                                             setSelectedIndividual(individual);
                                           }}
                                           className="p-2 hover:bg-blue-500/20 rounded-lg transition-all group/btn"
+                                          title="View Analytics"
                                         >
-                                          <Printer size={16} className="text-blue-400 group-hover/btn:scale-110 transition-all" />
+                                          <BarChart3 size={16} className="text-blue-400 group-hover/btn:scale-110 transition-all" />
                                         </button>
                                       </div>
                                     </td>
@@ -1090,14 +1875,6 @@ const AnalyticsPage = () => {
                       <p className="text-slate-400 text-sm">
                         Showing <span className="text-white font-semibold">{filteredIndividuals.length}</span> of <span className="text-white font-semibold">{individuals.length}</span> individuals
                       </p>
-                      <div className="flex items-center gap-2">
-                        <button className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-semibold transition-all">
-                          Previous
-                        </button>
-                        <button className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition-all">
-                          Next
-                        </button>
-                      </div>
                     </div>
                   </div>
 
@@ -1135,414 +1912,10 @@ const AnalyticsPage = () => {
           </div>
         </div>
 
-        {/* Individual Detail Modal - UPDATED with complete daily notes */}
-        {selectedIndividual && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 no-print">
-            <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
-              <div className="flex items-center justify-between p-6 border-b border-slate-700">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center text-white font-bold text-xl">
-                    {getInitials(selectedIndividual.firstname, selectedIndividual.lastname)}
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-white">
-                      {selectedIndividual.firstname} {selectedIndividual.lastname}
-                    </h3>
-                    <p className="text-slate-400 text-sm">ID: {selectedIndividual.individualid}</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => {
-                    setSelectedIndividual(null);
-                    setFullIndividualData(null);
-                    setIndividualDocuments([]);
-                    setExpandedDailyNotes({});
-                  }}
-                  className="p-2 hover:bg-slate-700 rounded-lg transition-all"
-                >
-                  <X className="text-slate-400" size={24} />
-                </button>
-              </div>
+        {/* Individual Detail Modal */}
+        <IndividualDetailModal />
 
-              <ScrollArea className="h-[calc(90vh-180px)]">
-                <div className="p-6 space-y-6">
-                  {/* Quick Stats */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-slate-800/50 rounded-xl p-4">
-                      <p className="text-slate-400 text-xs mb-1">Compliance</p>
-                      <p className="text-2xl font-bold text-white">{selectedIndividual.compliance_score}%</p>
-                    </div>
-                    <div className="bg-slate-800/50 rounded-xl p-4">
-                      <p className="text-slate-400 text-xs mb-1">Daily Notes</p>
-                      <p className="text-2xl font-bold text-white">{selectedIndividual.dailynotes?.length || 0}</p>
-                    </div>
-                    <div className="bg-slate-800/50 rounded-xl p-4">
-                      <p className="text-slate-400 text-xs mb-1">Medications</p>
-                      <p className="text-2xl font-bold text-white">{selectedIndividual.medications?.length || 0}</p>
-                    </div>
-                    <div className="bg-slate-800/50 rounded-xl p-4">
-                      <p className="text-slate-400 text-xs mb-1">Incidents</p>
-                      <p className="text-2xl font-bold text-white">{selectedIndividual.incidents?.length || 0}</p>
-                    </div>
-                  </div>
-
-                  {/* Detailed Sections */}
-                  <div className="space-y-6">
-                    <div className="bg-slate-800/30 rounded-xl p-4">
-                      <h4 className="text-white font-bold mb-3 flex items-center gap-2">
-                        <User size={18} />
-                        Basic Information
-                      </h4>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <p className="text-slate-500">Home Assignment</p>
-                          <p className="text-white font-semibold">{selectedIndividual.homeassignment}</p>
-                        </div>
-                        <div>
-                          <p className="text-slate-500">Status</p>
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${
-                            selectedIndividual.status === 'Active' ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'
-                          }`}>
-                            {selectedIndividual.status}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="text-slate-500">Date of Birth</p>
-                          <p className="text-white font-semibold">{new Date(selectedIndividual.dateofbirth).toLocaleDateString()}</p>
-                        </div>
-                        <div>
-                          <p className="text-slate-500">Admission Date</p>
-                          <p className="text-white font-semibold">{new Date(selectedIndividual.admissiondate).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Medications Section */}
-                    {selectedIndividual.medications && selectedIndividual.medications.length > 0 && (
-                      <div className="bg-slate-800/30 rounded-xl p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="text-white font-bold flex items-center gap-2">
-                            <PillIcon size={18} />
-                            Medications ({selectedIndividual.medications.length})
-                          </h4>
-                        </div>
-                        <div className="space-y-3">
-                          {selectedIndividual.medications.slice(0, 3).map(med => (
-                            <div key={med.id} className="bg-slate-900/50 rounded-lg p-3">
-                              <div className="flex items-center justify-between mb-2">
-                                <p className="text-white font-medium">{med.medicationname || med.name}</p>
-                                <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
-                                  med.status === 'Active' ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'
-                                }`}>
-                                  {med.status}
-                                </span>
-                              </div>
-                              <div className="grid grid-cols-2 gap-2 text-sm">
-                                <div>
-                                  <p className="text-slate-500 text-xs">Dosage</p>
-                                  <p className="text-white">{med.dosage || 'N/A'}</p>
-                                </div>
-                                <div>
-                                  <p className="text-slate-500 text-xs">Frequency</p>
-                                  <p className="text-white">{med.frequency || 'N/A'}</p>
-                                </div>
-                                <div>
-                                  <p className="text-slate-500 text-xs">Route</p>
-                                  <p className="text-white">{med.route || 'N/A'}</p>
-                                </div>
-                                <div>
-                                  <p className="text-slate-500 text-xs">Compliance</p>
-                                  <p className="text-white">{med.compliance || 0}%</p>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Daily Notes Section - UPDATED with complete details */}
-                    {selectedIndividual.dailynotes && selectedIndividual.dailynotes.length > 0 && (
-                      <div className="bg-slate-800/30 rounded-xl p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="text-white font-bold flex items-center gap-2">
-                            <FileText size={18} />
-                            Recent Daily Notes ({selectedIndividual.dailynotes.length})
-                          </h4>
-                        </div>
-                        <div className="space-y-4">
-                          {selectedIndividual.dailynotes.slice(0, 5).map(note => {
-                            const isExpanded = expandedDailyNotes[note.id];
-                            const MoodIcon = getMoodIcon(note.mood);
-                            return (
-                              <div key={note.id} className="bg-slate-900/50 rounded-lg p-3">
-                                <div className="flex items-center justify-between mb-2">
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-pink-500 rounded-lg flex items-center justify-center">
-                                      <CalendarIcon className="text-white" size={16} />
-                                    </div>
-                                    <div>
-                                      <h5 className="text-white font-medium">
-                                        {new Date(note.date).toLocaleDateString('en-US', { 
-                                          weekday: 'short', 
-                                          month: 'short', 
-                                          day: 'numeric' 
-                                        })}
-                                      </h5>
-                                      <p className="text-xs text-slate-500">{note.shift} • {note.staffname || note.created_by}</p>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <MoodIcon className="text-purple-400" size={18} />
-                                    <span className="text-sm text-slate-300">{note.mood}</span>
-                                  </div>
-                                </div>
-
-                                {/* Activities */}
-                                {note.activities && note.activities.length > 0 && (
-                                  <div className="mb-3">
-                                    <p className="text-xs text-slate-500 font-semibold mb-1">Activities</p>
-                                    <div className="flex flex-wrap gap-1">
-                                      {note.activities.map((activity, idx) => {
-                                        const ActivityIcon = getActivityIcon(activity);
-                                        return (
-                                          <span key={idx} className="inline-flex items-center gap-1 px-2 py-1 bg-purple-900/30 text-purple-300 rounded text-xs font-medium">
-                                            <ActivityIcon size={12} />
-                                            {activity}
-                                          </span>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Narrative - Expandable */}
-                                {(note.narrative || note.ispGoalsNarrative) && (
-                                  <div className="mb-3">
-                                    <p className="text-xs text-slate-500 font-semibold mb-1">Summary</p>
-                                    <div className="relative">
-                                      <p className={`text-sm text-slate-300 ${!isExpanded && 'line-clamp-2'}`}>
-                                        {note.narrative || note.ispGoalsNarrative}
-                                      </p>
-                                      {note.narrative && note.narrative.length > 100 && (
-                                        <button
-                                          onClick={() => toggleDailyNote(note.id)}
-                                          className="mt-1 text-purple-400 hover:text-purple-300 text-xs font-medium flex items-center gap-1"
-                                        >
-                                          {isExpanded ? (
-                                            <>
-                                              Show less <ChevronUp size={12} />
-                                            </>
-                                          ) : (
-                                            <>
-                                              Read more <ChevronDownIcon size={12} />
-                                            </>
-                                          )}
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Health & Behavior */}
-                                <div className="grid grid-cols-3 gap-2 text-sm">
-                                  <div>
-                                    <p className="text-xs text-slate-500">Appetite</p>
-                                    <p className="text-white font-medium">{note.appetite || 'N/A'}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-xs text-slate-500">Sleep</p>
-                                    <p className="text-white font-medium">{note.sleep || 'N/A'}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-xs text-slate-500">Behaviors</p>
-                                    <p className="text-white font-medium">{note.behaviors?.length || 0}</p>
-                                  </div>
-                                </div>
-
-                                {/* Additional Details */}
-                                <div className="mt-3 pt-3 border-t border-slate-700 grid grid-cols-2 gap-3 text-xs">
-                                  {note.communityouting && (
-                                    <div className="flex items-center gap-1">
-                                      <MapPin size={12} className="text-green-400" />
-                                      <span className="text-green-400">Community Outing</span>
-                                    </div>
-                                  )}
-                                  {note.vitals && (
-                                    <div className="flex items-center gap-1">
-                                      <Activity size={12} className="text-blue-400" />
-                                      <span className="text-blue-400">Vitals Checked</span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Goals Section */}
-                    {selectedIndividual.goals && selectedIndividual.goals.length > 0 && (
-                      <div className="bg-slate-800/30 rounded-xl p-4">
-                        <h4 className="text-white font-bold mb-3 flex items-center gap-2">
-                          <Target size={18} />
-                          Goals & Outcomes ({selectedIndividual.goals.length})
-                        </h4>
-                        <div className="space-y-3">
-                          {selectedIndividual.goals.slice(0, 3).map(goal => (
-                            <div key={goal.id} className="bg-slate-900/50 rounded-lg p-3">
-                              <div className="flex items-start justify-between mb-2">
-                                <p className="text-slate-300 flex-1 mr-2">{goal.description}</p>
-                                <div className="flex flex-col items-end">
-                                  <span className="text-lg font-bold text-emerald-400 whitespace-nowrap">{goal.progress}%</span>
-                                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold mt-1 ${
-                                    goal.status === 'Active' ? 'bg-green-900/30 text-green-400' :
-                                    goal.status === 'Completed' ? 'bg-blue-900/30 text-blue-400' :
-                                    'bg-yellow-900/30 text-yellow-400'
-                                  }`}>
-                                    {goal.status}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="w-full bg-slate-700 rounded-full h-2 mt-2">
-                                <div 
-                                  className="h-full bg-gradient-to-r from-green-500 to-emerald-600 rounded-full" 
-                                  style={{width: `${goal.progress}%`}}
-                                ></div>
-                              </div>
-                              {goal.targetdate && (
-                                <p className="text-xs text-slate-500 mt-2">
-                                  Target: {new Date(goal.targetdate).toLocaleDateString()}
-                                </p>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Incidents Section */}
-                    {selectedIndividual.incidents && selectedIndividual.incidents.length > 0 && (
-                      <div className="bg-slate-800/30 rounded-xl p-4">
-                        <h4 className="text-white font-bold mb-3 flex items-center gap-2">
-                          <AlertTriangle size={18} />
-                          Recent Incidents ({selectedIndividual.incidents.length})
-                        </h4>
-                        <div className="space-y-3">
-                          {selectedIndividual.incidents.slice(0, 3).map(incident => (
-                            <div key={incident.id} className="bg-slate-900/50 rounded-lg p-3">
-                              <div className="flex items-center justify-between mb-2">
-                                <p className="text-white font-medium">{incident.incidenttype}</p>
-                                <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
-                                  incident.severity === 'High' ? 'bg-red-900/30 text-red-400' :
-                                  incident.severity === 'Medium' ? 'bg-orange-900/30 text-orange-400' :
-                                  'bg-yellow-900/30 text-yellow-400'
-                                }`}>
-                                  {incident.severity || 'Low'}
-                                </span>
-                              </div>
-                              <p className="text-sm text-slate-300 mb-2">
-                                {incident.description ? incident.description.substring(0, 80) + '...' : 'No description'}
-                              </p>
-                              <div className="flex items-center justify-between text-xs text-slate-500">
-                                <span>{new Date(incident.dateoccurred).toLocaleDateString()}</span>
-                                <span>{incident.location || 'Location not specified'}</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Uploaded Documents Section */}
-                    {loadingDocuments ? (
-                      <div className="bg-slate-800/30 rounded-xl p-4">
-                        <div className="flex items-center justify-center py-4">
-                          <Loader2 size={20} className="text-emerald-500 animate-spin mr-2" />
-                          <p className="text-slate-400">Loading documents...</p>
-                        </div>
-                      </div>
-                    ) : individualDocuments.length > 0 && (
-                      <div className="bg-slate-800/30 rounded-xl p-4">
-                        <h4 className="text-white font-bold mb-3 flex items-center gap-2">
-                          <File size={18} />
-                          Uploaded Documents ({individualDocuments.length})
-                        </h4>
-                        <div className="space-y-2">
-                          {individualDocuments.slice(0, 3).map(doc => (
-                            <div key={doc.id} className="flex items-center justify-between text-sm bg-slate-900/50 rounded-lg p-3">
-                              <div className="flex-1 min-w-0">
-                                <p className="text-white truncate font-medium">{doc.document_name}</p>
-                                <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
-                                  <span className="flex items-center gap-1">
-                                    <User size={12} />
-                                    {doc.uploaded_by}
-                                  </span>
-                                  <span className="flex items-center gap-1">
-                                    <CalendarIcon size={12} />
-                                    {new Date(doc.uploaded_at).toLocaleDateString()}
-                                  </span>
-                                  {doc.signatures_count > 0 && (
-                                    <span className="flex items-center gap-1">
-                                      <CheckSquare size={12} />
-                                      {doc.signatures_count} signature{doc.signatures_count !== 1 ? 's' : ''}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => window.open(doc.file_url, '_blank')}
-                                className="ml-2 p-1.5 hover:bg-emerald-500/20 rounded transition-all"
-                                title="View Document"
-                              >
-                                <ExternalLink size={16} className="text-emerald-400" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </ScrollArea>
-
-              <div className="p-6 border-t border-slate-700 flex justify-end gap-3">
-                <button
-                  onClick={() => {
-                    setSelectedIndividual(null);
-                    setFullIndividualData(null);
-                    setIndividualDocuments([]);
-                    setExpandedDailyNotes({});
-                  }}
-                  className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all"
-                >
-                  Close
-                </button>
-                <button
-                  onClick={handlePrintIndividual}
-                  disabled={loadingFullData}
-                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-blue-500/50 transition-all flex items-center gap-2 disabled:opacity-50"
-                >
-                  {loadingFullData ? (
-                    <Loader2 size={18} className="animate-spin" />
-                  ) : (
-                    <Printer size={18} />
-                  )}
-                  {loadingFullData ? 'Loading Data...' : 'Print Full Report'}
-                </button>
-                <button
-                  onClick={() => router.push(`/individual/${selectedIndividual.id}`)}
-                  className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-emerald-500/50 transition-all"
-                >
-                  View Full Profile
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Printable Content - UPDATED with all data */}
+        {/* Printable Content */}
         {fullIndividualData && (
           <div id="printable-content" className="hidden print:block">
             <div className="bg-white text-black p-8">
@@ -1654,11 +2027,15 @@ const AnalyticsPage = () => {
                     </div>
                     <div>
                       <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Date of Birth</p>
-                      <p className="text-lg font-bold text-gray-900">{new Date(fullIndividualData.dateofbirth).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                      <p className="text-lg font-bold text-gray-900">{formatDate(fullIndividualData.dateofbirth)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Gender</p>
+                      <p className="text-lg font-bold text-gray-900">{fullIndividualData.gender || 'N/A'}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Admission Date</p>
-                      <p className="text-lg font-bold text-gray-900">{new Date(fullIndividualData.admissiondate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                      <p className="text-lg font-bold text-gray-900">{formatDate(fullIndividualData.admissiondate)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Home Assignment</p>
@@ -1669,12 +2046,36 @@ const AnalyticsPage = () => {
                       <p className="text-lg font-bold text-gray-900">{fullIndividualData.primarydiagnosis || 'N/A'}</p>
                     </div>
                     <div>
+                      <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Location</p>
+                      <p className="text-lg font-bold text-gray-900">{fullIndividualData.location || 'N/A'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Contact Information */}
+              <div className="mb-8 print-section">
+                <div className="bg-gradient-to-r from-blue-900 to-blue-800 text-white p-4 rounded-t-xl flex items-center gap-2">
+                  <Phone size={20} />
+                  <h2 className="text-xl font-bold">Contact Information</h2>
+                </div>
+                <div className="border-2 border-gray-200 rounded-b-xl p-6">
+                  <div className="grid grid-cols-3 gap-6">
+                    <div>
+                      <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Phone</p>
+                      <p className="text-lg font-bold text-gray-900">{fullIndividualData.phone || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Email</p>
+                      <p className="text-lg font-bold text-gray-900">{fullIndividualData.email || 'N/A'}</p>
+                    </div>
+                    <div>
                       <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Medicaid Number</p>
                       <p className="text-lg font-bold text-gray-900 font-mono">{fullIndividualData.medicaidnumber || 'N/A'}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Allergies</p>
-                      <p className="text-lg font-bold text-gray-900">{fullIndividualData.allergies || 'None reported'}</p>
+                      <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Emergency Contact</p>
+                      <p className="text-lg font-bold text-gray-900">{fullIndividualData.emergencycontact || 'N/A'}</p>
                     </div>
                   </div>
                 </div>
@@ -1683,9 +2084,9 @@ const AnalyticsPage = () => {
               {/* Guardian Information */}
               {fullIndividualData.guardianname && (
                 <div className="mb-8 print-section">
-                  <div className="bg-gradient-to-r from-blue-900 to-blue-800 text-white p-4 rounded-t-xl flex items-center gap-2">
-                    <Shield size={20} />
-                    <h2 className="text-xl font-bold">Guardian & Emergency Contact</h2>
+                  <div className="bg-gradient-to-r from-indigo-900 to-indigo-800 text-white p-4 rounded-t-xl flex items-center gap-2">
+                    <ShieldIcon size={20} />
+                    <h2 className="text-xl font-bold">Guardian Information</h2>
                   </div>
                   <div className="border-2 border-gray-200 rounded-b-xl p-6">
                     <div className="grid grid-cols-3 gap-6">
@@ -1701,18 +2102,34 @@ const AnalyticsPage = () => {
                         <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Guardian Email</p>
                         <p className="text-lg font-bold text-gray-900">{fullIndividualData.guardianemail || 'N/A'}</p>
                       </div>
-                      <div>
-                        <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Emergency Contact</p>
-                        <p className="text-lg font-bold text-gray-900">{fullIndividualData.emergencycontact || 'N/A'}</p>
-                      </div>
                     </div>
                   </div>
                 </div>
               )}
 
+              {/* Health Information */}
+              <div className="mb-8 print-section print-page-break">
+                <div className="bg-gradient-to-r from-red-900 to-red-800 text-white p-4 rounded-t-xl flex items-center gap-2">
+                  <Stethoscope size={20} />
+                  <h2 className="text-xl font-bold">Health Information</h2>
+                </div>
+                <div className="border-2 border-gray-200 rounded-b-xl p-6">
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Allergies</p>
+                      <p className="text-lg font-bold text-gray-900">{fullIndividualData.allergies || 'None reported'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Notes</p>
+                      <p className="text-lg font-bold text-gray-900">{fullIndividualData.notes || 'N/A'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Medications Section */}
               {fullIndividualData.medications && fullIndividualData.medications.length > 0 && (
-                <div className="mb-8 print-section print-page-break">
+                <div className="mb-8 print-section">
                   <div className="bg-gradient-to-r from-blue-700 to-cyan-600 text-white p-4 rounded-t-xl flex items-center gap-2">
                     <PillIcon size={20} />
                     <h2 className="text-xl font-bold">Medication Management</h2>
@@ -1766,92 +2183,7 @@ const AnalyticsPage = () => {
                 </div>
               )}
 
-              {/* Daily Notes Section */}
-              {fullIndividualData.dailynotes && fullIndividualData.dailynotes.length > 0 && (
-                <div className="mb-8 print-section">
-                  <div className="bg-gradient-to-r from-purple-700 to-pink-600 text-white p-4 rounded-t-xl flex items-center gap-2">
-                    <ClipboardList size={20} />
-                    <h2 className="text-xl font-bold">Recent Daily Notes</h2>
-                  </div>
-                  <div className="border-2 border-gray-200 rounded-b-xl p-6">
-                    <div className="space-y-6">
-                      {fullIndividualData.dailynotes.slice(0, 5).map((note, idx) => {
-                        const MoodIcon = getMoodIcon(note.mood);
-                        return (
-                          <div key={note.id || idx} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                            <div className="flex items-center justify-between mb-3">
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-pink-500 rounded-lg flex items-center justify-center">
-                                  <CalendarIcon className="text-white" size={20} />
-                                </div>
-                                <div>
-                                  <h3 className="font-bold text-gray-900">
-                                    {new Date(note.date).toLocaleDateString('en-US', { 
-                                      weekday: 'long', 
-                                      year: 'numeric', 
-                                      month: 'long', 
-                                      day: 'numeric' 
-                                    })}
-                                  </h3>
-                                  <p className="text-sm text-gray-600">{note.shift} • Documented by {note.staffname || note.created_by}</p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <MoodIcon className="text-purple-600" size={20} />
-                                <span className="text-sm font-semibold text-gray-700">{note.mood}</span>
-                              </div>
-                            </div>
-                            
-                            {/* Activities */}
-                            {note.activities && note.activities.length > 0 && (
-                              <div className="mb-3">
-                                <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Activities</p>
-                                <div className="flex flex-wrap gap-2">
-                                  {note.activities.map((activity, activityIdx) => {
-                                    const ActivityIcon = getActivityIcon(activity);
-                                    return (
-                                      <span key={activityIdx} className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-semibold">
-                                        <ActivityIcon size={12} />
-                                        {activity}
-                                      </span>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-                            
-                            {/* Narrative */}
-                            {(note.narrative || note.ispGoalsNarrative) && (
-                              <div className="mb-3">
-                                <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Summary</p>
-                                <p className="text-sm text-gray-700">{note.narrative || note.ispGoalsNarrative}</p>
-                              </div>
-                            )}
-                            
-                            {/* Health & Behavior */}
-                            <div className="grid grid-cols-3 gap-3 text-sm">
-                              <div>
-                                <p className="text-xs text-gray-500">Appetite</p>
-                                <p className="font-semibold text-gray-900">{note.appetite || 'N/A'}</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-500">Sleep</p>
-                                <p className="font-semibold text-gray-900">{note.sleep || 'N/A'}</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-500">Behaviors</p>
-                                <p className="font-semibold text-gray-900">{note.behaviors?.length || 0}</p>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Goals & Progress Section */}
+              {/* Goals Section */}
               {fullIndividualData.goals && fullIndividualData.goals.length > 0 && (
                 <div className="mb-8 print-section print-page-break">
                   <div className="bg-gradient-to-r from-green-700 to-emerald-600 text-white p-4 rounded-t-xl flex items-center gap-2">
@@ -1886,6 +2218,11 @@ const AnalyticsPage = () => {
                               style={{width: `${goal.progress || 0}%`}}
                             ></div>
                           </div>
+                          {goal.targetdate && (
+                            <p className="text-xs text-gray-500 mt-2">
+                              Target Date: {formatDate(goal.targetdate)}
+                            </p>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -1893,84 +2230,60 @@ const AnalyticsPage = () => {
                 </div>
               )}
 
-              {/* Incidents Section */}
-              {fullIndividualData.incidents && fullIndividualData.incidents.length > 0 && (
+              {/* Recent Daily Notes */}
+              {fullIndividualData.dailynotes && fullIndividualData.dailynotes.length > 0 && (
                 <div className="mb-8 print-section">
-                  <div className="bg-gradient-to-r from-orange-700 to-red-600 text-white p-4 rounded-t-xl flex items-center gap-2">
-                    <AlertTriangle size={20} />
-                    <h2 className="text-xl font-bold">Incident Reports</h2>
-                  </div>
-                  <div className="border-2 border-gray-200 rounded-b-xl">
-                    <table className="w-full">
-                      <thead className="bg-gray-50 border-b-2 border-gray-200">
-                        <tr>
-                          <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Date</th>
-                          <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Incident Type</th>
-                          <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Severity</th>
-                          <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Description</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {fullIndividualData.incidents.slice(0, 5).map((incident, idx) => (
-                          <tr key={incident.id || idx} className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                            <td className="py-3 px-4 text-sm font-semibold text-gray-900">
-                              {new Date(incident.dateoccurred).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                            </td>
-                            <td className="py-3 px-4 text-sm text-gray-700">{incident.incidenttype || 'N/A'}</td>
-                            <td className="py-3 px-4">
-                              <span className={`text-xs px-2 py-1 rounded-full font-bold ${
-                                incident.severity === 'High' ? 'bg-red-100 text-red-700' :
-                                incident.severity === 'Medium' ? 'bg-orange-100 text-orange-700' :
-                                'bg-yellow-100 text-yellow-700'
-                              }`}>
-                                {incident.severity || 'Low'}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 text-sm text-gray-700">{incident.description ? incident.description.substring(0, 60) + '...' : 'No description'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* Uploaded Documents Section */}
-              {individualDocuments.length > 0 && (
-                <div className="mb-8 print-section print-page-break">
-                  <div className="bg-gradient-to-r from-indigo-700 to-purple-600 text-white p-4 rounded-t-xl flex items-center gap-2">
-                    <File size={20} />
-                    <h2 className="text-xl font-bold">Uploaded Documents</h2>
+                  <div className="bg-gradient-to-r from-purple-700 to-pink-600 text-white p-4 rounded-t-xl flex items-center gap-2">
+                    <ClipboardList size={20} />
+                    <h2 className="text-xl font-bold">Recent Daily Notes</h2>
                   </div>
                   <div className="border-2 border-gray-200 rounded-b-xl p-6">
-                    <table className="w-full">
-                      <thead className="bg-gray-50 border-b-2 border-gray-200">
-                        <tr>
-                          <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Document Name</th>
-                          <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Type</th>
-                          <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Uploaded By</th>
-                          <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Date</th>
-                          <th className="text-left py-3 px-4 text-xs font-bold text-gray-700 uppercase">Signatures</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {individualDocuments.map((doc, idx) => (
-                          <tr key={doc.id} className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                            <td className="py-3 px-4 text-sm font-semibold text-gray-900">{doc.document_name}</td>
-                            <td className="py-3 px-4 text-sm text-gray-700">{doc.document_type?.replace('_', ' ').toUpperCase()}</td>
-                            <td className="py-3 px-4 text-sm text-gray-700">{doc.uploaded_by}</td>
-                            <td className="py-3 px-4 text-sm text-gray-700">
-                              {new Date(doc.uploaded_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                            </td>
-                            <td className="py-3 px-4">
-                              <span className="text-xs font-bold text-gray-700">{doc.signatures_count || 0}</span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    <div className="mt-4 text-sm text-gray-600">
-                      <p><strong>Note:</strong> Documents are stored securely and can be accessed through the individual's profile in the CareBridge Pro system.</p>
+                    <div className="space-y-6">
+                      {fullIndividualData.dailynotes.slice(0, 5).map((note, idx) => (
+                        <div key={note.id || idx} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h3 className="font-bold text-gray-900">
+                              {formatDate(note.date)} • {note.shift}
+                            </h3>
+                            <span className="text-sm text-gray-600">{note.staffname || note.created_by}</span>
+                          </div>
+                          
+                          {note.activities && note.activities.length > 0 && (
+                            <div className="mb-3">
+                              <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Activities</p>
+                              <div className="flex flex-wrap gap-2">
+                                {note.activities.map((activity, activityIdx) => (
+                                  <span key={activityIdx} className="inline-flex px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-semibold">
+                                    {activity}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {(note.narrative || note.ispGoalsNarrative) && (
+                            <div className="mb-3">
+                              <p className="text-xs text-gray-500 font-semibold uppercase mb-1">Summary</p>
+                              <p className="text-sm text-gray-700">{note.narrative || note.ispGoalsNarrative}</p>
+                            </div>
+                          )}
+                          
+                          <div className="grid grid-cols-3 gap-3 text-sm">
+                            <div>
+                              <p className="text-xs text-gray-500">Mood</p>
+                              <p className="font-semibold text-gray-900">{note.mood || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500">Appetite</p>
+                              <p className="font-semibold text-gray-900">{note.appetite || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500">Sleep</p>
+                              <p className="font-semibold text-gray-900">{note.sleep || 'N/A'}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
