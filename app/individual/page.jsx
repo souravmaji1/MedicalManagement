@@ -98,13 +98,13 @@ const IndividualsPage = () => {
 
   // Menu items (same as IncidentsPage)
   const menuItems = [
-    { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
+  //  { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
     { id: 'individual', icon: Users, label: 'Individuals', badge: null },
     { id: 'medicine', icon: Pill, label: 'Medications', badge: null },
     { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: '3' },
     { id: 'billing', icon: CreditCard, label: 'Billing', badge: null },
-    { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null },
-    { id: 'settings', icon: Settings, label: 'Settings', badge: null },
+    { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null }
+//{ id: 'settings', icon: Settings, label: 'Settings', badge: null },
   ];
 
   // Fetch individuals from Supabase with role-based filtering
@@ -570,63 +570,67 @@ const IndividualsPage = () => {
     );
   }
 
-  /* Table Row Component with Action Buttons */
-  const TableRow = ({ individual, idx }) => (
-    <tr className="border-b border-slate-700/30 hover:bg-slate-900/50 transition-all duration-300 group">
-      <td className="py-5 px-4">
-        <div className="flex items-center gap-3">
-          <div className={`w-12 h-12 bg-gradient-to-br ${getColorClass(idx)} rounded-xl flex items-center justify-center text-white font-bold shadow-lg group-hover:scale-110 transition-all duration-300`}>
-            {getInitials(individual.firstname, individual.lastname)}
-          </div>
-          <div>
-            <p className="text-white font-semibold group-hover:text-emerald-400 transition-colors">
-              {individual.firstname} {individual.lastname}
-            </p>
-            <div className="flex items-center gap-2 mt-1">
-              <div className="w-full bg-slate-700 rounded-full h-1.5 w-20">
-                <div className={`h-full rounded-full ${individual.compliance_score >= 95 ? 'bg-lime-500' : individual.compliance_score >= 85 ? 'bg-yellow-500' : 'bg-red-500'}`} style={{width: `${individual.compliance_score}%`}} />
-              </div>
-              <span className="text-xs text-slate-500 font-medium">{individual.compliance_score}%</span>
+ /* Table Row Component with Action Buttons */
+const TableRow = ({ individual, idx }) => (
+  <tr className="border-b border-slate-700/30 hover:bg-slate-900/50 transition-all duration-300 group">
+    <td className="py-5 px-4">
+      <div className="flex items-center gap-3">
+        <div className={`w-12 h-12 bg-gradient-to-br ${getColorClass(idx)} rounded-xl flex items-center justify-center text-white font-bold shadow-lg group-hover:scale-110 transition-all duration-300`}>
+          {getInitials(individual.firstname, individual.lastname)}
+        </div>
+        <div>
+          {/* Make the name clickable */}
+          <button 
+            onClick={() => router.push(`/individual/${individual.id}`)}
+            className="text-white font-semibold group-hover:text-emerald-400 transition-colors hover:underline text-left"
+          >
+            {individual.firstname} {individual.lastname}
+          </button>
+          <div className="flex items-center gap-2 mt-1">
+            <div className="w-full bg-slate-700 rounded-full h-1.5 w-20">
+              <div className={`h-full rounded-full ${individual.compliance_score >= 95 ? 'bg-lime-500' : individual.compliance_score >= 85 ? 'bg-yellow-500' : 'bg-red-500'}`} style={{width: `${individual.compliance_score}%`}} />
             </div>
+            <span className="text-xs text-slate-500 font-medium">{individual.compliance_score}%</span>
           </div>
         </div>
-      </td>
-      <td className="py-5 px-4"><span className="text-slate-300 font-mono text-sm">{individual.individualid}</span></td>
-      <td className="py-5 px-4">
-        <div className="flex items-center gap-2"><MapPin size={14} className="text-emerald-400" /><span className="text-slate-300 text-sm">{individual.homeassignment || individual.location}</span></div>
-      </td>
-      <td className="py-5 px-4">
-        <span className={`px-3 py-1.5 rounded-full text-xs font-bold border ${individual.status === 'Active' ? 'bg-green-900/30 text-green-400 border-green-500/50' : individual.status === 'Review' ? 'bg-yellow-900/30 text-yellow-400 border-yellow-500/50' : 'bg-red-900/30 text-red-400 border-red-500/50'}`}>{individual.status}</span>
-      </td>
-      <td className="py-5 px-4">
-        <div className="flex items-center gap-2"><Clock size={14} className="text-slate-500" /><span className="text-slate-400 text-sm">{new Date(individual.last_activity).toLocaleDateString()}</span></div>
-      </td>
-      <td className="py-5 px-4">
-        <div className="flex items-center gap-2">
-          {/* Goals */}
-          <button onClick={() => router.push(`/individual/${individual.id}`)} className="p-2 hover:bg-emerald-500/20 rounded-lg transition-all group/btn" title="Goals">
-            <Target size={16} className="text-emerald-400 group-hover/btn:scale-110 transition-all" />
+      </div>
+    </td>
+    <td className="py-5 px-4"><span className="text-slate-300 font-mono text-sm">{individual.individualid}</span></td>
+    <td className="py-5 px-4">
+      <div className="flex items-center gap-2"><MapPin size={14} className="text-emerald-400" /><span className="text-slate-300 text-sm">{individual.homeassignment || individual.location}</span></div>
+    </td>
+    <td className="py-5 px-4">
+      <span className={`px-3 py-1.5 rounded-full text-xs font-bold border ${individual.status === 'Active' ? 'bg-green-900/30 text-green-400 border-green-500/50' : individual.status === 'Review' ? 'bg-yellow-900/30 text-yellow-400 border-yellow-500/50' : 'bg-red-900/30 text-red-400 border-red-500/50'}`}>{individual.status}</span>
+    </td>
+    <td className="py-5 px-4">
+      <div className="flex items-center gap-2"><Clock size={14} className="text-slate-500" /><span className="text-slate-400 text-sm">{new Date(individual.last_activity).toLocaleDateString()}</span></div>
+    </td>
+    <td className="py-5 px-4">
+      <div className="flex items-center gap-2">
+        {/* Goals */}
+        <button onClick={() => router.push(`/individual/${individual.id}`)} className="p-2 hover:bg-emerald-500/20 rounded-lg transition-all group/btn" title="Goals">
+          <Target size={16} className="text-emerald-400 group-hover/btn:scale-110 transition-all" />
+        </button>
+        {/* Daily Notes */}
+        <button onClick={() => router.push(`/daily/${individual.id}`)} className="p-2 hover:bg-blue-500/20 rounded-lg transition-all group/btn" title="Daily Notes">
+          <StickyNote size={16} className="text-blue-400 group-hover/btn:scale-110 transition-all" />
+        </button>
+        {/* Edit */}
+        {canEditIndividuals && (
+          <button onClick={() => router.push(`/individual/${individual.id}?edit=true`)} className="p-2 hover:bg-blue-500/20 rounded-lg transition-all group/btn" title="Edit">
+            <Edit2 size={16} className="text-blue-400 group-hover/btn:scale-110 transition-all" />
           </button>
-          {/* Daily Notes */}
-          <button onClick={() => router.push(`/daily/${individual.id}`)} className="p-2 hover:bg-blue-500/20 rounded-lg transition-all group/btn" title="Daily Notes">
-            <StickyNote size={16} className="text-blue-400 group-hover/btn:scale-110 transition-all" />
+        )}
+        {/* Delete */}
+        {canDeleteIndividuals && (
+          <button onClick={() => handleDeleteIndividual(individual.id)} className="p-2 hover:bg-red-500/20 rounded-lg transition-all group/btn" title="Delete">
+            <Trash2 size={16} className="text-red-400 group-hover/btn:scale-110 transition-all" />
           </button>
-          {/* Edit */}
-          {canEditIndividuals && (
-            <button onClick={() => router.push(`/individual/${individual.id}?edit=true`)} className="p-2 hover:bg-blue-500/20 rounded-lg transition-all group/btn" title="Edit">
-              <Edit2 size={16} className="text-blue-400 group-hover/btn:scale-110 transition-all" />
-            </button>
-          )}
-          {/* Delete */}
-          {canDeleteIndividuals && (
-            <button onClick={() => handleDeleteIndividual(individual.id)} className="p-2 hover:bg-red-500/20 rounded-lg transition-all group/btn" title="Delete">
-              <Trash2 size={16} className="text-red-400 group-hover/btn:scale-110 transition-all" />
-            </button>
-          )}
-        </div>
-      </td>
-    </tr>
-  );
+        )}
+      </div>
+    </td>
+  </tr>
+);
 
   return (
     <div className="h-screen flex flex-col bg-slate-950 text-white overflow-hidden">

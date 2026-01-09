@@ -154,13 +154,13 @@ const AnalyticsPage = () => {
 
   // Menu items
   const menuItems = [
-    { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
+  //  { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
     { id: 'individual', icon: Users, label: 'Individuals', badge: null },
     { id: 'medicine', icon: Pill, label: 'Medications', badge: null },
     { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: null },
     { id: 'billing', icon: CreditCard, label: 'Billing', badge: null },
     { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null },
-    { id: 'settings', icon: Settings, label: 'Settings', badge: null },
+  //  { id: 'settings', icon: Settings, label: 'Settings', badge: null },
   ];
 
   const timeRanges = [

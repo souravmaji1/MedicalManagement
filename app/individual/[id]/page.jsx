@@ -842,9 +842,9 @@ const IndividualProfilePage = () => {
     { id: 'overview', label: 'Overview', icon: User, permission: canViewProfile },
     { id: 'person-centered-plan', label: 'Person-Centered Plan', icon: FileText, permission: canViewPlans },
     { id: 'goals', label: 'Goals & Outcomes', icon: Target, permission: canViewPlans },
+     { id: 'rights-agreements', label: 'Rights & Agreements', icon: FileText, permission: canViewPlans },
     { id: 'risks', label: 'Risk Management', icon: Shield, permission: canManageRisks || canViewPlans },
-    { id: 'alerts', label: 'Alerts & Restrictions', icon: AlertTriangle, permission: canManageAlerts || canViewPlans },
-    { id: 'rights-agreements', label: 'Rights & Agreements', icon: FileText, permission: canViewPlans }
+    { id: 'alerts', label: 'Alerts & Restrictions', icon: AlertTriangle, permission: canManageAlerts || canViewPlans }
   ].filter(tab => tab.permission);
 
   return (

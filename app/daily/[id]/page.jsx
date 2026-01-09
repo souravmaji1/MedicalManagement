@@ -39,6 +39,7 @@ const DailyNotesPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDate, setFilterDate] = useState('');
   const [selectedNote, setSelectedNote] = useState(null);
+  const [editingNote, setEditingNote] = useState(null);
   const [viewMode, setViewMode] = useState('list'); // list or detail
 
   // Permission checks
@@ -106,8 +107,29 @@ const DailyNotesPage = () => {
     return false;
   };
 
-  // Form state for daily note with all new sections
-  const [noteForm, setNoteForm] = useState({
+  // Check if user can edit a specific note
+  const canUserEditNote = (note) => {
+    if (!note || !userProfile) return false;
+    
+    // Full access users can edit any note
+    if (hasPermission(PERMISSIONS.FULL_ACCESS)) return true;
+    
+    // Users with DAILY_NOTES_APPROVE permission can edit any note
+    if (hasPermission(PERMISSIONS.DAILY_NOTES_APPROVE)) return true;
+    
+    // Original creator can edit their own notes within 24 hours
+    if (note.created_by === userProfile.fullname) {
+      const noteDate = new Date(note.timestamp);
+      const now = new Date();
+      const hoursDiff = (now - noteDate) / (1000 * 60 * 60);
+      return hoursDiff <= 24;
+    }
+    
+    return false;
+  };
+
+  // Default form state for new note
+  const defaultNoteForm = {
     // SECTION 1 — SHIFT DETAILS
     date: new Date().toISOString().split('T')[0],
     shift: '1st Shift',
@@ -198,8 +220,9 @@ const DailyNotesPage = () => {
     approved_date: '',
     
     timestamp: new Date().toISOString()
-  });
+  };
 
+  const [noteForm, setNoteForm] = useState({ ...defaultNoteForm });
   const [prnMedication, setPrnMedication] = useState({
     medication: '',
     amount: '',
@@ -395,6 +418,33 @@ const DailyNotesPage = () => {
     }
   };
 
+  // Function to start editing a note
+  const handleEditNote = (note) => {
+    if (!canUserEditNote(note)) {
+      alert('You do not have permission to edit this note.');
+      return;
+    }
+    
+    setEditingNote(note.id);
+    setNoteForm({
+      ...note,
+      // Ensure arrays are properly set
+      activities: note.activities || [],
+      behaviors: note.behaviors || [],
+      goalsworked: note.goalsworked || [],
+      livingSkills: note.livingSkills || [],
+      prnMedications: note.prnMedications || []
+    });
+    setShowAddModal(true);
+  };
+
+  // Function to cancel editing
+  const handleCancelEdit = () => {
+    setEditingNote(null);
+    resetForm();
+    setShowAddModal(false);
+  };
+
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     setNoteForm(prev => ({
@@ -406,44 +456,83 @@ const DailyNotesPage = () => {
   const handleSaveNote = async (e) => {
     e.preventDefault();
     
-    if (!canCreateDailyNotes) {
+    if (!canCreateDailyNotes && !editingNote) {
       alert('You do not have permission to create daily notes.');
+      return;
+    }
+
+    if (editingNote && !canUserEditNote(dailyNotes.find(n => n.id === editingNote))) {
+      alert('You do not have permission to edit this note.');
       return;
     }
 
     try {
       setSaving(true);
       
-      const newNote = {
-        ...noteForm,
-        id: Date.now().toString(),
-        timestamp: new Date().toISOString(),
-        created_by: userProfile.fullname,
-        created_by_role: userProfile.role_name,
-        facility: userProfile.facility,
-        division: userProfile.division,
-        approved: canApproveDailyNotes // Auto-approve if user has approval permission
-      };
+      const now = new Date().toISOString();
+      let newNote;
+      
+      if (editingNote) {
+        // Update existing note
+        newNote = {
+          ...noteForm,
+          id: editingNote,
+          last_edited: now,
+          last_edited_by: userProfile.fullname,
+          last_edited_by_role: userProfile.role_name
+        };
+        
+        const updatedNotes = dailyNotes.map(note => 
+          note.id === editingNote ? newNote : note
+        );
+        
+        const { error } = await supabase
+          .from('individuals')
+          .update({ 
+            dailynotes: updatedNotes,
+            last_activity: now
+          })
+          .eq('id', individualId);
 
-      const updatedNotes = [newNote, ...dailyNotes];
+        if (error) throw error;
 
-      const { error } = await supabase
-        .from('individuals')
-        .update({ 
-          dailynotes: updatedNotes,
-          last_activity: new Date().toISOString()
-        })
-        .eq('id', individualId);
+        setDailyNotes(updatedNotes);
+        setEditingNote(null);
+        alert('Daily note updated successfully!');
+      } else {
+        // Create new note
+        newNote = {
+          ...noteForm,
+          id: Date.now().toString(),
+          timestamp: now,
+          created_by: userProfile.fullname,
+          created_by_role: userProfile.role_name,
+          facility: userProfile.facility,
+          division: userProfile.division,
+          approved: canApproveDailyNotes // Auto-approve if user has approval permission
+        };
 
-      if (error) throw error;
+        const updatedNotes = [newNote, ...dailyNotes];
 
-      setDailyNotes(updatedNotes);
+        const { error } = await supabase
+          .from('individuals')
+          .update({ 
+            dailynotes: updatedNotes,
+            last_activity: now
+          })
+          .eq('id', individualId);
+
+        if (error) throw error;
+
+        setDailyNotes(updatedNotes);
+        alert('Daily note saved successfully!');
+      }
+
       setShowAddModal(false);
       resetForm();
-      alert('Daily note saved successfully!');
     } catch (error) {
       console.error('Error saving note:', error);
-      alert('Error saving note. Please try again.');
+      alert(`Error ${editingNote ? 'updating' : 'saving'} note. Please try again.`);
     } finally {
       setSaving(false);
     }
@@ -452,7 +541,9 @@ const DailyNotesPage = () => {
   const handleSaveAndAddAnother = async (e) => {
     e.preventDefault();
     await handleSaveNote(e);
-    setShowAddModal(true);
+    if (!editingNote) {
+      setShowAddModal(true);
+    }
   };
 
   const handleDeleteNote = async (noteId) => {
@@ -478,6 +569,10 @@ const DailyNotesPage = () => {
 
       setDailyNotes(updatedNotes);
       setSelectedNote(null);
+      if (editingNote === noteId) {
+        setEditingNote(null);
+        resetForm();
+      }
       alert('Daily note deleted successfully.');
     } catch (error) {
       console.error('Error deleting note:', error);
@@ -486,62 +581,7 @@ const DailyNotesPage = () => {
   };
 
   const resetForm = () => {
-    setNoteForm({
-      date: new Date().toISOString().split('T')[0],
-      shift: '1st Shift',
-      shiftTimeIn: '',
-      shiftTimeOut: '',
-      awakeOvernight: false,
-      staffname: user?.fullName || '',
-      staffid: user?.id || '',
-      bathing: 'Independent',
-      dressing: 'Independent',
-      grooming: 'Independent',
-      toileting: 'Independent',
-      eating: 'Independent',
-      mobility: 'Independent',
-      ispGoalsNarrative: '',
-      choiceAutonomyNarrative: '',
-      activities: [],
-      activitydetails: '',
-      communityouting: false,
-      outinglocation: '',
-      outingpurpose: '',
-      participationlevel: 'Full',
-      healthChanges: '',
-      noChangesBaseline: false,
-      mood: 'Happy',
-      appetite: 'Good',
-      sleep: 'Good',
-      additionalSupportsNarrative: '',
-      medicationsAdministered: 'Yes',
-      medicationsNotAdministeredReason: '',
-      medicationRefusals: '',
-      sideEffectsObserved: '',
-      prnMedications: [],
-      safetyIssues: false,
-      safetyNarrative: '',
-      incidentReportCompleted: 'Not required for this event',
-      livingSkills: [],
-      livingSkillsOther: '',
-      livingSkillsNarrative: '',
-      behaviors: [],
-      behaviordetails: '',
-      behaviortriggers: '',
-      behaviorinterventions: '',
-      goalsworked: [],
-      goalprogress: '',
-      transportation: '',
-      narrative: '',
-      incidentreported: false,
-      incidentdetails: '',
-      created_by: '',
-      created_by_role: '',
-      approved: false,
-      approved_by: '',
-      approved_date: '',
-      timestamp: new Date().toISOString()
-    });
+    setNoteForm({ ...defaultNoteForm });
     setPrnMedication({
       medication: '',
       amount: '',
@@ -668,7 +708,11 @@ const DailyNotesPage = () => {
           </div>
           {canCreateDailyNotes && (
             <button
-              onClick={() => setShowAddModal(true)}
+              onClick={() => {
+                setEditingNote(null);
+                resetForm();
+                setShowAddModal(true);
+              }}
               className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-emerald-500/50 transition-all"
             >
               <Plus size={18} />
@@ -758,7 +802,11 @@ const DailyNotesPage = () => {
               </p>
               {canCreateDailyNotes && (
                 <button
-                  onClick={() => setShowAddModal(true)}
+                  onClick={() => {
+                    setEditingNote(null);
+                    resetForm();
+                    setShowAddModal(true);
+                  }}
                   className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-emerald-500/50 transition-all"
                 >
                   Add First Note
@@ -770,6 +818,7 @@ const DailyNotesPage = () => {
               <div className="space-y-4">
                 {filteredNotes.map((note) => {
                   const MoodIcon = getMoodIcon(note.mood);
+                  const canEditThisNote = canUserEditNote(note);
                   return (
                     <div 
                       key={note.id} 
@@ -800,15 +849,33 @@ const DailyNotesPage = () => {
                                   Approved
                                 </span>
                               )}
+                              {note.last_edited && (
+                                <span className="px-3 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full font-bold border border-blue-500/30">
+                                  Edited
+                                </span>
+                              )}
                             </div>
                             <p className="text-slate-400 text-sm mt-1">
                               Documented by {note.staffname} • {new Date(note.timestamp).toLocaleTimeString()}
                               {note.created_by_role && ` • ${note.created_by_role}`}
+                              {note.last_edited && ` • Last edited by ${note.last_edited_by}`}
                             </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <MoodIcon className={`${getMoodColor(note.mood)}`} size={24} />
+                          {canEditThisNote && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditNote(note);
+                              }}
+                              className="p-2 hover:bg-blue-500/20 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                              title="Edit Note"
+                            >
+                              <Edit2 size={16} className="text-blue-400" />
+                            </button>
+                          )}
                           {canDeleteDailyNotes && (
                             <button
                               onClick={(e) => {
@@ -816,6 +883,7 @@ const DailyNotesPage = () => {
                                 handleDeleteNote(note.id);
                               }}
                               className="p-2 hover:bg-red-500/20 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                              title="Delete Note"
                             >
                               <Trash2 size={16} className="text-red-400" />
                             </button>
@@ -874,7 +942,7 @@ const DailyNotesPage = () => {
       </div>
 
       {/* Add/Edit Note Modal */}
-      {showAddModal && canCreateDailyNotes && (
+      {(showAddModal && canCreateDailyNotes) && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b border-slate-700 bg-slate-900/95 backdrop-blur-sm z-10">
@@ -883,12 +951,16 @@ const DailyNotesPage = () => {
                   <ClipboardList className="text-white" size={24} />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-bold text-white">Daily Service Note</h3>
-                  <p className="text-slate-400 text-sm">Document daily activities and care</p>
+                  <h3 className="text-2xl font-bold text-white">
+                    {editingNote ? 'Edit Daily Service Note' : 'Daily Service Note'}
+                  </h3>
+                  <p className="text-slate-400 text-sm">
+                    {editingNote ? 'Update existing daily note' : 'Document daily activities and care'}
+                  </p>
                 </div>
               </div>
               <button 
-                onClick={() => setShowAddModal(false)}
+                onClick={handleCancelEdit}
                 className="p-2 hover:bg-slate-700 rounded-lg transition-all"
               >
                 <X className="text-slate-400" size={24} />
@@ -1617,12 +1689,12 @@ const DailyNotesPage = () => {
                 <div className="flex items-center justify-end gap-3 pt-6 border-t border-slate-700">
                   <button
                     type="button"
-                    onClick={() => setShowAddModal(false)}
+                    onClick={handleCancelEdit}
                     className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all"
                   >
                     Cancel
                   </button>
-                  {canCreateDailyNotes && (
+                  {!editingNote && canCreateDailyNotes && (
                     <button
                       type="button"
                       onClick={handleSaveAndAddAnother}
@@ -1639,7 +1711,7 @@ const DailyNotesPage = () => {
                     className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-emerald-500/50 transition-all disabled:opacity-50"
                   >
                     {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-                    {saving ? 'Saving...' : 'Save Note'}
+                    {saving ? 'Saving...' : (editingNote ? 'Update Note' : 'Save Note')}
                   </button>
                 </div>
               </form>
@@ -1669,12 +1741,26 @@ const DailyNotesPage = () => {
                   </p>
                 </div>
               </div>
-              <button 
-                onClick={() => setSelectedNote(null)}
-                className="p-2 hover:bg-slate-700 rounded-lg transition-all"
-              >
-                <X className="text-slate-400" size={24} />
-              </button>
+              <div className="flex items-center gap-2">
+                {canUserEditNote(selectedNote) && (
+                  <button
+                    onClick={() => {
+                      setSelectedNote(null);
+                      handleEditNote(selectedNote);
+                    }}
+                    className="p-2 hover:bg-blue-500/20 rounded-lg transition-all"
+                    title="Edit Note"
+                  >
+                    <Edit2 size={20} className="text-blue-400" />
+                  </button>
+                )}
+                <button 
+                  onClick={() => setSelectedNote(null)}
+                  className="p-2 hover:bg-slate-700 rounded-lg transition-all"
+                >
+                  <X className="text-slate-400" size={24} />
+                </button>
+              </div>
             </div>
 
             <ScrollArea className="h-[calc(90vh-160px)]">
@@ -1953,6 +2039,7 @@ const DailyNotesPage = () => {
                   <p className="text-xs text-slate-500">
                     Documented on {new Date(selectedNote.timestamp).toLocaleString()}
                     {selectedNote.created_by_role && ` • Role: ${selectedNote.created_by_role}`}
+                    {selectedNote.last_edited && ` • Last edited on ${new Date(selectedNote.last_edited).toLocaleString()} by ${selectedNote.last_edited_by}`}
                   </p>
                 </div>
               </div>

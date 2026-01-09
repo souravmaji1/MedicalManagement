@@ -437,13 +437,13 @@ const [wellnessForm, setWellnessForm] = useState({
 
   // Menu items (same as IncidentsPage)
   const menuItems = [
-    { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
+  //  { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
     { id: 'individual', icon: Users, label: 'Individuals', badge: null },
     { id: 'medicine', icon: Pill, label: 'Medications', badge: null },
     { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: '3' },
     { id: 'billing', icon: CreditCard, label: 'Billing', badge: null },
     { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null },
-    { id: 'settings', icon: Settings, label: 'Settings', badge: null },
+  //  { id: 'settings', icon: Settings, label: 'Settings', badge: null },
   ];
 
   // Parse JSON data from Supabase
@@ -2535,7 +2535,7 @@ const resetWellnessForm = () => {
                   ) : (
                     <>
                       {/* Selected Individual Header */}
-                      <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-4">
                           <div className="w-16 h-16 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center text-white font-bold text-xl">
                             {getInitials(selectedIndividual.firstname, selectedIndividual.lastname)}
@@ -2586,12 +2586,20 @@ const resetWellnessForm = () => {
                               Add Medication
                             </button>
                           )}
+
+                           <button
+      onClick={() => setShowWellnessModal(true)}
+      className="flex items-center gap-2 bg-gradient-to-r from-pink-600 to-rose-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-2xl hover:shadow-pink-500/50 transition-all duration-300"
+    >
+      <Plus size={18} />
+      Add Wellness
+    </button>
                         </div>
                       </div>
 
                       {/* Medications List */}
                       <div>
-                        <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center justify-between mb-2">
                           <div>
                             <h3 className="text-xl font-bold text-white">Active Medications</h3>
                             <p className="text-slate-400">Manage medication schedules and MAR entries</p>
@@ -2763,82 +2771,214 @@ const resetWellnessForm = () => {
                       </div>
 
 
- <div className="space-y-6">
-              {!canViewPlans ? (
-                <div className="text-center py-16">
-                  <Lock className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                  <h3 className="text-xl font-bold text-slate-400 mb-2">Access Restricted</h3>
-                  <p className="text-slate-500">You do not have permission to view rights and agreements documents.</p>
-                </div>
-              ) : (
-                <>
-                  {/* Saved Documents Section */}
-                  <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                        <FileText className="text-indigo-400" size={24} />
-                        Saved Documents
-                      </h3>
+
+{/* Wellness Monitoring Section */}
+<div className="mt-2">
+  <div className="flex items-center justify-between mb-6">
+    <div>
+      <h3 className="text-xl font-bold text-white flex items-center gap-2">
+        <Stethoscope size={24} className="text-pink-400" />
+        Wellness Monitoring
+      </h3>
+      <p className="text-slate-400">Track appointments, medical history, and vital signs</p>
+    </div>
+  </div>
+
+  {/* Wellness Stats Cards */}
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div className="bg-gradient-to-br from-blue-600/20 to-cyan-500/20 border border-blue-500/30 rounded-xl p-4">
+      <div className="flex items-center gap-3">
+        <Calendar className="text-blue-400" size={24} />
+        <div>
+          <p className="text-slate-400 text-sm">Upcoming Appointments</p>
+          <p className="text-white text-2xl font-bold">
+            {wellnessData.filter(w => w.type === 'appointment' && w.status === 'Scheduled').length}
+          </p>
+        </div>
+      </div>
+    </div>
+    
+    <div className="bg-gradient-to-br from-green-600/20 to-emerald-500/20 border border-green-500/30 rounded-xl p-4">
+      <div className="flex items-center gap-3">
+        <FileText className="text-green-400" size={24} />
+        <div>
+          <p className="text-slate-400 text-sm">Medical History Records</p>
+          <p className="text-white text-2xl font-bold">
+            {wellnessData.filter(w => w.type === 'medical_history').length}
+          </p>
+        </div>
+      </div>
+    </div>
+    
+    <div className="bg-gradient-to-br from-purple-600/20 to-pink-500/20 border border-purple-500/30 rounded-xl p-4">
+      <div className="flex items-center gap-3">
+        <HeartPulse className="text-purple-400" size={24} />
+        <div>
+          <p className="text-slate-400 text-sm">Vital Signs Recorded</p>
+          <p className="text-white text-2xl font-bold">
+            {wellnessData.filter(w => w.type === 'vital_signs').length}
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* Wellness Entries List */}
+  <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+    {wellnessData.length === 0 ? (
+      <div className="text-center py-12">
+        <Stethoscope className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+        <h4 className="text-xl font-bold text-slate-400 mb-2">No wellness records found</h4>
+        <p className="text-slate-500">Add appointments, medical history, or vital signs</p>
+      </div>
+    ) : (
+      <ScrollArea className="h-[400px]">
+        <div className="space-y-3">
+          {wellnessData
+            .sort((a, b) => new Date(b.created_date) - new Date(a.created_date))
+            .map((entry) => (
+              <div key={entry.id} className="bg-slate-900/50 border border-slate-700 rounded-lg p-4 hover:border-pink-500/30 transition-all">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-3 flex-1">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                      entry.type === 'appointment' ? 'bg-blue-600/20' :
+                      entry.type === 'medical_history' ? 'bg-green-600/20' :
+                      'bg-purple-600/20'
+                    }`}>
+                      {entry.type === 'appointment' && <Calendar className="text-blue-400" size={20} />}
+                      {entry.type === 'medical_history' && <FileText className="text-green-400" size={20} />}
+                      {entry.type === 'vital_signs' && <HeartPulse className="text-purple-400" size={20} />}
                     </div>
-
-                    {loadingDocuments ? (
-                      <div className="text-center py-12">
-                        <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mx-auto mb-4" />
-                        <p className="text-slate-400">Loading documents...</p>
+                    
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="text-white font-bold">{entry.title}</h4>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                          entry.type === 'appointment' ? 'bg-blue-900/30 text-blue-400' :
+                          entry.type === 'medical_history' ? 'bg-green-900/30 text-green-400' :
+                          'bg-purple-900/30 text-purple-400'
+                        }`}>
+                          {entry.type.replace('_', ' ').toUpperCase()}
+                        </span>
+                        {entry.status && (
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                            entry.status === 'Scheduled' ? 'bg-yellow-900/30 text-yellow-400' :
+                            entry.status === 'Completed' ? 'bg-green-900/30 text-green-400' :
+                            'bg-red-900/30 text-red-400'
+                          }`}>
+                            {entry.status}
+                          </span>
+                        )}
                       </div>
-                    ) : savedDocuments.length === 0 ? (
-                      <div className="text-center py-12 text-slate-400">
-                        <FileText className="w-16 h-16 mx-auto mb-4 text-slate-600" />
-                        <p className="text-lg mb-2">No documents saved yet</p>
-                        <p className="text-sm text-slate-500">Upload and sign a document below to get started</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {savedDocuments.map((doc) => (
-                          <div key={doc.id} className="bg-slate-900/50 border border-slate-700 rounded-lg p-4 hover:border-indigo-500/50 transition-all">
-                            <div className="flex items-center justify-between">
-                              <div className="flex-1">
-                                <h4 className="text-white font-semibold mb-1">{doc.document_name}</h4>
-                                <div className="flex items-center gap-4 text-sm text-slate-400">
-                                  <span className="flex items-center gap-1">
-                                    <User size={14} />
-                                    {doc.uploaded_by}
-                                  </span>
-                                  <span className="flex items-center gap-1">
-                                    <Calendar size={14} />
-                                    {new Date(doc.uploaded_at).toLocaleDateString()} {new Date(doc.uploaded_at).toLocaleTimeString()}
-
-                                  </span>
-                                  <span className="flex items-center gap-1">
-                                    <Type size={14} />
-                                    {doc.signatures_count} signature{doc.signatures_count !== 1 ? 's' : ''}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => viewDocument(doc.file_url)}
-                                  className="p-2 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 rounded-lg transition-all"
-                                  title="View Document"
-                                >
-                                  <Eye size={18} />
-                                </button>
-                                {canManageDocuments && (
-                                  <button
-                                    onClick={() => deleteDocument(doc.id, doc.file_path)}
-                                    className="p-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-all"
-                                    title="Delete Document"
-                                  >
-                                    <Trash size={18} />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
+                      
+                      <div className="grid grid-cols-2 gap-4 mb-2 text-sm">
+                        {entry.date && (
+                          <div>
+                            <p className="text-slate-400">Date</p>
+                            <p className="text-white">{new Date(entry.date).toLocaleDateString()}</p>
                           </div>
-                        ))}
+                        )}
+                        {entry.provider && (
+                          <div>
+                            <p className="text-slate-400">Provider</p>
+                            <p className="text-white">{entry.provider}</p>
+                          </div>
+                        )}
+                        {entry.location && (
+                          <div>
+                            <p className="text-slate-400">Location</p>
+                            <p className="text-white">{entry.location}</p>
+                          </div>
+                        )}
                       </div>
-                    )}
+                      
+                      {/* Vital Signs Display */}
+                      {entry.type === 'vital_signs' && (
+                        <div className="grid grid-cols-3 gap-3 mt-3 p-3 bg-slate-800 rounded-lg">
+                          {entry.bloodPressure && (
+                            <div>
+                              <p className="text-slate-400 text-xs">Blood Pressure</p>
+                              <p className="text-white font-semibold">{entry.bloodPressure}</p>
+                            </div>
+                          )}
+                          {entry.heartRate && (
+                            <div>
+                              <p className="text-slate-400 text-xs">Heart Rate</p>
+                              <p className="text-white font-semibold">{entry.heartRate} bpm</p>
+                            </div>
+                          )}
+                          {entry.temperature && (
+                            <div>
+                              <p className="text-slate-400 text-xs">Temperature</p>
+                              <p className="text-white font-semibold">{entry.temperature}°F</p>
+                            </div>
+                          )}
+                          {entry.weight && (
+                            <div>
+                              <p className="text-slate-400 text-xs">Weight</p>
+                              <p className="text-white font-semibold">{entry.weight} lbs</p>
+                            </div>
+                          )}
+                          {entry.height && (
+                            <div>
+                              <p className="text-slate-400 text-xs">Height</p>
+                              <p className="text-white font-semibold">{entry.height}</p>
+                            </div>
+                          )}
+                          {entry.oxygenSaturation && (
+                            <div>
+                              <p className="text-slate-400 text-xs">O2 Saturation</p>
+                              <p className="text-white font-semibold">{entry.oxygenSaturation}%</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {entry.notes && (
+                        <div className="mt-2">
+                          <p className="text-slate-400 text-xs mb-1">Notes</p>
+                          <p className="text-slate-300 text-sm bg-slate-800 rounded p-2">{entry.notes}</p>
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center gap-2 mt-2 text-xs text-slate-500">
+                        <User size={12} />
+                        <span>Added by {entry.created_by}</span>
+                        <span>•</span>
+                        <span>{new Date(entry.created_date).toLocaleString()}</span>
+                      </div>
+                    </div>
                   </div>
+                  
+                  {canDeleteMedications && (
+                    <button
+                      onClick={() => {
+                        if (confirm('Are you sure you want to delete this wellness entry?')) {
+                          const updated = wellnessData.filter(w => w.id !== entry.id);
+                          supabase
+                            .from('individuals')
+                            .update({ wellness_data: updated })
+                            .eq('id', selectedIndividual.id)
+                            .then(() => {
+                              setWellnessData(updated);
+                              alert('Wellness entry deleted successfully!');
+                            });
+                        }
+                      }}
+                      className="p-2 hover:bg-red-500/20 rounded-lg transition-all"
+                    >
+                      <Trash2 size={16} className="text-red-400" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+        </div>
+      </ScrollArea>
+    )}
+  </div>
+</div>
+
 
                   {/* PDF Upload and Signature Section */}
                   <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
@@ -3157,225 +3297,7 @@ Page {pageIndex + 1} of {pdfPages.length}
                       </div>
                     )}
                   </div>
-                </>
-              )}
-            </div>
 
-
-
-{/* Wellness Monitoring Section */}
-<div className="mt-8">
-  <div className="flex items-center justify-between mb-6">
-    <div>
-      <h3 className="text-xl font-bold text-white flex items-center gap-2">
-        <Stethoscope size={24} className="text-pink-400" />
-        Wellness Monitoring
-      </h3>
-      <p className="text-slate-400">Track appointments, medical history, and vital signs</p>
-    </div>
-    <button
-      onClick={() => setShowWellnessModal(true)}
-      className="flex items-center gap-2 bg-gradient-to-r from-pink-600 to-rose-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-2xl hover:shadow-pink-500/50 transition-all duration-300"
-    >
-      <Plus size={18} />
-      Add Entry
-    </button>
-  </div>
-
-  {/* Wellness Stats Cards */}
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-    <div className="bg-gradient-to-br from-blue-600/20 to-cyan-500/20 border border-blue-500/30 rounded-xl p-4">
-      <div className="flex items-center gap-3">
-        <Calendar className="text-blue-400" size={24} />
-        <div>
-          <p className="text-slate-400 text-sm">Upcoming Appointments</p>
-          <p className="text-white text-2xl font-bold">
-            {wellnessData.filter(w => w.type === 'appointment' && w.status === 'Scheduled').length}
-          </p>
-        </div>
-      </div>
-    </div>
-    
-    <div className="bg-gradient-to-br from-green-600/20 to-emerald-500/20 border border-green-500/30 rounded-xl p-4">
-      <div className="flex items-center gap-3">
-        <FileText className="text-green-400" size={24} />
-        <div>
-          <p className="text-slate-400 text-sm">Medical History Records</p>
-          <p className="text-white text-2xl font-bold">
-            {wellnessData.filter(w => w.type === 'medical_history').length}
-          </p>
-        </div>
-      </div>
-    </div>
-    
-    <div className="bg-gradient-to-br from-purple-600/20 to-pink-500/20 border border-purple-500/30 rounded-xl p-4">
-      <div className="flex items-center gap-3">
-        <HeartPulse className="text-purple-400" size={24} />
-        <div>
-          <p className="text-slate-400 text-sm">Vital Signs Recorded</p>
-          <p className="text-white text-2xl font-bold">
-            {wellnessData.filter(w => w.type === 'vital_signs').length}
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  {/* Wellness Entries List */}
-  <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-    {wellnessData.length === 0 ? (
-      <div className="text-center py-12">
-        <Stethoscope className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-        <h4 className="text-xl font-bold text-slate-400 mb-2">No wellness records found</h4>
-        <p className="text-slate-500">Add appointments, medical history, or vital signs</p>
-      </div>
-    ) : (
-      <ScrollArea className="h-[400px]">
-        <div className="space-y-3">
-          {wellnessData
-            .sort((a, b) => new Date(b.created_date) - new Date(a.created_date))
-            .map((entry) => (
-              <div key={entry.id} className="bg-slate-900/50 border border-slate-700 rounded-lg p-4 hover:border-pink-500/30 transition-all">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3 flex-1">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      entry.type === 'appointment' ? 'bg-blue-600/20' :
-                      entry.type === 'medical_history' ? 'bg-green-600/20' :
-                      'bg-purple-600/20'
-                    }`}>
-                      {entry.type === 'appointment' && <Calendar className="text-blue-400" size={20} />}
-                      {entry.type === 'medical_history' && <FileText className="text-green-400" size={20} />}
-                      {entry.type === 'vital_signs' && <HeartPulse className="text-purple-400" size={20} />}
-                    </div>
-                    
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="text-white font-bold">{entry.title}</h4>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                          entry.type === 'appointment' ? 'bg-blue-900/30 text-blue-400' :
-                          entry.type === 'medical_history' ? 'bg-green-900/30 text-green-400' :
-                          'bg-purple-900/30 text-purple-400'
-                        }`}>
-                          {entry.type.replace('_', ' ').toUpperCase()}
-                        </span>
-                        {entry.status && (
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                            entry.status === 'Scheduled' ? 'bg-yellow-900/30 text-yellow-400' :
-                            entry.status === 'Completed' ? 'bg-green-900/30 text-green-400' :
-                            'bg-red-900/30 text-red-400'
-                          }`}>
-                            {entry.status}
-                          </span>
-                        )}
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-4 mb-2 text-sm">
-                        {entry.date && (
-                          <div>
-                            <p className="text-slate-400">Date</p>
-                            <p className="text-white">{new Date(entry.date).toLocaleDateString()}</p>
-                          </div>
-                        )}
-                        {entry.provider && (
-                          <div>
-                            <p className="text-slate-400">Provider</p>
-                            <p className="text-white">{entry.provider}</p>
-                          </div>
-                        )}
-                        {entry.location && (
-                          <div>
-                            <p className="text-slate-400">Location</p>
-                            <p className="text-white">{entry.location}</p>
-                          </div>
-                        )}
-                      </div>
-                      
-                      {/* Vital Signs Display */}
-                      {entry.type === 'vital_signs' && (
-                        <div className="grid grid-cols-3 gap-3 mt-3 p-3 bg-slate-800 rounded-lg">
-                          {entry.bloodPressure && (
-                            <div>
-                              <p className="text-slate-400 text-xs">Blood Pressure</p>
-                              <p className="text-white font-semibold">{entry.bloodPressure}</p>
-                            </div>
-                          )}
-                          {entry.heartRate && (
-                            <div>
-                              <p className="text-slate-400 text-xs">Heart Rate</p>
-                              <p className="text-white font-semibold">{entry.heartRate} bpm</p>
-                            </div>
-                          )}
-                          {entry.temperature && (
-                            <div>
-                              <p className="text-slate-400 text-xs">Temperature</p>
-                              <p className="text-white font-semibold">{entry.temperature}°F</p>
-                            </div>
-                          )}
-                          {entry.weight && (
-                            <div>
-                              <p className="text-slate-400 text-xs">Weight</p>
-                              <p className="text-white font-semibold">{entry.weight} lbs</p>
-                            </div>
-                          )}
-                          {entry.height && (
-                            <div>
-                              <p className="text-slate-400 text-xs">Height</p>
-                              <p className="text-white font-semibold">{entry.height}</p>
-                            </div>
-                          )}
-                          {entry.oxygenSaturation && (
-                            <div>
-                              <p className="text-slate-400 text-xs">O2 Saturation</p>
-                              <p className="text-white font-semibold">{entry.oxygenSaturation}%</p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      
-                      {entry.notes && (
-                        <div className="mt-2">
-                          <p className="text-slate-400 text-xs mb-1">Notes</p>
-                          <p className="text-slate-300 text-sm bg-slate-800 rounded p-2">{entry.notes}</p>
-                        </div>
-                      )}
-                      
-                      <div className="flex items-center gap-2 mt-2 text-xs text-slate-500">
-                        <User size={12} />
-                        <span>Added by {entry.created_by}</span>
-                        <span>•</span>
-                        <span>{new Date(entry.created_date).toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {canDeleteMedications && (
-                    <button
-                      onClick={() => {
-                        if (confirm('Are you sure you want to delete this wellness entry?')) {
-                          const updated = wellnessData.filter(w => w.id !== entry.id);
-                          supabase
-                            .from('individuals')
-                            .update({ wellness_data: updated })
-                            .eq('id', selectedIndividual.id)
-                            .then(() => {
-                              setWellnessData(updated);
-                              alert('Wellness entry deleted successfully!');
-                            });
-                        }
-                      }}
-                      className="p-2 hover:bg-red-500/20 rounded-lg transition-all"
-                    >
-                      <Trash2 size={16} className="text-red-400" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-        </div>
-      </ScrollArea>
-    )}
-  </div>
-</div>
 
 
 {/* Wellness Entry Modal */}
@@ -3628,6 +3550,96 @@ Page {pageIndex + 1} of {pdfPages.length}
     </div>
   </div>
 )}
+
+
+
+
+
+
+
+ <div className="space-y-6">
+              {!canViewPlans ? (
+                <div className="text-center py-16">
+                  <Lock className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-slate-400 mb-2">Access Restricted</h3>
+                  <p className="text-slate-500">You do not have permission to view rights and agreements documents.</p>
+                </div>
+              ) : (
+                <>
+                  {/* Saved Documents Section */}
+                  <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                        <FileText className="text-indigo-400" size={24} />
+                        Saved Documents
+                      </h3>
+                    </div>
+
+                    {loadingDocuments ? (
+                      <div className="text-center py-12">
+                        <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mx-auto mb-4" />
+                        <p className="text-slate-400">Loading documents...</p>
+                      </div>
+                    ) : savedDocuments.length === 0 ? (
+                      <div className="text-center py-12 text-slate-400">
+                        <FileText className="w-16 h-16 mx-auto mb-4 text-slate-600" />
+                        <p className="text-lg mb-2">No documents saved yet</p>
+                        <p className="text-sm text-slate-500">Upload and sign a document below to get started</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {savedDocuments.map((doc) => (
+                          <div key={doc.id} className="bg-slate-900/50 border border-slate-700 rounded-lg p-4 hover:border-indigo-500/50 transition-all">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <h4 className="text-white font-semibold mb-1">{doc.document_name}</h4>
+                                <div className="flex items-center gap-4 text-sm text-slate-400">
+                                  <span className="flex items-center gap-1">
+                                    <User size={14} />
+                                    {doc.uploaded_by}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <Calendar size={14} />
+                                    {new Date(doc.uploaded_at).toLocaleDateString()} {new Date(doc.uploaded_at).toLocaleTimeString()}
+
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <Type size={14} />
+                                    {doc.signatures_count} signature{doc.signatures_count !== 1 ? 's' : ''}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => viewDocument(doc.file_url)}
+                                  className="p-2 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 rounded-lg transition-all"
+                                  title="View Document"
+                                >
+                                  <Eye size={18} />
+                                </button>
+                                {canManageDocuments && (
+                                  <button
+                                    onClick={() => deleteDocument(doc.id, doc.file_path)}
+                                    className="p-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-all"
+                                    title="Delete Document"
+                                  >
+                                    <Trash size={18} />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                </>
+              )}
+            </div>
+
+
+
 
 
 
