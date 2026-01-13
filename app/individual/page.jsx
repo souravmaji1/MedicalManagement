@@ -4,9 +4,9 @@ import {
   Users, Plus, Upload, Search, Filter, Eye, Edit2, Trash2,
   MapPin, Clock, CheckCircle, AlertCircle, Download, X,
   Save, FileText, Phone, Mail, Calendar, User, Home as HomeIcon, AlertTriangle,
-  Shield, Heart, Activity, ChevronRight, Loader2,CreditCard,
+  Shield, Heart, Activity, ChevronRight, Loader2, CreditCard,
   Home, FileText as FileTextIcon, Pill, AlertCircle as AlertCircleIcon,
-  TrendingUp, Settings, Menu, Bell, ChevronDown, BarChart3, Brain,
+  TrendingUp, Settings, Menu, Bell, ChevronDown, BarChart3, Brain,NetworkIcon,
   Zap, Sparkles, Award, TrendingDown, Target, StickyNote
 } from 'lucide-react';
 import { ScrollArea } from "../../components/ui/scroll-area";
@@ -16,6 +16,7 @@ import { useRouter } from 'next/navigation';
 import { useUserProfile } from '../../contexts/userProfileContext';
 import { PERMISSIONS } from '../../utils/permissions';
 import { UserButton } from '@clerk/nextjs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog";
 
 const supabase = createClient(
   'https://bbikcxalypttfgrlxstf.supabase.co',
@@ -31,11 +32,14 @@ const IndividualsPage = () => {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentPage, setCurrentPage] = useState('individual');
+  const [selectedStatusInfo, setSelectedStatusInfo] = useState(null);
+  const [statusReviewNotes, setStatusReviewNotes] = useState('');
 
   // Permission checks
   const canViewIndividuals = hasAnyPermission([
@@ -89,6 +93,7 @@ const IndividualsPage = () => {
     guardianemail: '',
     admissiondate: '',
     status: 'Active',
+    status_reason: '',
     medicaidnumber: '',
     emergencycontact: '',
     allergies: '',
@@ -96,16 +101,17 @@ const IndividualsPage = () => {
   });
 
 
-  // Menu items (same as IncidentsPage)
-  const menuItems = [
-  //  { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
-    { id: 'individual', icon: Users, label: 'Individuals', badge: null },
-    { id: 'medicine', icon: Pill, label: 'Medications', badge: null },
-    { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: '3' },
-    { id: 'billing', icon: CreditCard, label: 'Billing', badge: null },
-    { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null }
-//{ id: 'settings', icon: Settings, label: 'Settings', badge: null },
-  ];
+    const menuItems = [
+       { id: 'individual', icon: Users, label: 'Individuals', badge: null },
+       { id: 'medicine', icon: Pill, label: 'Medications', badge: null },
+       { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: '3' },
+       { id: 'privacy', icon: Shield, label: 'Data Privacy', badge: 'NEW' },
+       { id: 'hcbs', icon: Shield, label: 'HCBS Compliance', badge: 'NEW' },
+        {id: 'engine', icon: Pill, label: 'Foresight Engine', badge: 'NEW'},
+       { id: 'intelligence', icon: NetworkIcon, label: 'User Foresight', badge: 'NEW' },
+       { id: 'billing', icon: CreditCard, label: 'Billing', badge: null },
+       { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null }
+     ];
 
   // Fetch individuals from Supabase with role-based filtering
   useEffect(() => {
@@ -342,6 +348,7 @@ const IndividualsPage = () => {
       guardianemail: '',
       admissiondate: '',
       status: 'Active',
+      status_reason: '',
       medicaidnumber: '',
       emergencycontact: '',
       allergies: '',
@@ -379,6 +386,60 @@ const IndividualsPage = () => {
   // Handle stats card click
   const handleStatsCardClick = (status) => {
     setFilterStatus(status);
+  };
+
+  // Handle status click to show review modal
+  const handleStatusClick = (individual) => {
+    if (individual.status === 'Review' || individual.status === 'Inactive') {
+      setSelectedStatusInfo({
+        id: individual.id,
+        name: `${individual.firstname} ${individual.lastname}`,
+        status: individual.status,
+        status_reason: individual.status_reason,
+        review_notes: individual.review_notes,
+        review_date: individual.review_date,
+        reviewed_by: individual.reviewed_by
+      });
+      setStatusReviewNotes(individual.review_notes || '');
+      setShowStatusModal(true);
+    }
+  };
+
+  // Handle updating status review notes
+  const handleUpdateStatusReview = async () => {
+    if (!selectedStatusInfo) return;
+    
+    try {
+      const { error } = await supabase
+        .from('individuals')
+        .update({
+          review_notes: statusReviewNotes,
+          reviewed_by: userProfile.fullname,
+          review_date: new Date().toISOString()
+        })
+        .eq('id', selectedStatusInfo.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setIndividuals(prev => prev.map(ind => 
+        ind.id === selectedStatusInfo.id 
+          ? { 
+              ...ind, 
+              review_notes: statusReviewNotes,
+              reviewed_by: userProfile.fullname,
+              review_date: new Date().toISOString()
+            }
+          : ind
+      ));
+
+      alert('Status review updated successfully!');
+      setShowStatusModal(false);
+      setSelectedStatusInfo(null);
+    } catch (error) {
+      console.error('Error updating status review:', error);
+      alert('Error updating status review.');
+    }
   };
 
   // Calculate stats
@@ -570,67 +631,81 @@ const IndividualsPage = () => {
     );
   }
 
- /* Table Row Component with Action Buttons */
-const TableRow = ({ individual, idx }) => (
-  <tr className="border-b border-slate-700/30 hover:bg-slate-900/50 transition-all duration-300 group">
-    <td className="py-5 px-4">
-      <div className="flex items-center gap-3">
-        <div className={`w-12 h-12 bg-gradient-to-br ${getColorClass(idx)} rounded-xl flex items-center justify-center text-white font-bold shadow-lg group-hover:scale-110 transition-all duration-300`}>
-          {getInitials(individual.firstname, individual.lastname)}
-        </div>
-        <div>
-          {/* Make the name clickable */}
-          <button 
-            onClick={() => router.push(`/individual/${individual.id}`)}
-            className="text-white font-semibold group-hover:text-emerald-400 transition-colors hover:underline text-left"
-          >
-            {individual.firstname} {individual.lastname}
-          </button>
-          <div className="flex items-center gap-2 mt-1">
-            <div className="w-full bg-slate-700 rounded-full h-1.5 w-20">
-              <div className={`h-full rounded-full ${individual.compliance_score >= 95 ? 'bg-lime-500' : individual.compliance_score >= 85 ? 'bg-yellow-500' : 'bg-red-500'}`} style={{width: `${individual.compliance_score}%`}} />
+  /* Table Row Component with Action Buttons */
+  const TableRow = ({ individual, idx }) => (
+    <tr className="border-b border-slate-700/30 hover:bg-slate-900/50 transition-all duration-300 group">
+      <td className="py-5 px-4">
+        <div className="flex items-center gap-3">
+          <div className={`w-12 h-12 bg-gradient-to-br ${getColorClass(idx)} rounded-xl flex items-center justify-center text-white font-bold shadow-lg group-hover:scale-110 transition-all duration-300`}>
+            {getInitials(individual.firstname, individual.lastname)}
+          </div>
+          <div>
+            {/* Make the name clickable */}
+            <button 
+              onClick={() => router.push(`/individual/${individual.id}`)}
+              className="text-white font-semibold group-hover:text-emerald-400 transition-colors hover:underline text-left"
+            >
+              {individual.firstname} {individual.lastname}
+            </button>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="w-full bg-slate-700 rounded-full h-1.5 w-20">
+                <div className={`h-full rounded-full ${individual.compliance_score >= 95 ? 'bg-lime-500' : individual.compliance_score >= 85 ? 'bg-yellow-500' : 'bg-red-500'}`} style={{width: `${individual.compliance_score}%`}} />
+              </div>
+              <span className="text-xs text-slate-500 font-medium">{individual.compliance_score}%</span>
             </div>
-            <span className="text-xs text-slate-500 font-medium">{individual.compliance_score}%</span>
           </div>
         </div>
-      </div>
-    </td>
-    <td className="py-5 px-4"><span className="text-slate-300 font-mono text-sm">{individual.individualid}</span></td>
-    <td className="py-5 px-4">
-      <div className="flex items-center gap-2"><MapPin size={14} className="text-emerald-400" /><span className="text-slate-300 text-sm">{individual.homeassignment || individual.location}</span></div>
-    </td>
-    <td className="py-5 px-4">
-      <span className={`px-3 py-1.5 rounded-full text-xs font-bold border ${individual.status === 'Active' ? 'bg-green-900/30 text-green-400 border-green-500/50' : individual.status === 'Review' ? 'bg-yellow-900/30 text-yellow-400 border-yellow-500/50' : 'bg-red-900/30 text-red-400 border-red-500/50'}`}>{individual.status}</span>
-    </td>
-    <td className="py-5 px-4">
-      <div className="flex items-center gap-2"><Clock size={14} className="text-slate-500" /><span className="text-slate-400 text-sm">{new Date(individual.last_activity).toLocaleDateString()}</span></div>
-    </td>
-    <td className="py-5 px-4">
-      <div className="flex items-center gap-2">
-        {/* Goals */}
-        <button onClick={() => router.push(`/individual/${individual.id}`)} className="p-2 hover:bg-emerald-500/20 rounded-lg transition-all group/btn" title="Goals">
-          <Target size={16} className="text-emerald-400 group-hover/btn:scale-110 transition-all" />
+      </td>
+      <td className="py-5 px-4"><span className="text-slate-300 font-mono text-sm">{individual.individualid}</span></td>
+      <td className="py-5 px-4">
+        <div className="flex items-center gap-2"><MapPin size={14} className="text-emerald-400" /><span className="text-slate-300 text-sm">{individual.homeassignment || individual.location}</span></div>
+      </td>
+      <td className="py-5 px-4">
+        <button
+          onClick={() => handleStatusClick(individual)}
+          className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all duration-300 hover:scale-105 ${
+            individual.status === 'Active' 
+              ? 'bg-green-900/30 text-green-400 border-green-500/50 hover:bg-green-800/40' 
+              : individual.status === 'Review' 
+              ? 'bg-yellow-900/30 text-yellow-400 border-yellow-500/50 hover:bg-yellow-800/40 cursor-pointer' 
+              : 'bg-red-900/30 text-red-400 border-red-500/50 hover:bg-red-800/40 cursor-pointer'
+          }`}
+        >
+          {individual.status}
+          {(individual.status === 'Review' || individual.status === 'Inactive') && (
+            <span className="ml-1">🔍</span>
+          )}
         </button>
-        {/* Daily Notes */}
-        <button onClick={() => router.push(`/daily/${individual.id}`)} className="p-2 hover:bg-blue-500/20 rounded-lg transition-all group/btn" title="Daily Notes">
-          <StickyNote size={16} className="text-blue-400 group-hover/btn:scale-110 transition-all" />
-        </button>
-        {/* Edit */}
-        {canEditIndividuals && (
-          <button onClick={() => router.push(`/individual/${individual.id}?edit=true`)} className="p-2 hover:bg-blue-500/20 rounded-lg transition-all group/btn" title="Edit">
-            <Edit2 size={16} className="text-blue-400 group-hover/btn:scale-110 transition-all" />
+      </td>
+      <td className="py-5 px-4">
+        <div className="flex items-center gap-2"><Clock size={14} className="text-slate-500" /><span className="text-slate-400 text-sm">{new Date(individual.last_activity).toLocaleDateString()}</span></div>
+      </td>
+      <td className="py-5 px-4">
+        <div className="flex items-center gap-2">
+          {/* Goals */}
+          <button onClick={() => router.push(`/individual/${individual.id}`)} className="p-2 hover:bg-emerald-500/20 rounded-lg transition-all group/btn" title="Goals">
+            <Target size={16} className="text-emerald-400 group-hover/btn:scale-110 transition-all" />
           </button>
-        )}
-        {/* Delete */}
-        {canDeleteIndividuals && (
-          <button onClick={() => handleDeleteIndividual(individual.id)} className="p-2 hover:bg-red-500/20 rounded-lg transition-all group/btn" title="Delete">
-            <Trash2 size={16} className="text-red-400 group-hover/btn:scale-110 transition-all" />
+          {/* Daily Notes */}
+          <button onClick={() => router.push(`/daily/${individual.id}`)} className="p-2 hover:bg-blue-500/20 rounded-lg transition-all group/btn" title="Daily Notes">
+            <StickyNote size={16} className="text-blue-400 group-hover/btn:scale-110 transition-all" />
           </button>
-        )}
-      </div>
-    </td>
-  </tr>
-);
+          {/* Edit */}
+          {canEditIndividuals && (
+            <button onClick={() => router.push(`/individual/${individual.id}?edit=true`)} className="p-2 hover:bg-blue-500/20 rounded-lg transition-all group/btn" title="Edit">
+              <Edit2 size={16} className="text-blue-400 group-hover/btn:scale-110 transition-all" />
+            </button>
+          )}
+          {/* Delete */}
+          {canDeleteIndividuals && (
+            <button onClick={() => handleDeleteIndividual(individual.id)} className="p-2 hover:bg-red-500/20 rounded-lg transition-all group/btn" title="Delete">
+              <Trash2 size={16} className="text-red-400 group-hover/btn:scale-110 transition-all" />
+            </button>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
 
   return (
     <div className="h-screen flex flex-col bg-slate-950 text-white overflow-hidden">
@@ -994,6 +1069,135 @@ const TableRow = ({ individual, idx }) => (
         </div>
       </div>
 
+      {/* Status Review Modal */}
+      {showStatusModal && selectedStatusInfo && (
+        <Dialog open={showStatusModal} onOpenChange={setShowStatusModal}>
+          <DialogContent className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold text-white flex items-center gap-3">
+                {selectedStatusInfo.status === 'Review' ? (
+                  <AlertCircle className="text-yellow-400" size={24} />
+                ) : (
+                  <AlertCircleIcon className="text-red-400" size={24} />
+                )}
+                {selectedStatusInfo.status} Status Review
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-6 py-4">
+              <div className="bg-slate-800/50 rounded-xl p-4">
+                <h4 className="text-lg font-semibold text-white mb-2">
+                  Individual: {selectedStatusInfo.name}
+                </h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-slate-400">Status:</p>
+                    <p className={`font-bold ${
+                      selectedStatusInfo.status === 'Review' ? 'text-yellow-400' : 'text-red-400'
+                    }`}>
+                      {selectedStatusInfo.status}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400">Status Reason:</p>
+                    <p className="text-white">{selectedStatusInfo.status_reason || 'Not specified'}</p>
+                  </div>
+                  {selectedStatusInfo.review_date && (
+                    <div>
+                      <p className="text-slate-400">Last Reviewed:</p>
+                      <p className="text-white">
+                        {new Date(selectedStatusInfo.review_date).toLocaleDateString()}
+                      </p>
+                    </div>
+                  )}
+                  {selectedStatusInfo.reviewed_by && (
+                    <div>
+                      <p className="text-slate-400">Reviewed By:</p>
+                      <p className="text-white">{selectedStatusInfo.reviewed_by}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Review Notes & Actions Required
+                </label>
+                <textarea
+                  value={statusReviewNotes}
+                  onChange={(e) => setStatusReviewNotes(e.target.value)}
+                  rows={6}
+                  placeholder={
+                    selectedStatusInfo.status === 'Review' 
+                      ? 'Enter review notes, action items, or requirements...'
+                      : 'Enter reasons for inactive status and required steps for reactivation...'
+                  }
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all resize-none"
+                />
+                <p className="text-xs text-slate-500 mt-2">
+                  {selectedStatusInfo.status === 'Review' 
+                    ? 'Document what needs to be reviewed and any action items required.'
+                    : 'Document why this individual is inactive and steps needed to reactivate.'}
+                </p>
+              </div>
+
+              {selectedStatusInfo.status === 'Review' && (
+                <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-xl p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="text-yellow-400 mt-1" size={20} />
+                    <div>
+                      <h5 className="text-yellow-300 font-semibold mb-1">Pending Review Items:</h5>
+                      <ul className="text-sm text-yellow-100 space-y-1">
+                        <li>• Review recent incidents and notes</li>
+                        <li>• Verify compliance documentation</li>
+                        <li>• Check care plan updates</li>
+                        <li>• Review medication changes</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedStatusInfo.status === 'Inactive' && (
+                <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertCircleIcon className="text-red-400 mt-1" size={20} />
+                    <div>
+                      <h5 className="text-red-300 font-semibold mb-1">Inactive Status Details:</h5>
+                      <ul className="text-sm text-red-100 space-y-1">
+                        <li>• Individual is currently not receiving services</li>
+                        <li>• All active care plans are suspended</li>
+                        <li>• Billing and reporting are paused</li>
+                        <li>• Reactivation requires administrator approval</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">
+                <button
+                  onClick={() => {
+                    setShowStatusModal(false);
+                    setSelectedStatusInfo(null);
+                  }}
+                  className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all duration-300"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={handleUpdateStatusReview}
+                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-emerald-500/50 transition-all duration-300"
+                >
+                  <Save size={18} />
+                  Save Review Notes
+                </button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {/* Add Individual Modal - Only shown if user has permission */}
       {showAddModal && canAddIndividuals && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -1160,6 +1364,17 @@ const TableRow = ({ individual, idx }) => (
                         <option value="Review">Review</option>
                         <option value="Inactive">Inactive</option>
                       </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Status Reason</label>
+                      <input
+                        type="text"
+                        name="status_reason"
+                        value={formData.status_reason}
+                        onChange={handleInputChange}
+                        placeholder="Reason for status (optional)"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all"
+                      />
                     </div>
                   </div>
                 </div>

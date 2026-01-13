@@ -64,33 +64,37 @@ const RoleSelectionFlow = () => {
   ];
 
   const rolesByDivision = {
-    DD: [
-      { id: 'DSP_DD', name: 'Direct Support Professional (DSP)', permissions: ['daily_notes', 'adls', 'incidents', 'mar'] },
-      { id: 'HouseManager_DD', name: 'House Manager', permissions: ['approve_notes', 'approve_incidents', 'approve_mar'] },
-      { id: 'QDDP', name: 'QDDP/QIDP', permissions: ['plans', 'review_all', 'hcbs_dashboard'] },
-      { id: 'MAS_Nurse', name: 'MAS Nurse', permissions: ['medications', 'mar_approve', 'health_tracking'] },
-      { id: 'ExecDirector', name: 'Executive Director', permissions: ['full_access'] }
-    ],
-    MI: [
-      { id: 'MI_Staff', name: 'Residential MI Staff', permissions: ['shift_notes', 'incidents', 'behaviors'] },
-      { id: 'Therapist_MI', name: 'Therapist/Clinician', permissions: ['clinical_notes', 'treatment_plans', 'assessments'] },
-      { id: 'Psychiatrist', name: 'Psychiatrist', permissions: ['med_orders', 'diagnoses', 'clinical_notes'] },
-      { id: 'MI_Supervisor', name: 'Clinical Supervisor', permissions: ['approve_plans', 'review_incidents', 'reports'] },
-      { id: 'MI_PeerSupport', name: 'Certified Peer Specialist', permissions: ['peer_notes', 'recovery_goals'] }
-    ],
-    SUD: [
-      { id: 'SUD_Counselor', name: 'SUD Counselor', permissions: ['counseling_notes', 'asam', 'recovery_plan'] },
-      { id: 'SUD_PeerSupport', name: 'Recovery Coach', permissions: ['peer_notes', 'relapse_logs'] },
-      { id: 'Nurse_SUD', name: 'SUD Nurse', permissions: ['mat_tracking', 'withdrawal', 'vitals'] },
-      { id: 'MAT_Staff', name: 'MAT Clinic Staff', permissions: ['mat_full', 'dose_logs'] },
-      { id: 'SUD_Director', name: 'Program Director', permissions: ['approve_all', 'reports', 'admin'] }
-    ],
-    PEER: [
-      { id: 'DD_PeerMentor', name: 'DD Peer Mentor', permissions: ['peer_notes', 'community_activities'] },
-      { id: 'MI_CPS', name: 'MI Certified Peer Specialist', permissions: ['cps_notes', 'recovery_support'] },
-      { id: 'SUD_PeerRecovery', name: 'SUD Peer Recovery Specialist', permissions: ['peer_recovery_notes', 'relapse_support'] }
-    ]
-  };
+  DD: [
+    { id: 'DSP_DD', name: 'Direct Support Professional (DSP)', permissions: ['daily_notes', 'adls', 'incidents', 'mar'] },
+    { id: 'HouseManager_DD', name: 'House Manager', permissions: ['approve_notes', 'approve_incidents', 'approve_mar'] },
+    { id: 'QDDP', name: 'QDDP/QIDP', permissions: ['plans', 'review_all', 'hcbs_dashboard'] },
+    { id: 'MAS_Nurse', name: 'MAS Nurse', permissions: ['medications', 'mar_approve', 'health_tracking'] },
+    { id: 'ExecDirector', name: 'Executive Director', permissions: ['full_access'] },
+    { id: 'ExecPresident', name: 'Executive President', permissions: ['full_access', 'system_admin', 'all_divisions', 'financial_access', 'user_management', 'compliance_oversight', 'strategic_planning'] }
+  ],
+  MI: [
+    { id: 'MI_Staff', name: 'Residential MI Staff', permissions: ['shift_notes', 'incidents', 'behaviors'] },
+    { id: 'Therapist_MI', name: 'Therapist/Clinician', permissions: ['clinical_notes', 'treatment_plans', 'assessments'] },
+    { id: 'Psychiatrist', name: 'Psychiatrist', permissions: ['med_orders', 'diagnoses', 'clinical_notes'] },
+    { id: 'MI_Supervisor', name: 'Clinical Supervisor', permissions: ['approve_plans', 'review_incidents', 'reports'] },
+    { id: 'MI_PeerSupport', name: 'Certified Peer Specialist', permissions: ['peer_notes', 'recovery_goals'] },
+    { id: 'ExecPresident', name: 'Executive President', permissions: ['full_access', 'system_admin', 'all_divisions', 'financial_access', 'user_management', 'compliance_oversight', 'strategic_planning'] }
+  ],
+  SUD: [
+    { id: 'SUD_Counselor', name: 'SUD Counselor', permissions: ['counseling_notes', 'asam', 'recovery_plan'] },
+    { id: 'SUD_PeerSupport', name: 'Recovery Coach', permissions: ['peer_notes', 'relapse_logs'] },
+    { id: 'Nurse_SUD', name: 'SUD Nurse', permissions: ['mat_tracking', 'withdrawal', 'vitals'] },
+    { id: 'MAT_Staff', name: 'MAT Clinic Staff', permissions: ['mat_full', 'dose_logs'] },
+    { id: 'SUD_Director', name: 'Program Director', permissions: ['approve_all', 'reports', 'admin'] },
+    { id: 'ExecPresident', name: 'Executive President', permissions: ['full_access', 'system_admin', 'all_divisions', 'financial_access', 'user_management', 'compliance_oversight', 'strategic_planning'] }
+  ],
+  PEER: [
+    { id: 'DD_PeerMentor', name: 'DD Peer Mentor', permissions: ['peer_notes', 'community_activities'] },
+    { id: 'MI_CPS', name: 'MI Certified Peer Specialist', permissions: ['cps_notes', 'recovery_support'] },
+    { id: 'SUD_PeerRecovery', name: 'SUD Peer Recovery Specialist', permissions: ['peer_recovery_notes', 'relapse_support'] },
+    { id: 'ExecPresident', name: 'Executive President', permissions: ['full_access', 'system_admin', 'all_divisions', 'financial_access', 'user_management', 'compliance_oversight', 'strategic_planning'] }
+  ]
+};
 
   useEffect(() => {
     if (isLoaded && user) {

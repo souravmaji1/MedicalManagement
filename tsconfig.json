@@ -27,7 +27,7 @@
     ".next/types/**/*.ts",
     "**/*.ts",
     "**/*.tsx"
-, "app/expireddomain/page.tsx", "app/funds/page.jsx", "app/investment/page.jsx", "app/research/page.tsx"  ],
+, "app/expireddomain/page.tsx", "app/funds/page.jsx", "app/investment/page.jsx", "app/research/page.tsx", "app/intelligence/page.jsx"  ],
   "exclude": [
     "node_modules"
   ]
