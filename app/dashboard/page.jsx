@@ -1,0 +1,1695 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { 
+  Users, Search, Filter, Calendar, TrendingUp, TrendingDown,
+  Activity, CheckCircle, AlertCircle, XCircle, Clock, MapPin,
+  Heart, Shield, FileText, Award, Target, BarChart3, Home,
+  ChevronRight, ChevronDown, Bell, Menu, X, Download, Eye,
+  AlertTriangle, Pill, Settings, CreditCard, NetworkIcon,
+  Zap, Sparkles, Brain, User, RefreshCw, Loader2, Info
+} from 'lucide-react';
+import { ScrollArea } from "../../components/ui/scroll-area";
+import { useUser, UserButton } from '@clerk/nextjs';
+import { createClient } from '@supabase/supabase-js';
+import { useRouter } from 'next/navigation';
+import { useUserProfile } from '../../contexts/userProfileContext';
+import { PERMISSIONS } from '../../utils/permissions';
+
+const supabase = createClient(
+  'https://bbikcxalypttfgrlxstf.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJiaWtjeGFseXB0dGZncmx4c3RmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MzcxODcwOCwiZXhwIjoyMDY5Mjk0NzA4fQ.4BLQyvPA0eB745Sfdn2Tl4oCDRTzNhLXrJ8Os8wOXfs'
+);
+
+const HCBSDashboard = () => {
+  const router = useRouter();
+  const { user, isLoaded } = useUser();
+  const { userProfile, loading: profileLoading, hasPermission, hasAnyPermission } = useUserProfile();
+  
+  const [individuals, setIndividuals] = useState([]);
+  const [selectedIndividual, setSelectedIndividual] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [currentPage, setCurrentPage] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('community');
+  const [dateRange, setDateRange] = useState({
+    start: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    end: new Date().toISOString().split('T')[0],
+    period: '90days'
+  });
+  const [showDateFilter, setShowDateFilter] = useState(false);
+  const [complianceData, setComplianceData] = useState({
+    communityIntegration: {},
+    choiceAutonomy: {},
+    ispImplementation: {},
+    rightsRestrictions: {},
+    healthSafety: {},
+    staffReadiness: {}
+  });
+  const [alerts, setAlerts] = useState([]);
+
+    const menuItems = [
+      { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
+      { id: 'individual', icon: Users, label: 'Individuals', badge: null },
+      { id: 'medicine', icon: Pill, label: 'Medications', badge: null },
+      { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: '3' },
+    //  { id: 'privacy', icon: Shield, label: 'Data Privacy', badge: 'NEW' },
+      { id: 'report', icon: FileText, label: 'Report', badge: 'NEW' },
+    //  { id: 'engine', icon: Pill, label: 'Foresight Engine', badge: 'NEW' },
+      { id: 'intelligence', icon: NetworkIcon, label: 'User Foresight', badge: 'NEW' },
+      { id: 'billing', icon: CreditCard, label: 'Billing', badge: null },
+      { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null }
+    ];
+
+  const dashboardTabs = [
+    { id: 'community', label: 'Community Integration', icon: MapPin, color: 'emerald' },
+    { id: 'choice', label: 'Choice & Autonomy', icon: Award, color: 'blue' },
+    { id: 'isp', label: 'ISP Implementation', icon: Target, color: 'purple' },
+    { id: 'rights', label: 'Rights & Restrictions', icon: Shield, color: 'orange' },
+    { id: 'health', label: 'Health & Safety', icon: Heart, color: 'red' },
+    { id: 'staff', label: 'Staff Readiness', icon: Users, color: 'cyan' }
+  ];
+
+  // Permission checks
+  const canViewHCBS = hasAnyPermission([
+    PERMISSIONS.PLANS_VIEW,
+    PERMISSIONS.FULL_ACCESS,
+    PERMISSIONS.ADMIN
+  ]);
+
+  useEffect(() => {
+    if (isLoaded && user && !profileLoading && userProfile) {
+      if (canViewHCBS) {
+        fetchIndividuals();
+      } else {
+        setLoading(false);
+      }
+    }
+  }, [isLoaded, user, profileLoading, userProfile]);
+
+  useEffect(() => {
+    if (selectedIndividual) {
+      calculateComplianceData();
+    }
+  }, [selectedIndividual, dateRange]);
+
+  const fetchIndividuals = async () => {
+    try {
+      setLoading(true);
+      
+      let query = supabase
+        .from('individuals')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      // Role-based filtering
+      if (userProfile.role_id === 'HouseManager_DD') {
+        query = query.eq('homeassignment', userProfile.facility);
+      } else if (userProfile.role_id === 'DSP_DD') {
+        query = query.eq('homeassignment', userProfile.facility);
+      } else if (userProfile.division === 'MI' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
+        query = query.eq('division', 'MI');
+      } else if (userProfile.division === 'SUD' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
+        query = query.eq('division', 'SUD');
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      setIndividuals(data || []);
+    } catch (error) {
+      console.error('Error fetching individuals:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateComplianceData = () => {
+    if (!selectedIndividual) return;
+
+    const startDate = new Date(dateRange.start);
+    const endDate = new Date(dateRange.end);
+
+    // Calculate Community Integration Metrics
+    const communityData = calculateCommunityIntegration(startDate, endDate);
+    const choiceData = calculateChoiceAutonomy(startDate, endDate);
+    const ispData = calculateISPImplementation(startDate, endDate);
+    const rightsData = calculateRightsRestrictions(startDate, endDate);
+    const healthData = calculateHealthSafety(startDate, endDate);
+    const staffData = calculateStaffReadiness(startDate, endDate);
+
+    setComplianceData({
+      communityIntegration: communityData,
+      choiceAutonomy: choiceData,
+      ispImplementation: ispData,
+      rightsRestrictions: rightsData,
+      healthSafety: healthData,
+      staffReadiness: staffData
+    });
+
+    // Generate alerts
+    generateAlerts(communityData, choiceData, ispData, rightsData, healthData, staffData);
+  };
+
+  const calculateCommunityIntegration = (startDate, endDate) => {
+    const dailyNotes = selectedIndividual.dailynotes || [];
+    
+    // Filter notes by date range
+    const filteredNotes = dailyNotes.filter(note => {
+      const noteDate = new Date(note.date);
+      return noteDate >= startDate && noteDate <= endDate;
+    });
+
+    // Count community outings
+    const communityOutings = filteredNotes.filter(note => note.communityouting === true);
+    
+    // Activity types
+    const activityTypes = {};
+    filteredNotes.forEach(note => {
+      if (note.activities && Array.isArray(note.activities)) {
+        note.activities.forEach(activity => {
+          activityTypes[activity] = (activityTypes[activity] || 0) + 1;
+        });
+      }
+    });
+
+    // Calculate percentage with community activities per month
+    const daysInRange = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+    const monthsInRange = Math.max(1, Math.ceil(daysInRange / 30));
+    const outingsPerMonth = communityOutings.length / monthsInRange;
+    const percentageWithActivity = filteredNotes.length > 0 
+      ? (communityOutings.length / filteredNotes.length) * 100 
+      : 0;
+
+    return {
+      totalOutings: communityOutings.length,
+      outingsPerMonth: Math.round(outingsPerMonth * 10) / 10,
+      percentageWithActivity: Math.round(percentageWithActivity),
+      activityTypes: activityTypes,
+      totalDaysTracked: filteredNotes.length,
+      outings30Days: communityOutings.filter(note => {
+        const noteDate = new Date(note.date);
+        const thirtyDaysAgo = new Date(endDate);
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        return noteDate >= thirtyDaysAgo;
+      }).length,
+      outings60Days: communityOutings.filter(note => {
+        const noteDate = new Date(note.date);
+        const sixtyDaysAgo = new Date(endDate);
+        sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+        return noteDate >= sixtyDaysAgo;
+      }).length,
+      outings90Days: communityOutings.length,
+      recentOutings: communityOutings.slice(0, 5).map(note => ({
+        date: note.date,
+        location: note.outinglocation || 'Not specified',
+        duration: note.outingduration || 'Not specified',
+        activities: note.activities || []
+      }))
+    };
+  };
+
+  const calculateChoiceAutonomy = (startDate, endDate) => {
+    const dailyNotes = selectedIndividual.dailynotes || [];
+    
+    const filteredNotes = dailyNotes.filter(note => {
+      const noteDate = new Date(note.date);
+      return noteDate >= startDate && noteDate <= endDate;
+    });
+
+    // Count notes with choice documentation
+    const notesWithChoiceOffered = filteredNotes.filter(note => 
+      note.choiceoffered && note.choiceoffered.trim() !== ''
+    );
+    
+    const notesWithChoiceTaken = filteredNotes.filter(note => 
+      note.choicetaken && note.choicetaken.trim() !== ''
+    );
+
+    const choiceOfferedRate = filteredNotes.length > 0 
+      ? (notesWithChoiceOffered.length / filteredNotes.length) * 100 
+      : 0;
+    
+    const choiceHonoredRate = notesWithChoiceOffered.length > 0
+      ? (notesWithChoiceTaken.length / notesWithChoiceOffered.length) * 100
+      : 0;
+
+    // Analyze choice types
+    const choiceTypes = {
+      meals: 0,
+      activities: 0,
+      schedules: 0,
+      other: 0
+    };
+
+    filteredNotes.forEach(note => {
+      if (note.choiceoffered) {
+        const choice = note.choiceoffered.toLowerCase();
+        if (choice.includes('meal') || choice.includes('food') || choice.includes('eat')) {
+          choiceTypes.meals++;
+        } else if (choice.includes('activity') || choice.includes('outing')) {
+          choiceTypes.activities++;
+        } else if (choice.includes('schedule') || choice.includes('time')) {
+          choiceTypes.schedules++;
+        } else {
+          choiceTypes.other++;
+        }
+      }
+    });
+
+    return {
+      totalNotes: filteredNotes.length,
+      choiceOfferedCount: notesWithChoiceOffered.length,
+      choiceTakenCount: notesWithChoiceTaken.length,
+      choiceOfferedRate: Math.round(choiceOfferedRate),
+      choiceHonoredRate: Math.round(choiceHonoredRate),
+      choiceTypes: choiceTypes,
+      recentChoices: filteredNotes
+        .filter(note => note.choiceoffered || note.choicetaken)
+        .slice(0, 5)
+        .map(note => ({
+          date: note.date,
+          offered: note.choiceoffered || 'Not documented',
+          taken: note.choicetaken || 'Not documented'
+        }))
+    };
+  };
+
+  const calculateISPImplementation = (startDate, endDate) => {
+    const dailyNotes = selectedIndividual.dailynotes || [];
+    const goals = selectedIndividual.goals || [];
+    
+    const filteredNotes = dailyNotes.filter(note => {
+      const noteDate = new Date(note.date);
+      return noteDate >= startDate && noteDate <= endDate;
+    });
+
+    // Notes linked to ISP goals
+    const notesWithGoals = filteredNotes.filter(note => 
+      note.goalsworked && Array.isArray(note.goalsworked) && note.goalsworked.length > 0
+    );
+
+    const goalLinkageRate = filteredNotes.length > 0
+      ? (notesWithGoals.length / filteredNotes.length) * 100
+      : 0;
+
+    // Goal activity breakdown
+    const goalActivity = {};
+    const goalProgress = {};
+
+    goals.forEach(goal => {
+      const goalId = goal.id;
+      goalActivity[goalId] = {
+        goalDescription: goal.description?.substring(0, 100) + '...' || 'No description',
+        status: goal.status,
+        progress: goal.progress || 0,
+        timesWorked: 0,
+        lastWorked: null,
+        domain: goal.hcbsdomain || 'Not specified'
+      };
+    });
+
+    filteredNotes.forEach(note => {
+      if (note.goalsworked && Array.isArray(note.goalsworked)) {
+        note.goalsworked.forEach(goalId => {
+          if (goalActivity[goalId]) {
+            goalActivity[goalId].timesWorked++;
+            if (!goalActivity[goalId].lastWorked || new Date(note.date) > new Date(goalActivity[goalId].lastWorked)) {
+              goalActivity[goalId].lastWorked = note.date;
+            }
+          }
+        });
+      }
+    });
+
+    // Find goals not addressed recently
+    const goalsNotAddressed = goals.filter(goal => {
+      const activity = goalActivity[goal.id];
+      if (!activity || !activity.lastWorked) return true;
+      const lastWorkedDate = new Date(activity.lastWorked);
+      const fourteenDaysAgo = new Date(endDate);
+      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+      return lastWorkedDate < fourteenDaysAgo;
+    });
+
+    // Group by domain
+    const domainActivity = {};
+    Object.values(goalActivity).forEach(activity => {
+      const domain = activity.domain;
+      if (!domainActivity[domain]) {
+        domainActivity[domain] = {
+          totalGoals: 0,
+          timesWorked: 0,
+          avgProgress: 0
+        };
+      }
+      domainActivity[domain].totalGoals++;
+      domainActivity[domain].timesWorked += activity.timesWorked;
+      domainActivity[domain].avgProgress += activity.progress;
+    });
+
+    Object.keys(domainActivity).forEach(domain => {
+      domainActivity[domain].avgProgress = Math.round(
+        domainActivity[domain].avgProgress / domainActivity[domain].totalGoals
+      );
+    });
+
+    return {
+      totalGoals: goals.length,
+      activeGoals: goals.filter(g => g.status === 'Active').length,
+      goalLinkageRate: Math.round(goalLinkageRate),
+      notesWithGoals: notesWithGoals.length,
+      totalNotes: filteredNotes.length,
+      goalsNotAddressed: goalsNotAddressed.length,
+      goalActivity: goalActivity,
+      domainActivity: domainActivity,
+      goalsNotAddressedList: goalsNotAddressed.map(goal => ({
+        id: goal.id,
+        description: goal.description?.substring(0, 100) + '...' || 'No description',
+        status: goal.status,
+        lastWorked: goalActivity[goal.id]?.lastWorked || 'Never'
+      }))
+    };
+  };
+
+  const calculateRightsRestrictions = (startDate, endDate) => {
+    const restrictions = selectedIndividual.rightsrestrictions || [];
+    
+    const activeRestrictions = restrictions.filter(r => r.status === 'Active');
+    
+    // Count by type
+    const restrictionTypes = {};
+    activeRestrictions.forEach(restriction => {
+      const type = restriction.restrictiontype || 'Other';
+      restrictionTypes[type] = (restrictionTypes[type] || 0) + 1;
+    });
+
+    // Check review dates
+    const now = new Date();
+    const overdueReviews = activeRestrictions.filter(restriction => {
+      if (!restriction.reviewdate) return true;
+      const reviewDate = new Date(restriction.reviewdate);
+      return reviewDate < now;
+    });
+
+    const upcomingReviews = activeRestrictions.filter(restriction => {
+      if (!restriction.reviewdate) return false;
+      const reviewDate = new Date(restriction.reviewdate);
+      const thirtyDaysFromNow = new Date(now);
+      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+      return reviewDate >= now && reviewDate <= thirtyDaysFromNow;
+    });
+
+    return {
+      totalRestrictions: restrictions.length,
+      activeRestrictions: activeRestrictions.length,
+      restrictionTypes: restrictionTypes,
+      overdueReviews: overdueReviews.length,
+      upcomingReviews: upcomingReviews.length,
+      restrictionsList: activeRestrictions.map(r => ({
+        id: r.id,
+        type: r.restrictiontype || 'Not specified',
+        description: r.description?.substring(0, 100) + '...' || 'No description',
+        reviewDate: r.reviewdate || 'Not set',
+        status: r.status,
+        approved: r.hrcapproved || false
+      })),
+      overdueList: overdueReviews.map(r => ({
+        id: r.id,
+        type: r.restrictiontype || 'Not specified',
+        reviewDate: r.reviewdate || 'Not set',
+        daysOverdue: r.reviewdate 
+          ? Math.floor((now - new Date(r.reviewdate)) / (1000 * 60 * 60 * 24))
+          : 'Unknown'
+      }))
+    };
+  };
+
+  const calculateHealthSafety = (startDate, endDate) => {
+    const incidents = selectedIndividual.incidents || [];
+    const medications = selectedIndividual.medications || [];
+    const marHistory = selectedIndividual.marhistory || [];
+    const wellnessData = selectedIndividual.wellness_data || [];
+
+    // Filter incidents by date
+    const filteredIncidents = incidents.filter(incident => {
+      const incidentDate = new Date(incident.dateoccurred);
+      return incidentDate >= startDate && incidentDate <= endDate;
+    });
+
+    // Count by severity
+    const incidentsBySeverity = {
+      critical: 0,
+      major: 0,
+      moderate: 0,
+      minor: 0,
+      nearMiss: 0
+    };
+
+    filteredIncidents.forEach(incident => {
+      const severity = incident.severity || '';
+      if (severity.includes('Critical')) incidentsBySeverity.critical++;
+      else if (severity.includes('Major')) incidentsBySeverity.major++;
+      else if (severity.includes('Moderate')) incidentsBySeverity.moderate++;
+      else if (severity.includes('Minor')) incidentsBySeverity.minor++;
+      else if (severity.includes('Near Miss')) incidentsBySeverity.nearMiss++;
+    });
+
+    // Medication errors
+    const medErrors = filteredIncidents.filter(inc => 
+      inc.incidenttype === 'Medication Error'
+    );
+
+    // Filter MAR history by date
+    const filteredMAR = marHistory.filter(record => {
+      const recordDate = new Date(record.date);
+      return recordDate >= startDate && recordDate <= endDate;
+    });
+
+    // PRN usage
+    const prnUsage = filteredMAR.filter(record => {
+      const medication = medications.find(med => med.id === record.medicationid);
+      return medication && medication.prn === true;
+    });
+
+    // Emergency interventions (behavioral incidents)
+    const emergencyInterventions = filteredIncidents.filter(inc =>
+      inc.incidenttype === 'Behavioral Emergency' || 
+      inc.incidenttype === 'Medical Emergency'
+    );
+
+    // Recent vital signs
+    const recentVitals = wellnessData
+      .filter(data => data.type === 'vital_signs')
+      .filter(data => {
+        const dataDate = new Date(data.date);
+        return dataDate >= startDate && dataDate <= endDate;
+      })
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 5);
+
+    return {
+      totalIncidents: filteredIncidents.length,
+      openIncidents: filteredIncidents.filter(inc => inc.status === 'Open').length,
+      incidentsBySeverity: incidentsBySeverity,
+      medicationErrors: medErrors.length,
+      prnUsageCount: prnUsage.length,
+      emergencyInterventions: emergencyInterventions.length,
+      recentIncidents: filteredIncidents.slice(0, 5).map(inc => ({
+        id: inc.id,
+        type: inc.incidenttype,
+        severity: inc.severity,
+        date: inc.dateoccurred,
+        status: inc.status
+      })),
+      recentVitals: recentVitals.map(vital => ({
+        date: vital.date,
+        bloodPressure: vital.bloodPressure || 'N/A',
+        heartRate: vital.heartRate || 'N/A',
+        temperature: vital.temperature || 'N/A',
+        oxygenSaturation: vital.oxygenSaturation || 'N/A'
+      }))
+    };
+  };
+
+  const calculateStaffReadiness = (startDate, endDate) => {
+    const dailyNotes = selectedIndividual.dailynotes || [];
+    
+    const filteredNotes = dailyNotes.filter(note => {
+      const noteDate = new Date(note.date);
+      return noteDate >= startDate && noteDate <= endDate;
+    });
+
+    // Count unique staff
+    const staffSet = new Set();
+    const staffActivity = {};
+
+    filteredNotes.forEach(note => {
+      if (note.staffname) {
+        staffSet.add(note.staffname);
+        if (!staffActivity[note.staffname]) {
+          staffActivity[note.staffname] = {
+            shifts: 0,
+            role: note.created_by_role || 'Not specified',
+            lastShift: note.date
+          };
+        }
+        staffActivity[note.staffname].shifts++;
+        if (new Date(note.date) > new Date(staffActivity[note.staffname].lastShift)) {
+          staffActivity[note.staffname].lastShift = note.date;
+        }
+      }
+    });
+
+    // Check for approved notes (quality indicator)
+    const approvedNotes = filteredNotes.filter(note => note.approved === true);
+    const approvalRate = filteredNotes.length > 0
+      ? (approvedNotes.length / filteredNotes.length) * 100
+      : 0;
+
+    return {
+      uniqueStaff: staffSet.size,
+      totalShifts: filteredNotes.length,
+      approvalRate: Math.round(approvalRate),
+      approvedNotes: approvedNotes.length,
+      staffActivity: staffActivity,
+      staffList: Array.from(staffSet).map(staffName => ({
+        name: staffName,
+        shifts: staffActivity[staffName].shifts,
+        role: staffActivity[staffName].role,
+        lastShift: staffActivity[staffName].lastShift
+      }))
+    };
+  };
+
+  const generateAlerts = (community, choice, isp, rights, health, staff) => {
+    const newAlerts = [];
+
+    // Community Integration Alerts
+    if (community.outings30Days === 0) {
+      newAlerts.push({
+        id: 'comm-1',
+        severity: 'critical',
+        category: 'Community Integration',
+        message: 'No community activity documented in 30 days',
+        action: 'Schedule community outing immediately'
+      });
+    } else if (community.outings30Days < 4) {
+      newAlerts.push({
+        id: 'comm-2',
+        severity: 'warning',
+        category: 'Community Integration',
+        message: `Only ${community.outings30Days} community outings in last 30 days`,
+        action: 'Increase community engagement frequency'
+      });
+    }
+
+    // Choice & Autonomy Alerts
+    if (choice.choiceOfferedRate < 50) {
+      newAlerts.push({
+        id: 'choice-1',
+        severity: 'warning',
+        category: 'Choice & Autonomy',
+        message: 'Choice offered in less than 50% of daily notes',
+        action: 'Ensure choice is documented in all service delivery'
+      });
+    }
+
+    if (choice.choiceHonoredRate < 70 && choice.choiceOfferedCount > 0) {
+      newAlerts.push({
+        id: 'choice-2',
+        severity: 'warning',
+        category: 'Choice & Autonomy',
+        message: 'Choice honored rate below 70%',
+        action: 'Review barriers to honoring individual choices'
+      });
+    }
+
+    // ISP Implementation Alerts
+    if (isp.goalsNotAddressed > 0) {
+      newAlerts.push({
+        id: 'isp-1',
+        severity: 'critical',
+        category: 'ISP Implementation',
+        message: `${isp.goalsNotAddressed} active goals not addressed in 14+ days`,
+        action: 'Review and address all active ISP goals'
+      });
+    }
+
+    if (isp.goalLinkageRate < 60) {
+      newAlerts.push({
+        id: 'isp-2',
+        severity: 'warning',
+        category: 'ISP Implementation',
+        message: 'Daily notes linked to goals less than 60% of the time',
+        action: 'Improve ISP goal documentation in daily notes'
+      });
+    }
+
+    // Rights & Restrictions Alerts
+    if (rights.overdueReviews > 0) {
+      newAlerts.push({
+        id: 'rights-1',
+        severity: 'critical',
+        category: 'Rights & Restrictions',
+        message: `${rights.overdueReviews} rights restrictions have overdue reviews`,
+        action: 'Complete overdue HRC reviews immediately'
+      });
+    }
+
+    if (rights.upcomingReviews > 0) {
+      newAlerts.push({
+        id: 'rights-2',
+        severity: 'info',
+        category: 'Rights & Restrictions',
+        message: `${rights.upcomingReviews} rights restrictions reviews due within 30 days`,
+        action: 'Schedule HRC reviews'
+      });
+    }
+
+    // Health & Safety Alerts
+    if (health.openIncidents > 0) {
+      newAlerts.push({
+        id: 'health-1',
+        severity: 'critical',
+        category: 'Health & Safety',
+        message: `${health.openIncidents} open critical incidents`,
+        action: 'Review and close open incidents'
+      });
+    }
+
+    if (health.medicationErrors > 0) {
+      newAlerts.push({
+        id: 'health-2',
+        severity: 'critical',
+        category: 'Health & Safety',
+        message: `${health.medicationErrors} medication errors in date range`,
+        action: 'Review medication administration procedures'
+      });
+    }
+
+    if (health.prnUsageCount > 10) {
+      newAlerts.push({
+        id: 'health-3',
+        severity: 'warning',
+        category: 'Health & Safety',
+        message: 'High PRN utilization detected',
+        action: 'Review PRN usage patterns with medical team'
+      });
+    }
+
+    // Staff Readiness Alerts
+    if (staff.approvalRate < 80) {
+      newAlerts.push({
+        id: 'staff-1',
+        severity: 'warning',
+        category: 'Staff Readiness',
+        message: 'Daily note approval rate below 80%',
+        action: 'Review and approve pending documentation'
+      });
+    }
+
+    setAlerts(newAlerts);
+  };
+
+  const getInitials = (firstname, lastname) => {
+    return `${firstname?.charAt(0) || ''}${lastname?.charAt(0) || ''}`.toUpperCase();
+  };
+
+  const getColorClass = (index) => {
+    const colors = [
+      'from-emerald-600 to-teal-500',
+      'from-green-400 to-emerald-500',
+      'from-lime-500 to-green-600',
+      'from-teal-500 to-emerald-600',
+      'from-cyan-500 to-teal-600'
+    ];
+    return colors[index % colors.length];
+  };
+
+  const filteredIndividuals = individuals.filter(ind => {
+    const matchesSearch = 
+      ind.firstname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ind.lastname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ind.individualid?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    return matchesSearch;
+  });
+
+ const exportCompliance = () => {
+  if (!selectedIndividual) return;
+
+  const data = {
+    individual: {
+      name: `${selectedIndividual.firstname} ${selectedIndividual.lastname}`,
+      id: selectedIndividual.individualid,
+      home: selectedIndividual.homeassignment
+    },
+    dateRange: dateRange,
+    metrics: complianceData,
+    alerts: alerts,
+    exportDate: new Date().toISOString()
+  };
+
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `HCBS_Compliance_${selectedIndividual.individualid}_${new Date().toISOString().split('T')[0]}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+};
+// NavBar Component
+// NavBar Component
+  const NavBar = () => (
+    <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-900/20 backdrop-blur-xl border-b border-slate-800/50 px-6 py-4 flex items-center justify-between sticky top-0 z-40 shadow-2xl">
+      <div className="flex items-center gap-4">
+        <button 
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="lg:hidden p-2 hover:bg-white/10 rounded-xl transition-all duration-300 hover:scale-105"
+        >
+          {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <div className="w-12 h-12 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/50 animate-pulse">
+              <Activity className="text-white" size={26} />
+            </div>
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-900 animate-pulse"></div>
+          </div>
+          <div>
+            <h1 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-500">
+              CareBridge Pro
+            </h1>
+            <p className="text-xs text-slate-400 font-medium tracking-wide">IPMS Aligned EMR</p>
+          </div>
+        </div>
+      </div>
+      
+      <div className="flex items-center gap-4">
+        <div className="hidden md:flex items-center gap-3 bg-slate-800/50 backdrop-blur-sm rounded-2xl px-5 py-2.5 w-96 border border-slate-700/50 hover:border-emerald-500/50 transition-all duration-300">
+          <Search size={18} className="text-emerald-400" />
+          <input 
+            type="text" 
+            placeholder="Search anything..." 
+            className="bg-transparent border-none outline-none text-sm text-white w-full placeholder:text-slate-500"
+          />
+          <kbd className="px-2 py-0.5 text-xs bg-slate-700 rounded text-slate-400 font-mono">⌘K</kbd>
+        </div>
+        
+        <button className="relative p-2.5 hover:bg-white/10 rounded-xl transition-all duration-300 hover:scale-105 group">
+          <Bell size={20} className="text-slate-300 group-hover:text-emerald-400 transition-colors" />
+          <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-gradient-to-r from-lime-500 to-green-600 rounded-full animate-pulse shadow-lg shadow-green-500/50"></span>
+        </button>
+        
+        <div className="flex items-center gap-3 pl-4 border-l border-slate-700/50 cursor-pointer hover:bg-white/5 rounded-xl p-2 transition-all duration-300 group">
+          <div className="text-right hidden sm:block">
+            <p className="text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors">
+              {userProfile?.fullname || 'User'}
+            </p>
+            <p className="text-xs text-slate-400 font-medium">
+              {userProfile?.role_name || 'Staff'} • Online
+            </p>
+          </div>
+          <div className="relative">
+            <div className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-emerald-500/50">
+              <UserButton afterSignOutUrl="/" />
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-900"></div>
+          </div>
+          <ChevronDown size={16} className="text-slate-400 group-hover:text-emerald-400 transition-colors" />
+        </div>
+      </div>
+    </div>
+  );
+
+ // Sidebar Component
+  const Sidebar = () => (
+    <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-50 w-72 bg-gradient-to-b from-slate-900 via-slate-900 to-emerald-900/10 border-r border-slate-800/50 transition-all duration-300 flex flex-col backdrop-blur-xl h-screen`}>
+      <div className="p-6 border-b border-slate-800/50 flex-shrink-0">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2 text-sm">
+            <div className="relative">
+              <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></div>
+              <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-75"></div>
+            </div>
+            <span className="text-slate-300 font-semibold">System Online</span>
+          </div>
+          <div className="px-2.5 py-1 bg-emerald-500/20 border border-emerald-500/30 rounded-full">
+            <span className="text-emerald-400 text-xs font-bold">v2.0</span>
+          </div>
+        </div>
+        
+        <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 rounded-xl p-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-slate-400 font-medium">Daily Progress</span>
+            <span className="text-xs text-emerald-400 font-bold">87%</span>
+          </div>
+          <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-emerald-600 to-teal-500 rounded-full transition-all duration-1000" style={{width: '87%'}}></div>
+          </div>
+        </div>
+      </div>
+      
+      <ScrollArea className="flex-1 px-4 py-4">
+        <div className="mb-2 px-3">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Main Menu</span>
+        </div>
+        {menuItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = currentPage === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => {
+                setCurrentPage(item.id);
+                if (item.id !== 'reports') {
+                  router.push(`/${item.id === 'dashboard' ? 'dashboard' : item.id}`);
+                }
+                if (window.innerWidth < 1024) setSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl mb-2 transition-all duration-300 group relative overflow-hidden ${
+                isActive 
+                  ? 'bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow-lg shadow-emerald-500/50 scale-105' 
+                  : 'text-slate-400 hover:bg-white/5 hover:text-white hover:scale-105'
+              }`}
+            >
+              {isActive && (
+                <div className="absolute inset-0 bg-gradient-to-r from-green-400/20 to-emerald-500/20 animate-pulse"></div>
+              )}
+              <Icon size={20} className={`relative z-10 ${isActive ? 'animate-pulse' : ''}`} />
+              <span className="font-semibold relative z-10 flex-1 text-left">{item.label}</span>
+              {item.badge && (
+                <span className={`relative z-10 px-2 py-0.5 rounded-full text-xs font-bold ${
+                  isActive 
+                    ? 'bg-white/20 text-white' 
+                    : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                }`}>
+                  {item.badge}
+                </span>
+              )}
+              {isActive && <ChevronRight size={16} className="relative z-10 animate-pulse" />}
+            </button>
+          );
+        })}
+      </ScrollArea>
+      
+      <div className="p-4 border-t border-slate-800/50 space-y-3 flex-shrink-0">
+        <div className="bg-gradient-to-br from-emerald-900/30 via-teal-900/30 to-green-900/30 rounded-xl p-4 border border-emerald-500/30 backdrop-blur-sm relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/10 rounded-full blur-2xl"></div>
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-2">
+              <Shield className="text-emerald-400" size={18} />
+              <p className="text-sm font-bold text-white">IPMS Certified</p>
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed">Alabama DD Compliant System</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+
+// Permission Check
+if (!profileLoading && !canViewHCBS) {
+return (
+<div className="h-screen flex flex-col bg-slate-950 text-white">
+<NavBar />
+<div className="flex-1 flex items-center justify-center">
+<div className="text-center max-w-md">
+<Shield className="w-20 h-20 text-red-500 mx-auto mb-6" />
+<h2 className="text-3xl font-bold text-white mb-4">Access Restricted</h2>
+<p className="text-slate-400 mb-6">
+You do not have permission to view the HCBS Dashboard.
+</p>
+</div>
+</div>
+</div>
+);
+}
+if (!isLoaded || loading || profileLoading) {
+return (
+<div className="flex items-center justify-center h-screen bg-slate-950">
+<div className="text-center">
+<Loader2 className="w-16 h-16 text-emerald-500 animate-spin mx-auto mb-4" />
+<p className="text-slate-400 text-lg">Loading HCBS Dashboard...</p>
+</div>
+</div>
+);
+}
+return (
+<div className="h-screen flex flex-col bg-slate-950 text-white overflow-hidden">
+<NavBar />
+<div className="flex flex-1 overflow-hidden">
+<Sidebar />
+<div className="flex-1 overflow-hidden">
+      <ScrollArea className="h-full">
+        <main className="p-6 lg:p-8">
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500">
+                    HCBS Compliance Dashboard
+                  </h2>
+                  <div className="px-3 py-1 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-full">
+                    <span className="text-green-400 text-xs font-bold flex items-center gap-1">
+                      <Shield size={12} /> IPMS
+                    </span>
+                  </div>
+                </div>
+                <p className="text-slate-400 text-lg">
+                  Real-time compliance monitoring • Person-centered • Audit-ready
+                </p>
+              </div>
+              
+              {selectedIndividual && (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={exportCompliance}
+                    className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-5 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 border border-slate-700"
+                  >
+                    <Download size={18} />
+                    Export Report
+                  </button>
+                  <button
+                    onClick={() => calculateComplianceData()}
+                    className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-2xl hover:shadow-emerald-500/50 transition-all duration-300 hover:scale-105"
+                  >
+                    <RefreshCw size={18} />
+                    Refresh Data
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Date Range Filter */}
+            {selectedIndividual && (
+              <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="text-emerald-400" size={20} />
+                      <span className="text-white font-semibold">Date Range:</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="date"
+                        value={dateRange.start}
+                        onChange={(e) => setDateRange({...dateRange, start: e.target.value, period: 'custom'})}
+                        className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500"
+                      />
+                      <span className="text-slate-400">to</span>
+                      <input
+                        type="date"
+                        value={dateRange.end}
+                        onChange={(e) => setDateRange({...dateRange, end: e.target.value, period: 'custom'})}
+                        className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {['30days', '60days', '90days'].map(period => (
+                      <button
+                        key={period}
+                        onClick={() => {
+                          const days = parseInt(period);
+                          const end = new Date();
+                          const start = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+                          setDateRange({
+                            start: start.toISOString().split('T')[0],
+                            end: end.toISOString().split('T')[0],
+                            period: period
+                          });
+                        }}
+                        className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                          dateRange.period === period
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                        }`}
+                      >
+                        {period.replace('days', ' Days')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!selectedIndividual ? (
+              /* Individual Selection Grid */
+              <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6">
+                <div className="mb-6">
+                  <h3 className="text-2xl font-bold text-white mb-2">Select Individual</h3>
+                  <p className="text-slate-400">Choose an individual to view their HCBS compliance metrics</p>
+                </div>
+
+                <ScrollArea className="h-[600px]">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredIndividuals.map((individual, idx) => (
+                      <div
+                        key={individual.id}
+                        onClick={() => setSelectedIndividual(individual)}
+                        className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 cursor-pointer hover:border-emerald-500/50 transition-all duration-300 hover:scale-105 group"
+                      >
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className={`w-14 h-14 bg-gradient-to-br ${getColorClass(idx)} rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg`}>
+                            {getInitials(individual.firstname, individual.lastname)}
+                          </div>
+                          <div>
+                            <h3 className="text-white font-bold text-lg group-hover:text-emerald-400 transition-colors">
+                              {individual.firstname} {individual.lastname}
+                            </h3>
+                            <p className="text-slate-400 text-sm">ID: {individual.individualid}</p>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 mb-4">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-slate-400">Home:</span>
+                            <span className="text-white font-semibold">{individual.homeassignment}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-slate-400">Status:</span>
+                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                              individual.status === 'Active' 
+                                ? 'bg-green-900/30 text-green-400 border border-green-500/50' 
+                                : 'bg-yellow-900/30 text-yellow-400 border border-yellow-500/50'
+                            }`}>
+                              {individual.status}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="pt-3 border-t border-slate-700">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-slate-400 text-xs">Compliance Score</span>
+                            <span className="text-emerald-400 text-sm font-bold">{individual.compliance_score}%</span>
+                          </div>
+                          <div className="w-full bg-slate-700 rounded-full h-2">
+                            <div 
+                              className={`h-full rounded-full transition-all ${
+                                individual.compliance_score >= 95 ? 'bg-gradient-to-r from-green-500 to-emerald-600' :
+                                individual.compliance_score >= 85 ? 'bg-gradient-to-r from-yellow-500 to-orange-500' :
+                                'bg-gradient-to-r from-red-500 to-orange-600'
+                              }`}
+                              style={{width: `${individual.compliance_score}%`}}
+                            ></div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
+            ) : (
+              /* Compliance Dashboard */
+              <>
+                {/* Selected Individual Header */}
+                <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-20 h-20 bg-gradient-to-br ${getColorClass(0)} rounded-2xl flex items-center justify-center text-white font-bold text-2xl shadow-lg`}>
+                        {getInitials(selectedIndividual.firstname, selectedIndividual.lastname)}
+                      </div>
+                      <div>
+                        <h3 className="text-3xl font-bold text-white mb-1">
+                          {selectedIndividual.firstname} {selectedIndividual.lastname}
+                        </h3>
+                        <div className="flex items-center gap-4 text-sm">
+                          <span className="text-slate-400">ID: {selectedIndividual.individualid}</span>
+                          <span className="text-slate-400">•</span>
+                          <span className="text-slate-400">{selectedIndividual.homeassignment}</span>
+                          <span className="text-slate-400">•</span>
+                          <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                            selectedIndividual.status === 'Active' 
+                              ? 'bg-green-900/30 text-green-400 border border-green-500/50' 
+                              : 'bg-yellow-900/30 text-yellow-400 border border-yellow-500/50'
+                          }`}>
+                            {selectedIndividual.status}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setSelectedIndividual(null)}
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all"
+                    >
+                      Change Individual
+                    </button>
+                  </div>
+                </div>
+
+                {/* Alerts Panel */}
+                {alerts.length > 0 && (
+                  <div className="bg-gradient-to-br from-red-900/20 to-orange-900/20 backdrop-blur-sm border border-red-500/30 rounded-2xl p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <AlertTriangle className="text-red-400" size={24} />
+                      <h3 className="text-xl font-bold text-white">Compliance Alerts ({alerts.length})</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {alerts.map(alert => (
+                        <div 
+                          key={alert.id}
+                          className={`p-4 rounded-xl border ${
+                            alert.severity === 'critical' 
+                              ? 'bg-red-900/30 border-red-500/50' 
+                              : alert.severity === 'warning'
+                              ? 'bg-yellow-900/30 border-yellow-500/50'
+                              : 'bg-blue-900/30 border-blue-500/50'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            {alert.severity === 'critical' && <XCircle className="text-red-400 mt-1" size={20} />}
+                            {alert.severity === 'warning' && <AlertCircle className="text-yellow-400 mt-1" size={20} />}
+                            {alert.severity === 'info' && <Info className="text-blue-400 mt-1" size={20} />}
+                            <div className="flex-1">
+                              <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">{alert.category}</p>
+                              <p className="text-white font-semibold text-sm mb-2">{alert.message}</p>
+                              <p className="text-slate-300 text-xs">Action: {alert.action}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Dashboard Tabs */}
+                <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
+                  <div className="border-b border-slate-700">
+                    <ScrollArea className="w-full">
+                      <div className="flex p-2 gap-2">
+                        {dashboardTabs.map(tab => {
+                          const Icon = tab.icon;
+                          return (
+                            <button
+                              key={tab.id}
+                              onClick={() => setActiveTab(tab.id)}
+                              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all whitespace-nowrap ${
+                                activeTab === tab.id
+                                  ? `bg-gradient-to-r from-${tab.color}-600 to-${tab.color}-500 text-white shadow-lg`
+                                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                              }`}
+                            >
+                              <Icon size={18} />
+                              {tab.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </ScrollArea>
+                  </div>
+
+                  <div className="p-6">
+                    {/* Community Integration Tab */}
+                    {activeTab === 'community' && (
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div className="bg-slate-900/50 border border-emerald-500/30 rounded-xl p-4">
+                            <p className="text-slate-400 text-sm mb-1">Total Outings</p>
+                            <p className="text-3xl font-bold text-white">{complianceData.communityIntegration.totalOutings || 0}</p>
+                            <p className="text-emerald-400 text-xs mt-1">in {dateRange.period.replace('days', ' days')}</p>
+                          </div>
+                          <div className="bg-slate-900/50 border border-emerald-500/30 rounded-xl p-4">
+                            <p className="text-slate-400 text-sm mb-1">Per Month</p>
+                            <p className="text-3xl font-bold text-white">{complianceData.communityIntegration.outingsPerMonth || 0}</p>
+                            <p className="text-emerald-400 text-xs mt-1">average</p>
+                          </div>
+                          <div className="bg-slate-900/50 border border-emerald-500/30 rounded-xl p-4">
+                            <p className="text-slate-400 text-sm mb-1">Last 30 Days</p>
+                            <p className="text-3xl font-bold text-white">{complianceData.communityIntegration.outings30Days || 0}</p>
+                            <p className="text-emerald-400 text-xs mt-1">outings</p>
+                          </div>
+                          <div className="bg-slate-900/50 border border-emerald-500/30 rounded-xl p-4">
+                            <p className="text-slate-400 text-sm mb-1">Engagement Rate</p>
+                            <p className="text-3xl font-bold text-white">{complianceData.communityIntegration.percentageWithActivity || 0}%</p>
+                            <p className="text-emerald-400 text-xs mt-1">of documented days</p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-6">
+                            <h4 className="text-lg font-bold text-white mb-4">Activity Types</h4>
+                            <div className="space-y-3">
+                              {Object.entries(complianceData.communityIntegration.activityTypes || {}).map(([activity, count]) => (
+                                <div key={activity}>
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="text-slate-300 capitalize">{activity.replace('-', ' ')}</span>
+                                    <span className="text-white font-bold">{count}</span>
+                                  </div>
+                                  <div className="w-full bg-slate-800 rounded-full h-2">
+                                    <div 
+                                      className="h-full bg-gradient-to-r from-emerald-600 to-teal-500 rounded-full"
+                                      style={{
+                                        width: `${Math.min((count / (complianceData.communityIntegration.totalOutings || 1)) * 100, 100)}%`
+                                      }}
+                                    ></div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-6">
+                            <h4 className="text-lg font-bold text-white mb-4">Recent Community Outings</h4>
+                            <div className="space-y-3">
+                              {(complianceData.communityIntegration.recentOutings || []).map((outing, idx) => (
+                                <div key={idx} className="p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-white font-semibold">{outing.location}</span>
+                                    <span className="text-slate-400 text-xs">{new Date(outing.date).toLocaleDateString()}</span>
+                                  </div>
+                                  <p className="text-slate-400 text-sm">Duration: {outing.duration}</p>
+                                      {outing.activities.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 mt-2">
+                                          {outing.activities.map((activity, actIdx) => (
+                                            <span key={actIdx} className="px-2 py-1 bg-emerald-900/30 text-emerald-400 text-xs rounded border border-emerald-500/50">
+                                              {activity}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                  {(!complianceData.communityIntegration.recentOutings || complianceData.communityIntegration.recentOutings.length === 0) && (
+                                    <p className="text-slate-500 text-center py-4">No community outings documented</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+{/* Choice & Autonomy Tab */}
+                    {activeTab === 'choice' && (
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div className="bg-slate-900/50 border border-blue-500/30 rounded-xl p-4">
+                            <p className="text-slate-400 text-sm mb-1">Choice Offered</p>
+                            <p className="text-3xl font-bold text-white">{complianceData.choiceAutonomy.choiceOfferedRate || 0}%</p>
+                            <p className="text-blue-400 text-xs mt-1">{complianceData.choiceAutonomy.choiceOfferedCount || 0} instances</p>
+                          </div>
+                          <div className="bg-slate-900/50 border border-blue-500/30 rounded-xl p-4">
+                            <p className="text-slate-400 text-sm mb-1">Choice Honored</p>
+                            <p className="text-3xl font-bold text-white">{complianceData.choiceAutonomy.choiceHonoredRate || 0}%</p>
+                            <p className="text-blue-400 text-xs mt-1">{complianceData.choiceAutonomy.choiceTakenCount || 0} instances</p>
+                          </div>
+                          <div className="bg-slate-900/50 border border-blue-500/30 rounded-xl p-4">
+                            <p className="text-slate-400 text-sm mb-1">Total Notes</p>
+                            <p className="text-3xl font-bold text-white">{complianceData.choiceAutonomy.totalNotes || 0}</p>
+                            <p className="text-blue-400 text-xs mt-1">documented</p>
+                          </div>
+                          <div className="bg-slate-900/50 border border-blue-500/30 rounded-xl p-4">
+                            <p className="text-slate-400 text-sm mb-1">Compliance</p>
+                            <p className={`text-3xl font-bold ${
+                              (complianceData.choiceAutonomy.choiceOfferedRate || 0) >= 70 ? 'text-green-400' : 'text-yellow-400'
+                            }`}>
+                              {(complianceData.choiceAutonomy.choiceOfferedRate || 0) >= 70 ? 'Good' : 'Needs Improvement'}
+                            </p>
+                            <p className="text-blue-400 text-xs mt-1">target: 70%+</p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-6">
+                            <h4 className="text-lg font-bold text-white mb-4">Choice Types</h4>
+                            <div className="space-y-3">
+                              {Object.entries(complianceData.choiceAutonomy.choiceTypes || {}).map(([type, count]) => (
+                                <div key={type}>
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="text-slate-300 capitalize">{type}</span>
+                                    <span className="text-white font-bold">{count}</span>
+                                  </div>
+                                  <div className="w-full bg-slate-800 rounded-full h-2">
+                                    <div 
+                                      className="h-full bg-gradient-to-r from-blue-600 to-cyan-500 rounded-full"
+                                      style={{
+                                        width: `${Math.min((count / (complianceData.choiceAutonomy.choiceOfferedCount || 1)) * 100, 100)}%`
+                                      }}
+                                    ></div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-6">
+                            <h4 className="text-lg font-bold text-white mb-4">Recent Choices</h4>
+                            <div className="space-y-3">
+                              {(complianceData.choiceAutonomy.recentChoices || []).map((choice, idx) => (
+                                <div key={idx} className="p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-blue-400 text-xs">{new Date(choice.date).toLocaleDateString()}</span>
+                                  </div>
+                                  <div className="space-y-1 text-sm">
+                                    <div>
+                                      <span className="text-slate-400">Offered: </span>
+                                      <span className="text-white">{choice.offered}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400">Taken: </span>
+                                      <span className="text-white">{choice.taken}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                              {(!complianceData.choiceAutonomy.recentChoices || complianceData.choiceAutonomy.recentChoices.length === 0) && (
+                                <p className="text-slate-500 text-center py-4">No choices documented</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ISP Implementation Tab */}
+                    {activeTab === 'isp' && (
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div className="bg-slate-900/50 border border-purple-500/30 rounded-xl p-4">
+                            <p className="text-slate-400 text-sm mb-1">Total Goals</p>
+                            <p className="text-3xl font-bold text-white">{complianceData.ispImplementation.totalGoals || 0}</p>
+                            <p className="text-purple-400 text-xs mt-1">{complianceData.ispImplementation.activeGoals || 0} active</p>
+                          </div>
+                          <div className="bg-slate-900/50 border border-purple-500/30 rounded-xl p-4">
+                            <p className="text-slate-400 text-sm mb-1">Goal Linkage</p>
+                            <p className="text-3xl font-bold text-white">{complianceData.ispImplementation.goalLinkageRate || 0}%</p>
+                            <p className="text-purple-400 text-xs mt-1">of notes linked</p>
+                          </div>
+                          <div className="bg-slate-900/50 border border-purple-500/30 rounded-xl p-4">
+                            <p className="text-slate-400 text-sm mb-1">Not Addressed</p>
+                            <p className="text-3xl font-bold text-white">{complianceData.ispImplementation.goalsNotAddressed || 0}</p>
+                            <p className="text-purple-400 text-xs mt-1">in 14+ days</p>
+                          </div>
+                          <div className="bg-slate-900/50 border border-purple-500/30 rounded-xl p-4">
+                            <p className="text-slate-400 text-sm mb-1">Compliance</p>
+                            <p className={`text-3xl font-bold ${
+                              (complianceData.ispImplementation.goalLinkageRate || 0) >= 60 ? 'text-green-400' : 'text-yellow-400'
+                            }`}>
+                              {(complianceData.ispImplementation.goalLinkageRate || 0) >= 60 ? 'Good' : 'Needs Improvement'}
+                            </p>
+                            <p className="text-purple-400 text-xs mt-1">target: 60%+</p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-6">
+                            <h4 className="text-lg font-bold text-white mb-4">Goal Activity by Domain</h4>
+                            <div className="space-y-3">
+                              {Object.entries(complianceData.ispImplementation.domainActivity || {}).map(([domain, data]) => (
+                                <div key={domain} className="p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-white font-semibold">{domain}</span>
+                                    <span className="text-purple-400 text-sm">{data.avgProgress}% avg progress</span>
+                                  </div>
+                                  <div className="flex items-center justify-between text-sm text-slate-400">
+                                    <span>{data.totalGoals} goals</span>
+                                    <span>{data.timesWorked} times worked</span>
+                                  </div>
+                                </div>
+                              ))}
+                              {Object.keys(complianceData.ispImplementation.domainActivity || {}).length === 0 && (
+                                <p className="text-slate-500 text-center py-4">No domain activity</p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-6">
+                            <h4 className="text-lg font-bold text-white mb-4">Goals Not Recently Addressed</h4>
+                            <div className="space-y-3">
+                              {(complianceData.ispImplementation.goalsNotAddressedList || []).map((goal) => (
+                                <div key={goal.id} className="p-3 bg-red-900/20 rounded-lg border border-red-500/50">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-red-400 text-xs uppercase font-bold">{goal.status}</span>
+                                    <span className="text-slate-400 text-xs">Last: {goal.lastWorked}</span>
+                                  </div>
+                                  <p className="text-white text-sm">{goal.description}</p>
+                                </div>
+                              ))}
+                              {(!complianceData.ispImplementation.goalsNotAddressedList || complianceData.ispImplementation.goalsNotAddressedList.length === 0) && (
+                                <p className="text-green-400 text-center py-4">✓ All goals recently addressed</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Rights & Restrictions Tab */}
+                    {activeTab === 'rights' && (
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div className="bg-slate-900/50 border border-orange-500/30 rounded-xl p-4">
+                            <p className="text-slate-400 text-sm mb-1">Total Restrictions</p>
+                            <p className="text-3xl font-bold text-white">{complianceData.rightsRestrictions.totalRestrictions || 0}</p>
+                            <p className="text-orange-400 text-xs mt-1">{complianceData.rightsRestrictions.activeRestrictions || 0} active</p>
+                          </div>
+                          <div className="bg-slate-900/50 border border-orange-500/30 rounded-xl p-4">
+                            <p className="text-slate-400 text-sm mb-1">Overdue Reviews</p>
+                            <p className={`text-3xl font-bold ${
+                              (complianceData.rightsRestrictions.overdueReviews || 0) > 0 ? 'text-red-400' : 'text-green-400'
+                            }`}>
+                              {complianceData.rightsRestrictions.overdueReviews || 0}
+                            </p>
+                            <p className="text-orange-400 text-xs mt-1">need attention</p>
+                          </div>
+                          <div className="bg-slate-900/50 border border-orange-500/30 rounded-xl p-4">
+                            <p className="text-slate-400 text-sm mb-1">Upcoming Reviews</p>
+                            <p className="text-3xl font-bold text-white">{complianceData.rightsRestrictions.upcomingReviews || 0}</p>
+                            <p className="text-orange-400 text-xs mt-1">in 30 days</p>
+                          </div>
+                          <div className="bg-slate-900/50 border border-orange-500/30 rounded-xl p-4">
+                            <p className="text-slate-400 text-sm mb-1">Compliance</p>
+                            <p className={`text-3xl font-bold ${
+                              (complianceData.rightsRestrictions.overdueReviews || 0) === 0 ? 'text-green-400' : 'text-red-400'
+                            }`}>
+                              {(complianceData.rightsRestrictions.overdueReviews || 0) === 0 ? 'Good' : 'Action Required'}
+                            </p>
+                            <p className="text-orange-400 text-xs mt-1">HRC compliant</p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-6">
+                            <h4 className="text-lg font-bold text-white mb-4">Active Restrictions</h4>
+                            <div className="space-y-3">
+                              {(complianceData.rightsRestrictions.restrictionsList || []).map((restriction) => (
+                                <div key={restriction.id} className="p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-orange-400 text-sm font-bold">{restriction.type}</span>
+                                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                      restriction.approved 
+                                        ? 'bg-green-900/30 text-green-400 border border-green-500/50'
+                                        : 'bg-red-900/30 text-red-400 border border-red-500/50'
+                                    }`}>
+                                      {restriction.approved ? 'HRC Approved' : 'Pending'}
+                                    </span>
+                                  </div>
+                                  <p className="text-white text-sm mb-2">{restriction.description}</p>
+                                  <p className="text-slate-400 text-xs">Review: {restriction.reviewDate}</p>
+                                </div>
+                              ))}
+                              {(!complianceData.rightsRestrictions.restrictionsList || complianceData.rightsRestrictions.restrictionsList.length === 0) && (
+                                <p className="text-green-400 text-center py-4">✓ No active restrictions</p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-6">
+                            <h4 className="text-lg font-bold text-white mb-4">Overdue Reviews</h4>
+                            <div className="space-y-3">
+                              {(complianceData.rightsRestrictions.overdueList || []).map((restriction) => (
+                                <div key={restriction.id} className="p-3 bg-red-900/20 rounded-lg border border-red-500/50">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-red-400 font-semibold">{restriction.type}</span>
+                                    <span className="text-red-300 text-xs">{restriction.daysOverdue} days overdue</span>
+                                  </div>
+                                  <p className="text-white text-sm">Review Date: {restriction.reviewDate}</p>
+                                </div>
+                              ))}
+                              {(!complianceData.rightsRestrictions.overdueList || complianceData.rightsRestrictions.overdueList.length === 0) && (
+                                <p className="text-green-400 text-center py-4">✓ All reviews current</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Health & Safety Tab */}
+                    {activeTab === 'health' && (
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div className="bg-slate-900/50 border border-red-500/30 rounded-xl p-4">
+                            <p className="text-slate-400 text-sm mb-1">Total Incidents</p>
+                            <p className="text-3xl font-bold text-white">{complianceData.healthSafety.totalIncidents || 0}</p>
+                            <p className="text-red-400 text-xs mt-1">{complianceData.healthSafety.openIncidents || 0} open</p>
+                          </div>
+                          <div className="bg-slate-900/50 border border-red-500/30 rounded-xl p-4">
+                            <p className="text-slate-400 text-sm mb-1">Med Errors</p>
+                            <p className="text-3xl font-bold text-white">{complianceData.healthSafety.medicationErrors || 0}</p>
+                            <p className="text-red-400 text-xs mt-1">in range</p>
+                          </div>
+                          <div className="bg-slate-900/50 border border-red-500/30 rounded-xl p-4">
+                            <p className="text-slate-400 text-sm mb-1">PRN Usage</p>
+                            <p className="text-3xl font-bold text-white">{complianceData.healthSafety.prnUsageCount || 0}</p>
+                            <p className="text-red-400 text-xs mt-1">administrations</p>
+                          </div>
+                          <div className="bg-slate-900/50 border border-red-500/30 rounded-xl p-4">
+                            <p className="text-slate-400 text-sm mb-1">Emergencies</p>
+                            <p className="text-3xl font-bold text-white">{complianceData.healthSafety.emergencyInterventions || 0}</p>
+                            <p className="text-red-400 text-xs mt-1">interventions</p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-6">
+                            <h4 className="text-lg font-bold text-white mb-4">Incidents by Severity</h4>
+                            <div className="space-y-3">
+                              {Object.entries(complianceData.healthSafety.incidentsBySeverity || {}).map(([severity, count]) => (
+                                <div key={severity}>
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="text-slate-300 capitalize">{severity}</span>
+                                    <span className="text-white font-bold">{count}</span>
+                                  </div>
+                                  <div className="w-full bg-slate-800 rounded-full h-2">
+                                    <div 
+                                      className={`h-full rounded-full ${
+                                        severity === 'critical' ? 'bg-gradient-to-r from-red-600 to-red-500' :
+                                        severity === 'major' ? 'bg-gradient-to-r from-orange-600 to-orange-500' :
+                                        severity === 'moderate' ? 'bg-gradient-to-r from-yellow-600 to-yellow-500' :
+                                        'bg-gradient-to-r from-green-600 to-green-500'
+                                      }`}
+                                      style={{
+                                        width: `${Math.min((count / (complianceData.healthSafety.totalIncidents || 1)) * 100, 100)}%`
+                                      }}
+                                    ></div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-6">
+                            <h4 className="text-lg font-bold text-white mb-4">Recent Incidents</h4>
+                            <div className="space-y-3">
+                              {(complianceData.healthSafety.recentIncidents || []).map((incident, idx) => (
+                                <div key={idx} className="p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-white font-semibold text-sm">{incident.type}</span>
+                                    <span className="text-slate-400 text-xs">{new Date(incident.date).toLocaleDateString()}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                      incident.severity?.includes('Critical') ? 'bg-red-900/30 text-red-400 border border-red-500/50' :
+                                      incident.severity?.includes('Major') ? 'bg-orange-900/30 text-orange-400 border border-orange-500/50' :
+                                      'bg-yellow-900/30 text-yellow-400 border border-yellow-500/50'
+                                    }`}>
+                                      {incident.severity}
+                                    </span>
+                                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                      incident.status === 'Open' ? 'bg-red-900/30 text-red-400 border border-red-500/50' :
+                                      'bg-green-900/30 text-green-400 border border-green-500/50'
+                                    }`}>
+                                      {incident.status}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                              {(!complianceData.healthSafety.recentIncidents || complianceData.healthSafety.recentIncidents.length === 0) && (
+                                <p className="text-green-400 text-center py-4">✓ No recent incidents</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-6">
+                          <h4 className="text-lg font-bold text-white mb-4">Recent Vital Signs</h4>
+                          <div className="overflow-x-auto">
+                            <table className="w-full">
+                              <thead className="border-b border-slate-700">
+                                <tr>
+                                  <th className="text-left py-3 px-4 text-slate-400 font-semibold text-sm">Date</th>
+                                  <th className="text-left py-3 px-4 text-slate-400 font-semibold text-sm">BP</th>
+                                  <th className="text-left py-3 px-4 text-slate-400 font-semibold text-sm">HR</th>
+                                  <th className="text-left py-3 px-4 text-slate-400 font-semibold text-sm">Temp</th>
+                                  <th className="text-left py-3 px-4 text-slate-400 font-semibold text-sm">O2</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {(complianceData.healthSafety.recentVitals || []).map((vital, idx) => (
+                                  <tr key={idx} className="border-b border-slate-800 hover:bg-slate-800/30">
+                                    <td className="py-3 px-4 text-white">{new Date(vital.date).toLocaleDateString()}</td>
+                                    <td className="py-3 px-4 text-white">{vital.bloodPressure}</td>
+                                    <td className="py-3 px-4 text-white">{vital.heartRate}</td>
+                                    <td className="py-3 px-4 text-white">{vital.temperature}</td>
+                                    <td className="py-3 px-4 text-white">{vital.oxygenSaturation}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                            {(!complianceData.healthSafety.recentVitals || complianceData.healthSafety.recentVitals.length === 0) && (
+                              <p className="text-slate-500 text-center py-8">No vital signs recorded</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Staff Readiness Tab */}
+                    {activeTab === 'staff' && (
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div className="bg-slate-900/50 border border-cyan-500/30 rounded-xl p-4">
+                            <p className="text-slate-400 text-sm mb-1">Unique Staff</p>
+                            <p className="text-3xl font-bold text-white">{complianceData.staffReadiness.uniqueStaff || 0}</p>
+                            <p className="text-cyan-400 text-xs mt-1">serving individual</p>
+                          </div>
+                          <div className="bg-slate-900/50 border border-cyan-500/30 rounded-xl p-4">
+                            <p className="text-slate-400 text-sm mb-1">Total Shifts</p>
+                            <p className="text-3xl font-bold text-white">{complianceData.staffReadiness.totalShifts || 0}</p>
+                            <p className="text-cyan-400 text-xs mt-1">documented</p>
+                          </div>
+                          <div className="bg-slate-900/50 border border-cyan-500/30 rounded-xl p-4">
+                            <p className="text-slate-400 text-sm mb-1">Approval Rate</p>
+                            <p className="text-3xl font-bold text-white">{complianceData.staffReadiness.approvalRate || 0}%</p>
+                            <p className="text-cyan-400 text-xs mt-1">{complianceData.staffReadiness.approvedNotes || 0} approved</p>
+                          </div>
+                          <div className="bg-slate-900/50 border border-cyan-500/30 rounded-xl p-4">
+                            <p className="text-slate-400 text-sm mb-1">Compliance</p>
+                            <p className={`text-3xl font-bold ${
+                              (complianceData.staffReadiness.approvalRate || 0) >= 80 ? 'text-green-400' : 'text-yellow-400'
+                            }`}>
+                              {(complianceData.staffReadiness.approvalRate || 0) >= 80 ? 'Good' : 'Needs Review'}
+                            </p>
+                            <p className="text-cyan-400 text-xs mt-1">target: 80%+</p>
+                          </div>
+                        </div>
+
+                        <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-6">
+                          <h4 className="text-lg font-bold text-white mb-4">Staff Activity</h4>
+                          <div className="overflow-x-auto">
+                            <table className="w-full">
+                              <thead className="border-b border-slate-700">
+                                <tr>
+                                  <th className="text-left py-3 px-4 text-slate-400 font-semibold text-sm">Staff Name</th>
+                                  <th className="text-left py-3 px-4 text-slate-400 font-semibold text-sm">Role</th>
+                                  <th className="text-left py-3 px-4 text-slate-400 font-semibold text-sm">Shifts</th>
+                                  <th className="text-left py-3 px-4 text-slate-400 font-semibold text-sm">Last Shift</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {(complianceData.staffReadiness.staffList || []).map((staff, idx) => (
+<tr key={idx} className="border-b border-slate-800 hover:bg-slate-800/30">
+<td className="py-3 px-4 text-white font-semibold">{staff.name}</td>
+<td className="py-3 px-4 text-slate-300">{staff.role}</td>
+<td className="py-3 px-4 text-white">{staff.shifts}</td>
+<td className="py-3 px-4 text-slate-300">{new Date(staff.lastShift).toLocaleDateString()}</td>
+</tr>
+))}
+</tbody>
+</table>
+{(!complianceData.staffReadiness.staffList || complianceData.staffReadiness.staffList.length === 0) && (
+<p className="text-slate-500 text-center py-8">No staff activity</p>
+)}
+</div>
+</div>
+</div>
+)}
+</div>
+</div>
+</>
+)}
+</div>
+</main>
+</ScrollArea>
+</div>
+</div>
+</div>
+);
+};
+export default HCBSDashboard;

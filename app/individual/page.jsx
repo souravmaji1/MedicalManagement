@@ -41,6 +41,14 @@ const IndividualsPage = () => {
   const [selectedStatusInfo, setSelectedStatusInfo] = useState(null);
   const [statusReviewNotes, setStatusReviewNotes] = useState('');
 
+  // Add these with your existing state declarations
+const [showStatusUpdateModal, setShowStatusUpdateModal] = useState(false);
+const [statusUpdateData, setStatusUpdateData] = useState({
+  status: '',
+  reason: '',
+  effectiveDate: new Date().toISOString().split('T')[0],
+  notes: ''
+});
   // Permission checks
   const canViewIndividuals = hasAnyPermission([
     PERMISSIONS.DAILY_NOTES_VIEW,
@@ -101,17 +109,18 @@ const IndividualsPage = () => {
   });
 
 
-    const menuItems = [
-       { id: 'individual', icon: Users, label: 'Individuals', badge: null },
-       { id: 'medicine', icon: Pill, label: 'Medications', badge: null },
-       { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: '3' },
-       { id: 'privacy', icon: Shield, label: 'Data Privacy', badge: 'NEW' },
-       { id: 'hcbs', icon: Shield, label: 'HCBS Compliance', badge: 'NEW' },
-        {id: 'engine', icon: Pill, label: 'Foresight Engine', badge: 'NEW'},
-       { id: 'intelligence', icon: NetworkIcon, label: 'User Foresight', badge: 'NEW' },
-       { id: 'billing', icon: CreditCard, label: 'Billing', badge: null },
-       { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null }
-     ];
+      const menuItems = [
+     { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
+     { id: 'individual', icon: Users, label: 'Individuals', badge: null },
+     { id: 'medicine', icon: Pill, label: 'Medications', badge: null },
+     { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: '3' },
+   //  { id: 'privacy', icon: Shield, label: 'Data Privacy', badge: 'NEW' },
+     { id: 'report', icon: FileText, label: 'Report', badge: 'NEW' },
+  //   { id: 'engine', icon: Pill, label: 'Foresight Engine', badge: 'NEW' },
+     { id: 'intelligence', icon: NetworkIcon, label: 'User Foresight', badge: 'NEW' },
+     { id: 'billing', icon: CreditCard, label: 'Billing', badge: null },
+     { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null }
+   ];
 
   // Fetch individuals from Supabase with role-based filtering
   useEffect(() => {
@@ -388,22 +397,98 @@ const IndividualsPage = () => {
     setFilterStatus(status);
   };
 
-  // Handle status click to show review modal
-  const handleStatusClick = (individual) => {
-    if (individual.status === 'Review' || individual.status === 'Inactive') {
-      setSelectedStatusInfo({
-        id: individual.id,
-        name: `${individual.firstname} ${individual.lastname}`,
-        status: individual.status,
-        status_reason: individual.status_reason,
-        review_notes: individual.review_notes,
-        review_date: individual.review_date,
-        reviewed_by: individual.reviewed_by
-      });
-      setStatusReviewNotes(individual.review_notes || '');
-      setShowStatusModal(true);
+ // Handle status click to show review modal
+const handleStatusClick = (individual) => {
+  if (individual.status === 'Review' || individual.status === 'Inactive') {
+    setSelectedStatusInfo({
+      id: individual.id,
+      name: `${individual.firstname} ${individual.lastname}`,
+      status: individual.status,
+      status_reason: individual.status_reason,
+      review_notes: individual.review_notes,
+      review_date: individual.review_date,
+      reviewed_by: individual.reviewed_by
+    });
+    setStatusReviewNotes(individual.review_notes || '');
+    setShowStatusModal(true);
+  } else {
+    // For active status, show update modal directly
+    handleOpenStatusUpdateModal(individual);
+  }
+};
+
+// Function to open status update modal
+const handleOpenStatusUpdateModal = (individual) => {
+  setSelectedStatusInfo({
+    id: individual.id,
+    name: `${individual.firstname} ${individual.lastname}`,
+    currentStatus: individual.status,
+    status_reason: individual.status_reason
+  });
+  setStatusUpdateData({
+    status: individual.status,
+    reason: individual.status_reason || '',
+    effectiveDate: new Date().toISOString().split('T')[0],
+    notes: ''
+  });
+  setShowStatusUpdateModal(true);
+};
+
+// Handle updating individual status
+const handleUpdateStatus = async () => {
+  if (!selectedStatusInfo || !statusUpdateData.status) return;
+  
+  if (statusUpdateData.status === 'Active' && !statusUpdateData.reason.trim()) {
+    alert('Please provide a reason for the status update.');
+    return;
+  }
+
+  try {
+    const updateData = {
+      status: statusUpdateData.status,
+      status_reason: statusUpdateData.reason,
+      review_notes: statusUpdateData.notes,
+      reviewed_by: userProfile.fullname,
+      review_date: new Date().toISOString(),
+      last_activity: new Date().toISOString(),
+      updated_by: userProfile.fullname,
+      updated_by_role: userProfile.role_name,
+      updated_at: new Date().toISOString()
+    };
+
+    const { error } = await supabase
+      .from('individuals')
+      .update(updateData)
+      .eq('id', selectedStatusInfo.id);
+
+    if (error) throw error;
+
+    // Update local state
+    setIndividuals(prev => prev.map(ind => 
+      ind.id === selectedStatusInfo.id 
+        ? { ...ind, ...updateData }
+        : ind
+    ));
+
+    // If updating to Active, clear filter to show them
+    if (statusUpdateData.status === 'Active') {
+      setFilterStatus('all');
     }
-  };
+
+    alert('Status updated successfully!');
+    setShowStatusUpdateModal(false);
+    setSelectedStatusInfo(null);
+    setStatusUpdateData({
+      status: '',
+      reason: '',
+      effectiveDate: new Date().toISOString().split('T')[0],
+      notes: ''
+    });
+  } catch (error) {
+    console.error('Error updating status:', error);
+    alert('Error updating status.');
+  }
+};
 
   // Handle updating status review notes
   const handleUpdateStatusReview = async () => {
@@ -632,38 +717,39 @@ const IndividualsPage = () => {
   }
 
   /* Table Row Component with Action Buttons */
-  const TableRow = ({ individual, idx }) => (
-    <tr className="border-b border-slate-700/30 hover:bg-slate-900/50 transition-all duration-300 group">
-      <td className="py-5 px-4">
-        <div className="flex items-center gap-3">
-          <div className={`w-12 h-12 bg-gradient-to-br ${getColorClass(idx)} rounded-xl flex items-center justify-center text-white font-bold shadow-lg group-hover:scale-110 transition-all duration-300`}>
-            {getInitials(individual.firstname, individual.lastname)}
-          </div>
-          <div>
-            {/* Make the name clickable */}
-            <button 
-              onClick={() => router.push(`/individual/${individual.id}`)}
-              className="text-white font-semibold group-hover:text-emerald-400 transition-colors hover:underline text-left"
-            >
-              {individual.firstname} {individual.lastname}
-            </button>
-            <div className="flex items-center gap-2 mt-1">
-              <div className="w-full bg-slate-700 rounded-full h-1.5 w-20">
-                <div className={`h-full rounded-full ${individual.compliance_score >= 95 ? 'bg-lime-500' : individual.compliance_score >= 85 ? 'bg-yellow-500' : 'bg-red-500'}`} style={{width: `${individual.compliance_score}%`}} />
-              </div>
-              <span className="text-xs text-slate-500 font-medium">{individual.compliance_score}%</span>
+const TableRow = ({ individual, idx }) => (
+  <tr className="border-b border-slate-700/30 hover:bg-slate-900/50 transition-all duration-300 group">
+    <td className="py-5 px-4">
+      <div className="flex items-center gap-3">
+        <div className={`w-12 h-12 bg-gradient-to-br ${getColorClass(idx)} rounded-xl flex items-center justify-center text-white font-bold shadow-lg group-hover:scale-110 transition-all duration-300`}>
+          {getInitials(individual.firstname, individual.lastname)}
+        </div>
+        <div>
+          {/* Make the name clickable */}
+          <button 
+            onClick={() => router.push(`/individual/${individual.id}`)}
+            className="text-white font-semibold group-hover:text-emerald-400 transition-colors hover:underline text-left"
+          >
+            {individual.firstname} {individual.lastname}
+          </button>
+          <div className="flex items-center gap-2 mt-1">
+            <div className="w-full bg-slate-700 rounded-full h-1.5 w-20">
+              <div className={`h-full rounded-full ${individual.compliance_score >= 95 ? 'bg-lime-500' : individual.compliance_score >= 85 ? 'bg-yellow-500' : 'bg-red-500'}`} style={{width: `${individual.compliance_score}%`}} />
             </div>
+            <span className="text-xs text-slate-500 font-medium">{individual.compliance_score}%</span>
           </div>
         </div>
-      </td>
-      <td className="py-5 px-4"><span className="text-slate-300 font-mono text-sm">{individual.individualid}</span></td>
-      <td className="py-5 px-4">
-        <div className="flex items-center gap-2"><MapPin size={14} className="text-emerald-400" /><span className="text-slate-300 text-sm">{individual.homeassignment || individual.location}</span></div>
-      </td>
-      <td className="py-5 px-4">
+      </div>
+    </td>
+    <td className="py-5 px-4"><span className="text-slate-300 font-mono text-sm">{individual.individualid}</span></td>
+    <td className="py-5 px-4">
+      <div className="flex items-center gap-2"><MapPin size={14} className="text-emerald-400" /><span className="text-slate-300 text-sm">{individual.homeassignment || individual.location}</span></div>
+    </td>
+    <td className="py-5 px-4">
+      <div className="flex items-center gap-2">
         <button
           onClick={() => handleStatusClick(individual)}
-          className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all duration-300 hover:scale-105 ${
+          className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all duration-300 hover:scale-105 hover:shadow-lg ${
             individual.status === 'Active' 
               ? 'bg-green-900/30 text-green-400 border-green-500/50 hover:bg-green-800/40' 
               : individual.status === 'Review' 
@@ -676,42 +762,226 @@ const IndividualsPage = () => {
             <span className="ml-1">🔍</span>
           )}
         </button>
-      </td>
-      <td className="py-5 px-4">
-        <div className="flex items-center gap-2"><Clock size={14} className="text-slate-500" /><span className="text-slate-400 text-sm">{new Date(individual.last_activity).toLocaleDateString()}</span></div>
-      </td>
-      <td className="py-5 px-4">
-        <div className="flex items-center gap-2">
-          {/* Goals */}
-          <button onClick={() => router.push(`/individual/${individual.id}`)} className="p-2 hover:bg-emerald-500/20 rounded-lg transition-all group/btn" title="Goals">
-            <Target size={16} className="text-emerald-400 group-hover/btn:scale-110 transition-all" />
+        {/* Update Status Button */}
+        <button
+          onClick={() => handleOpenStatusUpdateModal(individual)}
+          className="p-1.5 hover:bg-slate-800 rounded-lg transition-all group/btn"
+          title="Update Status"
+        >
+          <Edit2 size={14} className="text-slate-400 group-hover/btn:text-blue-400 transition-colors" />
+        </button>
+      </div>
+    </td>
+    <td className="py-5 px-4">
+      <div className="flex items-center gap-2"><Clock size={14} className="text-slate-500" /><span className="text-slate-400 text-sm">{new Date(individual.last_activity).toLocaleDateString()}</span></div>
+    </td>
+    <td className="py-5 px-4">
+      <div className="flex items-center gap-2">
+        {/* Goals */}
+        <button onClick={() => router.push(`/individual/${individual.id}`)} className="p-2 hover:bg-emerald-500/20 rounded-lg transition-all group/btn" title="Goals">
+          <Target size={16} className="text-emerald-400 group-hover/btn:scale-110 transition-all" />
+        </button>
+        {/* Daily Notes */}
+        <button onClick={() => router.push(`/daily/${individual.id}`)} className="p-2 hover:bg-blue-500/20 rounded-lg transition-all group/btn" title="Daily Notes">
+          <StickyNote size={16} className="text-blue-400 group-hover/btn:scale-110 transition-all" />
+        </button>
+        {/* Edit */}
+        {canEditIndividuals && (
+          <button onClick={() => router.push(`/individual/${individual.id}?edit=true`)} className="p-2 hover:bg-blue-500/20 rounded-lg transition-all group/btn" title="Edit">
+            <Edit2 size={16} className="text-blue-400 group-hover/btn:scale-110 transition-all" />
           </button>
-          {/* Daily Notes */}
-          <button onClick={() => router.push(`/daily/${individual.id}`)} className="p-2 hover:bg-blue-500/20 rounded-lg transition-all group/btn" title="Daily Notes">
-            <StickyNote size={16} className="text-blue-400 group-hover/btn:scale-110 transition-all" />
+        )}
+        {/* Delete */}
+        {canDeleteIndividuals && (
+          <button onClick={() => handleDeleteIndividual(individual.id)} className="p-2 hover:bg-red-500/20 rounded-lg transition-all group/btn" title="Delete">
+            <Trash2 size={16} className="text-red-400 group-hover/btn:scale-110 transition-all" />
           </button>
-          {/* Edit */}
-          {canEditIndividuals && (
-            <button onClick={() => router.push(`/individual/${individual.id}?edit=true`)} className="p-2 hover:bg-blue-500/20 rounded-lg transition-all group/btn" title="Edit">
-              <Edit2 size={16} className="text-blue-400 group-hover/btn:scale-110 transition-all" />
-            </button>
-          )}
-          {/* Delete */}
-          {canDeleteIndividuals && (
-            <button onClick={() => handleDeleteIndividual(individual.id)} className="p-2 hover:bg-red-500/20 rounded-lg transition-all group/btn" title="Delete">
-              <Trash2 size={16} className="text-red-400 group-hover/btn:scale-110 transition-all" />
-            </button>
-          )}
-        </div>
-      </td>
-    </tr>
-  );
+        )}
+      </div>
+    </td>
+  </tr>
+);
 
   return (
     <div className="h-screen flex flex-col bg-slate-950 text-white overflow-hidden">
       <NavBar />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
+
+
+        {/* Status Update Modal */}
+{showStatusUpdateModal && selectedStatusInfo && (
+  <Dialog open={showStatusUpdateModal} onOpenChange={setShowStatusUpdateModal}>
+    <DialogContent className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl max-w-2xl">
+      <DialogHeader>
+        <DialogTitle className="text-2xl font-bold text-white flex items-center gap-3">
+          <Edit2 className="text-blue-400" size={24} />
+          Update Status
+        </DialogTitle>
+      </DialogHeader>
+      
+      <div className="space-y-6 py-4">
+        <div className="bg-slate-800/50 rounded-xl p-4">
+          <h4 className="text-lg font-semibold text-white mb-2">
+            Individual: {selectedStatusInfo.name}
+          </h4>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="text-slate-400">Current Status:</p>
+              <p className={`font-bold ${
+                selectedStatusInfo.currentStatus === 'Active' ? 'text-green-400' :
+                selectedStatusInfo.currentStatus === 'Review' ? 'text-yellow-400' :
+                'text-red-400'
+              }`}>
+                {selectedStatusInfo.currentStatus}
+              </p>
+            </div>
+            <div>
+              <p className="text-slate-400">Current Reason:</p>
+              <p className="text-white">{selectedStatusInfo.status_reason || 'Not specified'}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              New Status *
+            </label>
+            <select
+              value={statusUpdateData.status}
+              onChange={(e) => setStatusUpdateData(prev => ({ 
+                ...prev, 
+                status: e.target.value,
+                // Clear reason when switching to Active
+                reason: e.target.value === 'Active' ? '' : prev.reason
+              }))}
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
+            >
+              <option value="">Select New Status</option>
+              <option value="Active">Active</option>
+              <option value="Review">Review</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+
+          {statusUpdateData.status && statusUpdateData.status !== 'Active' && (
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Status Reason *
+              </label>
+              <input
+                type="text"
+                value={statusUpdateData.reason}
+                onChange={(e) => setStatusUpdateData(prev => ({ ...prev, reason: e.target.value }))}
+                placeholder={
+                  statusUpdateData.status === 'Review' 
+                    ? 'Reason for review (e.g., incidents, compliance issues)...'
+                    : 'Reason for inactive status (e.g., discharge, leave of absence)...'
+                }
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
+              />
+              <p className="text-xs text-slate-500 mt-2">
+                {statusUpdateData.status === 'Review' 
+                  ? 'Required: Explain why this individual needs review.'
+                  : 'Required: Explain why this individual is inactive.'}
+              </p>
+            </div>
+          )}
+
+          {statusUpdateData.status === 'Active' && selectedStatusInfo.currentStatus !== 'Active' && (
+            <div className="bg-green-900/20 border border-green-500/30 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <CheckCircle className="text-green-400 mt-1" size={20} />
+                <div>
+                  <h5 className="text-green-300 font-semibold mb-1">Activation Information:</h5>
+                  <ul className="text-sm text-green-100 space-y-1">
+                    <li>• Individual will be restored to active service status</li>
+                    <li>• Care plans and services will resume</li>
+                    <li>• Billing and reporting will restart</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Additional Notes (Optional)
+            </label>
+            <textarea
+              value={statusUpdateData.notes}
+              onChange={(e) => setStatusUpdateData(prev => ({ ...prev, notes: e.target.value }))}
+              rows="3"
+              placeholder="Add any additional notes or comments about this status change..."
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all resize-none"
+            />
+          </div>
+
+          {statusUpdateData.status === 'Review' && (
+            <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="text-yellow-400 mt-1" size={20} />
+                <div>
+                  <h5 className="text-yellow-300 font-semibold mb-1">Review Process:</h5>
+                  <ul className="text-sm text-yellow-100 space-y-1">
+                    <li>• Individual will be flagged for administrative review</li>
+                    <li>• Services will continue during review period</li>
+                    <li>• Review must be completed within 30 days</li>
+                    <li>• All documentation will be verified</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {statusUpdateData.status === 'Inactive' && (
+            <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircleIcon className="text-red-400 mt-1" size={20} />
+                <div>
+                  <h5 className="text-red-300 font-semibold mb-1">Inactivation Effects:</h5>
+                  <ul className="text-sm text-red-100 space-y-1">
+                    <li>• All active services will be suspended</li>
+                    <li>• Billing will be paused</li>
+                    <li>• Care plans will be archived</li>
+                    <li>• Reactivation requires new assessment</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">
+          <button
+            onClick={() => {
+              setShowStatusUpdateModal(false);
+              setSelectedStatusInfo(null);
+              setStatusUpdateData({
+                status: '',
+                reason: '',
+                effectiveDate: new Date().toISOString().split('T')[0],
+                notes: ''
+              });
+            }}
+            className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all duration-300"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleUpdateStatus}
+            disabled={!statusUpdateData.status || (statusUpdateData.status !== 'Active' && !statusUpdateData.reason.trim())}
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Save size={18} />
+            Update Status
+          </button>
+        </div>
+      </div>
+    </DialogContent>
+  </Dialog>
+)}
         <div className="flex-1 overflow-hidden">
           <ScrollArea className="h-full">
             <main className="p-6 lg:p-8">
@@ -1083,6 +1353,20 @@ const IndividualsPage = () => {
                 {selectedStatusInfo.status} Status Review
               </DialogTitle>
             </DialogHeader>
+
+            {/* Add this button to the existing Status Review Modal */}
+<div className="flex items-center justify-between mb-4">
+  <button
+    onClick={() => {
+      setShowStatusModal(false);
+      handleOpenStatusUpdateModal(selectedStatusInfo);
+    }}
+    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-blue-500/50 transition-all"
+  >
+    <Edit2 size={16} />
+    Update Status
+  </button>
+</div>
             
             <div className="space-y-6 py-4">
               <div className="bg-slate-800/50 rounded-xl p-4">
@@ -1586,3 +1870,4 @@ const IndividualsPage = () => {
 };
 
 export default IndividualsPage;
+
