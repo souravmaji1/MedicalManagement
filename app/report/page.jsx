@@ -51,9 +51,9 @@ const ReportsPage = () => {
      { id: 'individual', icon: Users, label: 'Individuals', badge: null },
      { id: 'medicine', icon: Pill, label: 'Medications', badge: null },
      { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: '3' },
-  //   { id: 'privacy', icon: Shield, label: 'Data Privacy', badge: 'NEW' },
+     { id: 'privacy', icon: Shield, label: 'Data Privacy', badge: 'NEW' },
      { id: 'report', icon: FileText, label: 'Report', badge: 'NEW' },
-  //   { id: 'engine', icon: Pill, label: 'Foresight Engine', badge: 'NEW' },
+     { id: 'engine', icon: Pill, label: 'Foresight Engine', badge: 'NEW' },
      { id: 'intelligence', icon: NetworkIcon, label: 'User Foresight', badge: 'NEW' },
      { id: 'billing', icon: CreditCard, label: 'Billing', badge: null },
      { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null }
@@ -66,22 +66,80 @@ const ReportsPage = () => {
     }
   }, [isLoaded, user, profileLoading, userProfile]);
 
-  const fetchIndividuals = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('individuals')
-        .select('*')
-        .order('created_at', { ascending: false });
+  // 1.  Add these three state variables near the top of the component (after the other useState calls):
+const [homeFilter, setHomeFilter] = useState('all');
+const [statusFilter, setStatusFilter] = useState('all');
+const [dateFilter, setDateFilter] = useState('all');
 
-      if (error) throw error;
-      setIndividuals(data || []);
-    } catch (error) {
-      console.error('Error fetching individuals:', error);
-    } finally {
-      setLoading(false);
+// 2.  Replace the entire fetchIndividuals function with this version:
+const fetchIndividuals = async () => {
+  try {
+    setLoading(true);
+    let query = supabase.from('individuals').select('*').order('created_at', { ascending: false });
+
+    // Apply filters
+    if (homeFilter !== 'all') {
+      query = query.eq('homeassignment', homeFilter);
     }
-  };
+    if (statusFilter !== 'all') {
+      query = query.eq('status', statusFilter);
+    }
+    if (dateFilter !== 'all') {
+      const now = new Date();
+      let startDate;
+      switch (dateFilter) {
+        case 'today':
+          startDate = new Date(now.setHours(0, 0, 0, 0));
+          break;
+        case 'week':
+          startDate = new Date(now.setDate(now.getDate() - 7));
+          break;
+        case 'month':
+          startDate = new Date(now.setMonth(now.getMonth() - 1));
+          break;
+        case 'quarter':
+          startDate = new Date(now.setMonth(now.getMonth() - 3));
+          break;
+        case 'year':
+          startDate = new Date(now.setFullYear(now.getFullYear() - 1));
+          break;
+        default:
+          startDate = null;
+      }
+      if (startDate) {
+        query = query.gte('created_at', startDate.toISOString());
+      }
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    setIndividuals(data || []);
+  } catch (error) {
+    console.error('Error fetching individuals:', error);
+  } finally {
+    setLoading(false);
+  }
+};
+
+// 3.  Add these two helper functions anywhere inside the component (after fetchIndividuals):
+const getUniqueHomes = () => {
+  const homes = individuals.map(ind => ind.homeassignment).filter(Boolean);
+  return [...new Set(homes)].sort();
+};
+
+const getStatusOptions = () => {
+  const statuses = individuals.map(ind => ind.status).filter(Boolean);
+  return [...new Set(statuses)].sort();
+};
+
+// 4.  Replace the entire useEffect that calls fetchIndividuals with this:
+useEffect(() => {
+  if (isLoaded && user && !profileLoading && userProfile) {
+    fetchIndividuals();
+  }
+}, [isLoaded, user, profileLoading, userProfile, homeFilter, statusFilter, dateFilter]);
+
+
 
   // Print functionality for each report
 const printCommunityIntegrationReport = () => {
@@ -2793,7 +2851,14 @@ className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 tex
 <ChevronLeft size={18} />
 Dashboard
 </button>
+
+
 </div>
+
+<div className="flex flex-col gap-4">
+
+   
+  </div>
 {/* Stats Summary */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="bg-gradient-to-br from-emerald-600/20 to-teal-500/20 border border-emerald-500/30 rounded-xl p-6">
@@ -2834,6 +2899,66 @@ Dashboard
                 </p>
               </div>
             </div>
+
+             {/* Filter Controls */}
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="bg-slate-800 border border-slate-700 rounded-lg p-3">
+        <label className="block text-slate-400 text-sm font-medium mb-1">Home Filter</label>
+        <select
+          value={homeFilter}
+          onChange={(e) => setHomeFilter(e.target.value)}
+          className="w-full bg-slate-700 text-white rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        >
+          <option value="all">All Homes</option>
+          {getUniqueHomes().map(home => (
+            <option key={home} value={home}>{home}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="bg-slate-800 border border-slate-700 rounded-lg p-3">
+        <label className="block text-slate-400 text-sm font-medium mb-1">Status Filter</label>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="w-full bg-slate-700 text-white rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        >
+          <option value="all">All Statuses</option>
+          {getStatusOptions().map(status => (
+            <option key={status} value={status}>{status}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="bg-slate-800 border border-slate-700 rounded-lg p-3">
+        <label className="block text-slate-400 text-sm font-medium mb-1">Date Filter</label>
+        <select
+          value={dateFilter}
+          onChange={(e) => setDateFilter(e.target.value)}
+          className="w-full bg-slate-700 text-white rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        >
+          <option value="all">All Time</option>
+          <option value="today">Today</option>
+          <option value="week">Last 7 Days</option>
+          <option value="month">Last Month</option>
+          <option value="quarter">Last Quarter</option>
+          <option value="year">Last Year</option>
+        </select>
+      </div>
+
+      <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 flex items-end">
+        <button
+          onClick={() => {
+            setHomeFilter('all');
+            setStatusFilter('all');
+            setDateFilter('all');
+          }}
+          className="w-full px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-all"
+        >
+          Clear Filters
+        </button>
+      </div>
+    </div>
 
             {/* Tabs */}
             <div className="border-b border-slate-700">

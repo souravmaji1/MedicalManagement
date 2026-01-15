@@ -114,9 +114,9 @@ const [statusUpdateData, setStatusUpdateData] = useState({
      { id: 'individual', icon: Users, label: 'Individuals', badge: null },
      { id: 'medicine', icon: Pill, label: 'Medications', badge: null },
      { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: '3' },
-   //  { id: 'privacy', icon: Shield, label: 'Data Privacy', badge: 'NEW' },
+     { id: 'privacy', icon: Shield, label: 'Data Privacy', badge: 'NEW' },
      { id: 'report', icon: FileText, label: 'Report', badge: 'NEW' },
-  //   { id: 'engine', icon: Pill, label: 'Foresight Engine', badge: 'NEW' },
+     { id: 'engine', icon: Pill, label: 'Foresight Engine', badge: 'NEW' },
      { id: 'intelligence', icon: NetworkIcon, label: 'User Foresight', badge: 'NEW' },
      { id: 'billing', icon: CreditCard, label: 'Billing', badge: null },
      { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null }
