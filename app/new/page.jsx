@@ -1,903 +1,589 @@
-'use client'
+// app/roles-features/page.jsx
+'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  BarChart3, TrendingUp, Users, Activity, Shield, AlertTriangle, 
-  Calendar, Clock, CheckCircle, XCircle, ArrowLeft, Download, 
-  Filter, Search, Eye, ChevronDown, ChevronRight, Loader2,
-  FileText, Pill, Home, MapPin, Heart, Target, Award, Brain,
-  Zap, Sparkles, BarChart, PieChart, LineChart, ArrowUpRight,
-  ArrowDownRight, Minus, Plus, RotateCcw, Settings, Menu,
-  Bell, ChevronLeft
+import { useState } from 'react';
+import {
+  Users,
+  Shield,
+  Clock,
+  FileText,
+  AlertTriangle,
+  Database,
+  BarChart3,
+  Settings,
+  Lock,
+  CheckCircle,
+  XCircle,
+  Eye,
+  UserCheck,
+  Download,
+  Video,
+  Phone,
+  MapPin,
+  Calendar
 } from 'lucide-react';
-import { ScrollArea } from "../../components/ui/scroll-area";
-import { useUser } from '@clerk/nextjs';
-import { createClient } from '@supabase/supabase-js';
-import { useRouter } from 'next/navigation';
-import { useUserProfile } from '../../contexts/userProfileContext';
-import { PERMISSIONS } from '../../utils/permissions';
 
-const supabase = createClient(
-  'https://bbikcxalypttfgrlxstf.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJiaWtjeGFseXB0dGZncmx4c3RmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MzcxODcwOCwiZXhwIjoyMDY5Mjk0NzA4fQ.4BLQyvPA0eB745Sfdn2Tl4oCDRTzNhLXrJ8Os8wOXfs'
-);
+export default function PlatformOverview() {
+  const [activeRole, setActiveRole] = useState('pss');
+  const [activeSection, setActiveSection] = useState('overview');
 
-const AnalyticsPage = () => {
-  const { user, isLoaded } = useUser();
-  const router = useRouter();
-  const { userProfile, loading: profileLoading, hasPermission, hasAnyPermission } = useUserProfile();
-  
-  const [individuals, setIndividuals] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [currentPage, setCurrentPage] = useState('reports');
-  const [selectedTimeRange, setSelectedTimeRange] = useState('30d');
-  const [selectedMetric, setSelectedMetric] = useState('overview');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [dateFilter, setDateFilter] = useState({
-    start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    end: new Date().toISOString().split('T')[0]
-  });
-
-  // Permission checks
-  const canViewAnalytics = hasAnyPermission([
-    PERMISSIONS.REPORTS_VIEW,
-    PERMISSIONS.FULL_ACCESS,
-    PERMISSIONS.ADMIN
-  ]);
-
-  const canExportReports = hasAnyPermission([
-    PERMISSIONS.REPORTS_EXPORT,
-    PERMISSIONS.FULL_ACCESS,
-    PERMISSIONS.ADMIN
-  ]);
-
-  const menuItems = [
-    { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
-    { id: 'individuals', icon: Users, label: 'Individuals', badge: null },
-    { id: 'daily-notes', icon: FileText, label: 'Daily Notes', badge: '12' },
-    { id: 'medications', icon: Pill, label: 'Medications', badge: null },
-    { id: 'incidents', icon: AlertTriangle, label: 'Incidents', badge: '3' },
-    { id: 'hcbs', icon: MapPin, label: 'HCBS Tracking', badge: null },
-    { id: 'reports', icon: BarChart3, label: 'Analytics', badge: null },
-    { id: 'settings', icon: Settings, label: 'Settings', badge: null },
-  ];
-
-  const timeRanges = [
-    { label: '7 Days', value: '7d' },
-    { label: '30 Days', value: '30d' },
-    { label: '90 Days', value: '90d' },
-    { label: '1 Year', value: '1y' },
-    { label: 'Custom', value: 'custom' }
-  ];
-
-  const metrics = [
-    { id: 'overview', label: 'Overview', icon: BarChart3 },
-    { id: 'compliance', label: 'Compliance', icon: CheckCircle },
-    { id: 'activities', label: 'Activities', icon: Activity },
-    { id: 'incidents', label: 'Incidents', icon: AlertTriangle },
-    { id: 'medications', label: 'Medications', icon: Pill },
-    { id: 'goals', label: 'Goals & Outcomes', icon: Target }
-  ];
-
-  useEffect(() => {
-    if (isLoaded && user && !profileLoading && userProfile) {
-      if (canViewAnalytics) {
-        fetchIndividuals();
-      } else {
-        setLoading(false);
+  const roles = {
+    pss: {
+      name: 'Peer Support Specialist (PSS)',
+      icon: Users,
+      color: 'bg-blue-500',
+      permissions: {
+        can: [
+          'Start/stop session timer',
+          'Draft notes',
+          'Use AI assist for language refinement',
+          'Submit notes for review',
+          'Initiate 988 warm handoffs'
+        ],
+        cannot: [
+          'Edit submitted notes',
+          'Delete notes',
+          'Override time or units',
+          'View other peers\' clients',
+          'Access billing exports'
+        ]
+      }
+    },
+    supervisor: {
+      name: 'Supervisor / QA',
+      icon: Shield,
+      color: 'bg-green-500',
+      permissions: {
+        can: [
+          'View all assigned peers\' notes',
+          'Approve/reject notes',
+          'Lock notes for billing',
+          'Leave corrective feedback',
+          'View productivity & risk flags'
+        ],
+        cannot: [
+          'Edit peer-authored text',
+          'Change time or units',
+          'Submit notes on behalf of peers'
+        ]
+      }
+    },
+    admin: {
+      name: 'Admin (Agency Owner)',
+      icon: Settings,
+      color: 'bg-purple-500',
+      permissions: {
+        can: [
+          'Manage users & roles',
+          'Configure MCP rules',
+          'Set authorization limits',
+          'Export audit packages',
+          'Manage subscription & billing'
+        ],
+        cannot: []
       }
     }
-  }, [isLoaded, user, profileLoading, userProfile]);
+  };
 
-  const fetchIndividuals = async () => {
-    try {
-      setLoading(true);
-      
-      let query = supabase
-        .from('individuals')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      // Role-based filtering
-      if (userProfile.role_id === 'HouseManager_DD') {
-        query = query.eq('homeassignment', userProfile.facility);
-      } else if (userProfile.role_id === 'DSP_DD') {
-        query = query.eq('homeassignment', userProfile.facility);
-      } else if (userProfile.division === 'MI' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-        query = query.eq('division', 'MI');
-      } else if (userProfile.division === 'SUD' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-        query = query.eq('division', 'SUD');
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setIndividuals(data || []);
-    } catch (error) {
-      console.error('Error fetching individuals:', error);
-    } finally {
-      setLoading(false);
+  const coreFeatures = [
+    {
+      id: 'session-timer',
+      name: 'Session Timer & Unit Engine',
+      icon: Clock,
+      description: 'Real-time timer with automatic unit calculation',
+      details: [
+        'Timer must start before note entry',
+        'No manual time entry allowed',
+        '15-29 min = 1 unit, 30-44 min = 2 units, 45-59 min = 3 units',
+        'Duration < 15 min → submission disabled'
+      ]
+    },
+    {
+      id: 'auth-enforcement',
+      name: 'Authorization Engine',
+      icon: Lock,
+      description: 'Real-time verification against Medicaid authorizations',
+      details: [
+        'Blocks services outside auth dates',
+        'Enforces monthly and total unit caps',
+        'Warning thresholds: 75% (yellow), 90% (orange), 100% (red + lock)',
+        'Real-time eligibility checks before submission'
+      ]
+    },
+    {
+      id: 'note-composition',
+      name: 'Note Composition Engine',
+      icon: FileText,
+      description: 'Structured, compliant note creation',
+      details: [
+        'Required fields enforcement',
+        'Clinical language firewall',
+        'Peer-safe interventions checklist',
+        'Goal alignment from recovery plan'
+      ]
+    },
+    {
+      id: 'ai-assist',
+      name: 'AI Assist Module',
+      icon: UserCheck,
+      description: 'Safe mode AI for language refinement',
+      details: [
+        'Rewrites peer text to remove clinical language',
+        'Checks for missing required elements',
+        'Cannot: add time, services, or diagnoses',
+        'All AI usage logged and user-confirmed'
+      ]
+    },
+    {
+      id: 'supervisor-qa',
+      name: 'Supervisor QA Workflow',
+      icon: Eye,
+      description: 'Structured approval process',
+      details: [
+        'Time & units summary display',
+        'Auth status verification',
+        'Flagged language highlighting',
+        'Locked notes are immutable'
+      ]
+    },
+    {
+      id: 'audit-export',
+      name: 'Audit Export Engine',
+      icon: Download,
+      description: 'One-click compliance packages',
+      details: [
+        'Includes all notes, auth, units, credentials',
+        'PDF and CSV formats',
+        'Full audit trail with timestamps',
+        'Ready for Medicaid audit review'
+      ]
+    },
+    {
+      id: 'tele-support',
+      name: 'Tele-Support Module',
+      icon: Video,
+      description: 'Remote peer support compliance',
+      details: [
+        'Phone and video session support',
+        'Same compliance rules as in-person',
+        'Auto-timer start at connection',
+        'Scope boundaries enforced'
+      ]
+    },
+    {
+      id: '988-coordination',
+      name: '988 Coordination',
+      icon: Phone,
+      description: 'Crisis escalation management',
+      details: [
+        'Tiered escalation framework',
+        'Warm handoffs to 988 Lifeline',
+        'Consent documentation',
+        'Coordination only - no crisis services'
+      ]
+    },
+    {
+      id: 'resource-db',
+      name: 'Resource Navigator',
+      icon: MapPin,
+      description: 'Location-aware resource database',
+      details: [
+        'Verified, MCP-approved resources',
+        'ZIP/county filtering',
+        'Referral tracking with outcomes',
+        'Integration with note documentation'
+      ]
+    },
+    {
+      id: 'analytics',
+      name: 'MCO Dashboards',
+      icon: BarChart3,
+      description: 'Payer-grade analytics',
+      details: [
+        'Compliance & billing integrity',
+        'Utilization management',
+        'Crisis escalation analytics',
+        'ER diversion reporting'
+      ]
     }
-  };
+  ];
 
-  // Analytics calculations
-  const analyticsData = useMemo(() => {
-    const filteredIndividuals = individuals.filter(ind => {
-      const matchesSearch = 
-        ind.firstname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ind.lastname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ind.individualid?.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchesSearch;
-    });
+  const nonNegotiablePrinciples = [
+    { text: 'No manual time entry', icon: Clock },
+    { text: 'No note submission without authorization', icon: Lock },
+    { text: 'No clinical language allowed', icon: XCircle },
+    { text: 'No unit overrides', icon: AlertTriangle },
+    { text: 'No edits after supervisor lock', icon: FileText },
+    { text: 'Full audit trail for every action', icon: Database }
+  ];
 
-    const startDate = new Date(dateFilter.start);
-    const endDate = new Date(dateFilter.end);
-
-    // Calculate metrics
-    const totalIndividuals = filteredIndividuals.length;
-    const activeIndividuals = filteredIndividuals.filter(ind => ind.status === 'Active').length;
-    
-    // Compliance scores
-    const avgCompliance = filteredIndividuals.length > 0 
-      ? Math.round(filteredIndividuals.reduce((acc, ind) => acc + (ind.compliance_score || 0), 0) / filteredIndividuals.length)
-      : 0;
-
-    // Goals and outcomes
-    const totalGoals = filteredIndividuals.reduce((acc, ind) => acc + (ind.goals?.length || 0), 0);
-    const achievedGoals = filteredIndividuals.reduce((acc, ind) => 
-      acc + (ind.goals?.filter(goal => goal.status === 'Completed').length || 0), 0);
-    const goalsAchievementRate = totalGoals > 0 ? Math.round((achievedGoals / totalGoals) * 100) : 0;
-
-    // Incidents
-    const totalIncidents = filteredIndividuals.reduce((acc, ind) => 
-      acc + (ind.incidents?.length || 0), 0);
-    const openIncidents = filteredIndividuals.reduce((acc, ind) => 
-      acc + (ind.incidents?.filter(inc => inc.status === 'Open').length || 0), 0);
-
-    // Medications
-    const totalMedications = filteredIndividuals.reduce((acc, ind) => 
-      acc + (ind.medications?.length || 0), 0);
-    const highComplianceMeds = filteredIndividuals.reduce((acc, ind) => 
-      acc + (ind.medications?.filter(med => med.compliance > 80).length || 0), 0);
-    const medComplianceRate = totalMedications > 0 ? Math.round((highComplianceMeds / totalMedications) * 100) : 0;
-
-    // Daily notes
-    const totalDailyNotes = filteredIndividuals.reduce((acc, ind) => 
-      acc + (ind.dailynotes?.length || 0), 0);
-    const recentNotes = filteredIndividuals.reduce((acc, ind) => {
-      const recent = ind.dailynotes?.filter(note => {
-        const noteDate = new Date(note.date);
-        return noteDate >= startDate && noteDate <= endDate;
-      }) || [];
-      return acc + recent.length;
-    }, 0);
-
-    // Risk analysis
-    const highRiskIndividuals = filteredIndividuals.filter(ind => 
-      (ind.riskplans?.length || 0) > 0 || 
-      (ind.medicalalerts?.length || 0) > 2 ||
-      (ind.behavioralalerts?.length || 0) > 2
-    ).length;
-
-    // Division breakdown
-    const divisionBreakdown = filteredIndividuals.reduce((acc, ind) => {
-      acc[ind.division] = (acc[ind.division] || 0) + 1;
-      return acc;
-    }, {});
-
-    // Status breakdown
-    const statusBreakdown = filteredIndividuals.reduce((acc, ind) => {
-      acc[ind.status] = (acc[ind.status] || 0) + 1;
-      return acc;
-    }, {});
-
-    // Activity participation
-    const activityParticipation = filteredIndividuals.reduce((acc, ind) => {
-      const recentNotes = ind.dailynotes?.filter(note => {
-        const noteDate = new Date(note.date);
-        return noteDate >= startDate && noteDate <= endDate;
-      }) || [];
-      
-      const totalActivities = recentNotes.reduce((sum, note) => sum + (note.activities?.length || 0), 0);
-      return acc + totalActivities;
-    }, 0);
-
-    return {
-      filteredIndividuals,
-      totalIndividuals,
-      activeIndividuals,
-      avgCompliance,
-      totalGoals,
-      achievedGoals,
-      goalsAchievementRate,
-      totalIncidents,
-      openIncidents,
-      totalMedications,
-      highComplianceMeds,
-      medComplianceRate,
-      totalDailyNotes,
-      recentNotes,
-      highRiskIndividuals,
-      divisionBreakdown,
-      statusBreakdown,
-      activityParticipation
-    };
-  }, [individuals, searchTerm, dateFilter]);
-
-  const getInitials = (firstname, lastname) => {
-    return `${firstname?.charAt(0) || ''}${lastname?.charAt(0) || ''}`.toUpperCase();
-  };
-
-  const getColorClass = (index) => {
-    const colors = [
-      'from-emerald-600 to-teal-500',
-      'from-green-400 to-emerald-500',
-      'from-lime-500 to-green-600',
-      'from-teal-500 to-emerald-600',
-      'from-cyan-500 to-teal-600'
-    ];
-    return colors[index % colors.length];
-  };
-
-  const exportData = () => {
-    if (!canExportReports) {
-      alert('You do not have permission to export reports.');
-      return;
-    }
-
-    const data = {
-      exportDate: new Date().toISOString(),
-      timeRange: selectedTimeRange,
-      metrics: analyticsData,
-      dateRange: dateFilter
-    };
-
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `carebridge-analytics-${selectedTimeRange}-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  // NavBar Component
-  const NavBar = () => (
-    <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-900/20 backdrop-blur-xl border-b border-slate-800/50 px-6 py-4 flex items-center justify-between sticky top-0 z-40 shadow-2xl">
-      <div className="flex items-center gap-4">
-        <button 
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="lg:hidden p-2 hover:bg-white/10 rounded-xl transition-all duration-300 hover:scale-105"
-        >
-          {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className="w-12 h-12 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/50 animate-pulse">
-              <Activity className="text-white" size={26} />
+  const NoteLifecycle = () => (
+    <div className="bg-white rounded-lg shadow-md p-6">
+      <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+        <Calendar className="w-5 h-5" />
+        Note Lifecycle Flow
+      </h3>
+      <div className="relative">
+        <div className="flex flex-col md:flex-row justify-between items-center mb-8">
+          {[
+            { step: 1, title: 'Draft', desc: 'Peer creates note with timer running' },
+            { step: 2, title: 'Submitted', desc: 'Peer submits for supervisor review' },
+            { step: 3, title: 'Reviewed', desc: 'Supervisor approves/returns' },
+            { step: 4, title: 'Locked', desc: 'Approved → immutable' },
+            { step: 5, title: 'Billing Ready', desc: 'Available for billing export' },
+            { step: 6, title: 'Audit Ready', desc: 'Full trail for 7-10 years' }
+          ].map((stage, index) => (
+            <div key={stage.step} className="flex flex-col items-center mb-4 md:mb-0">
+              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mb-2">
+                <span className="font-bold text-blue-600">{stage.step}</span>
+              </div>
+              <span className="font-medium">{stage.title}</span>
+              <span className="text-sm text-gray-600 text-center">{stage.desc}</span>
             </div>
-            <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-900 animate-pulse"></div>
-          </div>
-          <div>
-            <h1 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-500">
-              CareBridge Pro
-            </h1>
-            <p className="text-xs text-slate-400 font-medium tracking-wide">IPMS Aligned EMR</p>
-          </div>
-        </div>
-      </div>
-      
-      <div className="flex items-center gap-4">
-        <div className="hidden md:flex items-center gap-3 bg-slate-800/50 backdrop-blur-sm rounded-2xl px-5 py-2.5 border border-slate-700/50 hover:border-emerald-500/50 transition-all duration-300">
-          <Search size={18} className="text-emerald-400" />
-          <input 
-            type="text" 
-            placeholder="Search analytics..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="bg-transparent border-none outline-none text-sm text-white w-full placeholder:text-slate-500"
-          />
-          <kbd className="px-2 py-0.5 text-xs bg-slate-700 rounded text-slate-400 font-mono">⌘K</kbd>
-        </div>
-        
-        <button className="relative p-2.5 hover:bg-white/10 rounded-xl transition-all duration-300 hover:scale-105 group">
-          <Bell className="text-slate-300 group-hover:text-emerald-400 transition-colors" size={20} />
-          <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-gradient-to-r from-lime-500 to-green-600 rounded-full animate-pulse shadow-lg shadow-green-500/50"></span>
-        </button>
-        
-        <div className="flex items-center gap-3 pl-4 border-l border-slate-700/50 cursor-pointer hover:bg-white/5 rounded-xl p-2 transition-all duration-300 group">
-          <div className="text-right hidden sm:block">
-            <p className="text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors">
-              {userProfile?.fullname || 'User'}
-            </p>
-            <p className="text-xs text-slate-400 font-medium">
-              {userProfile?.role_name || 'Staff'} • Online
-            </p>
-          </div>
-          <div className="relative">
-            <div className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-emerald-500/50">
-              {userProfile?.fullname?.charAt(0) || 'U'}
-            </div>
-            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-900"></div>
-          </div>
-          <ChevronDown size={16} className="text-slate-400 group-hover:text-emerald-400 transition-colors" />
+          ))}
         </div>
       </div>
     </div>
   );
 
-  // Sidebar Component
-  const Sidebar = () => (
-    <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-50 w-72 bg-gradient-to-b from-slate-900 via-slate-900 to-emerald-900/10 border-r border-slate-800/50 transition-all duration-300 flex flex-col backdrop-blur-xl h-screen`}>
-      <div className="p-6 border-b border-slate-800/50 flex-shrink-0">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2 text-sm">
-            <div className="relative">
-              <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></div>
-              <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-75"></div>
-            </div>
-            <span className="text-slate-300 font-semibold">System Online</span>
-          </div>
-          <div className="px-2.5 py-1 bg-emerald-500/20 border border-emerald-500/30 rounded-full">
-            <span className="text-emerald-400 text-xs font-bold">v2.0</span>
-          </div>
-        </div>
-        
-        <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-xl p-3">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-slate-400 font-medium">Analytics Coverage</span>
-            <span className="text-xs text-purple-400 font-bold">
-              {analyticsData.totalIndividuals > 0 ? '100%' : '0%'}
-            </span>
-          </div>
-          <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-purple-600 to-pink-500 rounded-full transition-all duration-1000" 
-              style={{width: analyticsData.totalIndividuals > 0 ? '100%' : '0%'}}>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <ScrollArea className="flex-1 px-4 py-4">
-        <div className="mb-2 px-3">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Main Menu</span>
-        </div>
-        {menuItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = currentPage === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => {
-                setCurrentPage(item.id);
-                if (item.id !== 'reports') {
-                  router.push(`/${item.id === 'dashboard' ? 'dashboard' : item.id}`);
-                }
-                if (window.innerWidth < 1024) setSidebarOpen(false);
-              }}
-              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl mb-2 transition-all duration-300 group relative overflow-hidden ${
-                isActive 
-                  ? 'bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow-lg shadow-emerald-500/50 scale-105' 
-                  : 'text-slate-400 hover:bg-white/5 hover:text-white hover:scale-105'
-              }`}
-            >
-              {isActive && (
-                <div className="absolute inset-0 bg-gradient-to-r from-green-400/20 to-emerald-500/20 animate-pulse"></div>
-              )}
-              <Icon size={20} className={`relative z-10 ${isActive ? 'animate-pulse' : ''}`} />
-              <span className="font-semibold relative z-10 flex-1 text-left">{item.label}</span>
-              {item.badge && (
-                <span className={`relative z-10 px-2 py-0.5 rounded-full text-xs font-bold ${
-                  isActive 
-                    ? 'bg-white/20 text-white' 
-                    : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                }`}>
-                  {item.badge}
-                </span>
-              )}
-              {isActive && <ChevronRight size={16} className="relative z-10 animate-pulse" />}
-            </button>
-          );
-        })}
-      </ScrollArea>
-      
-      <div className="p-4 border-t border-slate-800/50 space-y-3 flex-shrink-0">
-        <div className="bg-gradient-to-br from-emerald-900/30 via-teal-900/30 to-green-900/30 rounded-xl p-4 border border-emerald-500/30 backdrop-blur-sm relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/10 rounded-full blur-2xl"></div>
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-2">
-              <Shield className="text-emerald-400" size={18} />
-              <p className="text-sm font-bold text-white">IPMS Certified</p>
-            </div>
-            <p className="text-xs text-slate-400 leading-relaxed">Alabama DD Compliant System</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // Permission Check - No Access Screen
-  if (!profileLoading && !canViewAnalytics) {
-    return (
-      <div className="h-screen flex flex-col bg-slate-950 text-white">
-        <NavBar />
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center max-w-md">
-            <Shield className="w-20 h-20 text-red-500 mx-auto mb-6" />
-            <h2 className="text-3xl font-bold text-white mb-4">Access Restricted</h2>
-            <p className="text-slate-400 mb-6">
-              You do not have permission to view analytics. Please contact your administrator if you believe this is an error.
-            </p>
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-              <p className="text-sm text-slate-400">Your Current Role:</p>
-              <p className="text-lg font-bold text-emerald-400 mt-1">{userProfile?.role_name}</p>
-              <p className="text-sm text-slate-500 mt-2">Division: {userProfile?.division}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isLoaded || loading || profileLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-slate-950">
-        <div className="text-center">
-          <Loader2 className="w-16 h-16 text-emerald-500 animate-spin mx-auto mb-4" />
-          <p className="text-slate-400 text-lg">Loading analytics...</p>
-        </div>
-      </div>
-    );
-  }
+  // Get the active role's icon component
+  const ActiveRoleIcon = roles[activeRole].icon;
 
   return (
-    <div className="min-h-screen bg-slate-950 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <h1 className="text-3xl font-bold text-gray-900">PeerBridge Notes™ Platform</h1>
+          <p className="text-gray-600 mt-2">NC Medicaid-Compliant Peer Support Note Engine</p>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Tabs */}
+        <div className="flex space-x-2 mb-8 border-b">
+          {[
+            { id: 'overview', label: 'Platform Overview' },
+            { id: 'roles', label: 'User Roles' },
+            { id: 'features', label: 'Core Features' },
+            { id: 'compliance', label: 'Compliance Engine' }
+          ].map((tab) => (
             <button
-              onClick={() => router.push('/dashboard')}
-              className="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all"
-            >
-              <ArrowLeft className="text-white" size={20} />
-            </button>
-            <div>
-              <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500">
-                Analytics Dashboard
-              </h1>
-              <p className="text-slate-400 mt-1">
-                IPMS-Aligned • Comprehensive Individual Reporting
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {canExportReports && (
-              <button
-                onClick={exportData}
-                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-purple-500/50 transition-all"
-              >
-                <Download size={18} />
-                Export Data
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Time Range & Filters */}
-        <div className="flex flex-col lg:flex-row gap-4">
-          <div className="flex items-center gap-3 bg-slate-900/50 rounded-xl px-5 py-3 border border-slate-700/50">
-            <Calendar className="text-slate-400" size={20} />
-            <select
-              value={selectedTimeRange}
-              onChange={(e) => setSelectedTimeRange(e.target.value)}
-              className="bg-transparent border-none outline-none text-sm text-white focus:ring-0"
-            >
-              {timeRanges.map(range => (
-                <option key={range.value} value={range.value} className="bg-slate-800">
-                  {range.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <input
-              type="date"
-              value={dateFilter.start}
-              onChange={(e) => setDateFilter(prev => ({ ...prev, start: e.target.value }))}
-              className="bg-slate-900/50 border border-slate-700/50 rounded-xl px-5 py-3 text-white focus:outline-none focus:border-emerald-500"
-            />
-            <span className="text-slate-400">to</span>
-            <input
-              type="date"
-              value={dateFilter.end}
-              onChange={(e) => setDateFilter(prev => ({ ...prev, end: e.target.value }))}
-              className="bg-slate-900/50 border border-slate-700/50 rounded-xl px-5 py-3 text-white focus:outline-none focus:border-emerald-500"
-            />
-          </div>
-
-          <div className="flex-1 flex items-center gap-3 bg-slate-900/50 rounded-xl px-5 py-3 border border-slate-700/50">
-            <Search size={20} className="text-slate-400" />
-            <input 
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search individuals..." 
-              className="bg-transparent border-none outline-none text-sm text-white w-full placeholder:text-slate-500"
-            />
-          </div>
-        </div>
-
-        {/* Key Metrics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="group relative bg-gradient-to-br from-emerald-600/20 to-teal-500/20 backdrop-blur-sm border border-emerald-500/30 rounded-2xl p-6 hover:border-emerald-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/20 overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-600 to-teal-500 opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-all duration-300"></div>
-            <div className="relative z-10">
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-14 h-14 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300">
-                  <Users className="text-white" size={26} />
-                </div>
-                <div className="flex items-center gap-1">
-                  <TrendingUp className="text-green-400" size={18} />
-                  <span className="text-sm font-bold text-green-400">+12%</span>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <p className="text-slate-400 text-sm font-medium">Total Individuals</p>
-                <div className="flex items-end gap-2">
-                  <p className="text-4xl font-black text-white">{analyticsData.totalIndividuals}</p>
-                  <Sparkles className="text-lime-400 mb-2 animate-pulse" size={20} />
-                </div>
-                <p className="text-xs text-slate-500 mt-2">
-                  {analyticsData.activeIndividuals} active • {analyticsData.totalIndividuals - analyticsData.activeIndividuals} inactive
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="group relative bg-gradient-to-br from-blue-600/20 to-cyan-500/20 backdrop-blur-sm border border-blue-500/30 rounded-2xl p-6 hover:border-blue-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/20 overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-600 to-cyan-500 opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-all duration-300"></div>
-            <div className="relative z-10">
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300">
-                  <CheckCircle className="text-white" size={26} />
-                </div>
-                <div className="flex items-center gap-1">
-                  <TrendingUp className="text-blue-400" size={18} />
-                  <span className="text-sm font-bold text-blue-400">+8%</span>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <p className="text-slate-400 text-sm font-medium">Avg Compliance</p>
-                <div className="flex items-end gap-2">
-                  <p className="text-4xl font-black text-white">{analyticsData.avgCompliance}%</p>
-                </div>
-                <p className="text-xs text-slate-500 mt-2">Across all individuals</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="group relative bg-gradient-to-br from-purple-600/20 to-pink-500/20 backdrop-blur-sm border border-purple-500/30 rounded-2xl p-6 hover:border-purple-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/20 overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-600 to-pink-500 opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-all duration-300"></div>
-            <div className="relative z-10">
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-14 h-14 bg-gradient-to-br from-purple-600 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300">
-                  <Target className="text-white" size={26} />
-                </div>
-                <div className="flex items-center gap-1">
-                  <TrendingUp className="text-purple-400" size={18} />
-                  <span className="text-sm font-bold text-purple-400">{analyticsData.goalsAchievementRate}%</span>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <p className="text-slate-400 text-sm font-medium">Goals Achievement</p>
-                <div className="flex items-end gap-2">
-                  <p className="text-4xl font-black text-white">{analyticsData.achievedGoals}</p>
-                  <span className="text-sm text-slate-400">/{analyticsData.totalGoals}</span>
-                </div>
-                <p className="text-xs text-slate-500 mt-2">{analyticsData.goalsAchievementRate}% success rate</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="group relative bg-gradient-to-br from-orange-600/20 to-red-500/20 backdrop-blur-sm border border-orange-500/30 rounded-2xl p-6 hover:border-orange-500/50 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-orange-500/20 overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-600 to-red-500 opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-all duration-300"></div>
-            <div className="relative z-10">
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-14 h-14 bg-gradient-to-br from-orange-600 to-red-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300">
-                  <AlertTriangle className="text-white" size={26} />
-                </div>
-                <div className="flex items-center gap-1">
-                  <TrendingUp className="text-orange-400" size={18} />
-                  <span className="text-sm font-bold text-orange-400">{analyticsData.openIncidents}</span>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <p className="text-slate-400 text-sm font-medium">Open Incidents</p>
-                <div className="flex items-end gap-2">
-                  <p className="text-4xl font-black text-white">{analyticsData.openIncidents}</p>
-                  <span className="text-sm text-slate-400">/{analyticsData.totalIncidents}</span>
-                </div>
-                <p className="text-xs text-slate-500 mt-2">{analyticsData.highRiskIndividuals} high-risk individuals</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Metric Navigation */}
-        <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-2 flex gap-2 overflow-x-auto">
-          {metrics.map(metric => {
-            const Icon = metric.icon;
-            return (
-              <button
-                key={metric.id}
-                onClick={() => setSelectedMetric(metric.id)}
-                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold whitespace-nowrap transition-all ${
-                  selectedMetric === metric.id
-                    ? 'bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow-lg'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              key={tab.id}
+              onClick={() => setActiveSection(tab.id)}
+              className={`px-4 py-2 font-medium ${activeSection === tab.id
+                  ? 'border-b-2 border-blue-500 text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
                 }`}
-              >
-                <Icon size={18} />
-                {metric.label}
-              </button>
-            );
-          })}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        {/* Main Content Area */}
-        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-emerald-500/30 transition-all duration-300">
-          <ScrollArea className="h-[calc(100vh-400px)]">
-            <div className="pr-4 space-y-8">
+        {/* Overview Section */}
+        {activeSection === 'overview' && (
+          <div className="space-y-8">
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-2xl font-bold mb-4">Product Overview</h2>
+              <p className="text-gray-700 mb-4">
+                Web + Mobile SaaS designed to make it technically impossible to submit a non-billable 
+                or non-compliant NC Medicaid Peer Support note.
+              </p>
               
-              {/* Overview Section */}
-              {selectedMetric === 'overview' && (
-                <div className="space-y-6">
-                  {/* Division Breakdown */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-6">
-                      <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                        <PieChart className="text-emerald-400" size={24} />
-                        Division Breakdown
-                      </h3>
-                      <div className="space-y-3">
-                        {Object.entries(analyticsData.divisionBreakdown).map(([division, count]) => (
-                          <div key={division} className="flex items-center justify-between">
-                            <span className="text-slate-300">{division}</span>
-                            <div className="flex items-center gap-3">
-                              <div className="w-32 bg-slate-700 rounded-full h-2">
-                                <div 
-                                  className="h-full bg-gradient-to-r from-emerald-600 to-teal-500 rounded-full"
-                                  style={{width: `${(count / analyticsData.totalIndividuals) * 100}%`}}
-                                ></div>
-                              </div>
-                              <span className="text-white font-semibold w-12 text-right">{count}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-6">
-                      <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                        <BarChart className="text-blue-400" size={24} />
-                        Status Distribution
-                      </h3>
-                      <div className="space-y-3">
-                        {Object.entries(analyticsData.statusBreakdown).map(([status, count]) => (
-                          <div key={status} className="flex items-center justify-between">
-                            <span className="text-slate-300">{status}</span>
-                            <div className="flex items-center gap-3">
-                              <div className="w-32 bg-slate-700 rounded-full h-2">
-                                <div 
-                                  className={`h-full rounded-full ${
-                                    status === 'Active' ? 'bg-gradient-to-r from-green-600 to-emerald-500' :
-                                    status === 'Review' ? 'bg-gradient-to-r from-yellow-600 to-orange-500' :
-                                    'bg-gradient-to-r from-red-600 to-pink-500'
-                                  }`}
-                                  style={{width: `${(count / analyticsData.totalIndividuals) * 100}%`}}
-                                ></div>
-                              </div>
-                              <span className="text-white font-semibold w-12 text-right">{count}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Individual Performance Table */}
-                  <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-6">
-                    <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                      <Users className="text-purple-400" size={24} />
-                      Individual Performance Summary
-                    </h3>
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-slate-700">
-                            <th className="text-left py-3 px-4 text-slate-400 font-semibold text-sm">Individual</th>
-                            <th className="text-left py-3 px-4 text-slate-400 font-semibold text-sm">Status</th>
-                            <th className="text-left py-3 px-4 text-slate-400 font-semibold text-sm">Compliance</th>
-                            <th className="text-left py-3 px-4 text-slate-400 font-semibold text-sm">Goals</th>
-                            <th className="text-left py-3 px-4 text-slate-400 font-semibold text-sm">Incidents</th>
-                            <th className="text-left py-3 px-4 text-slate-400 font-semibold text-sm">Alerts</th>
-                            <th className="text-left py-3 px-4 text-slate-400 font-semibold text-sm">Last Activity</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {analyticsData.filteredIndividuals.slice(0, 20).map((individual, idx) => (
-                            <tr key={individual.id} className="border-b border-slate-700/30 hover:bg-slate-800/30 transition-all">
-                              <td className="py-4 px-4">
-                                <div className="flex items-center gap-3">
-                                  <div className={`w-10 h-10 bg-gradient-to-br ${getColorClass(idx)} rounded-xl flex items-center justify-center text-white font-bold`}>
-                                    {getInitials(individual.firstname, individual.lastname)}
-                                  </div>
-                                  <div>
-                                    <p className="text-white font-semibold">{individual.firstname} {individual.lastname}</p>
-                                    <p className="text-slate-400 text-sm">ID: {individual.individualid}</p>
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="py-4 px-4">
-                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                  individual.status === 'Active' ? 'bg-green-900/30 text-green-400' :
-                                  individual.status === 'Review' ? 'bg-yellow-900/30 text-yellow-400' :
-                                  'bg-red-900/30 text-red-400'
-                                }`}>
-                                  {individual.status}
-                                </span>
-                              </td>
-                              <td className="py-4 px-4">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-16 bg-slate-700 rounded-full h-2">
-                                    <div 
-                                      className={`h-full rounded-full ${
-                                        (individual.compliance_score || 0) >= 90 ? 'bg-gradient-to-r from-green-600 to-emerald-500' :
-                                        (individual.compliance_score || 0) >= 70 ? 'bg-gradient-to-r from-yellow-600 to-orange-500' :
-                                        'bg-gradient-to-r from-red-600 to-pink-500'
-                                      }`}
-                                      style={{width: `${individual.compliance_score || 0}%`}}
-                                    ></div>
-                                  </div>
-                                  <span className="text-white text-sm font-semibold">{(individual.compliance_score || 0)}%</span>
-                                </div>
-                              </td>
-                              <td className="py-4 px-4">
-                                <div className="text-white">
-                                  {individual.goals?.filter(g => g.status === 'Completed').length || 0}/
-                                  {individual.goals?.length || 0}
-                                </div>
-                              </td>
-                              <td className="py-4 px-4">
-                                <div className="text-white">
-                                  {individual.incidents?.filter(inc => inc.status === 'Open').length || 0}/
-                                  {individual.incidents?.length || 0}
-                                </div>
-                              </td>
-                              <td className="py-4 px-4">
-                                <div className="text-white">
-                                  {(individual.medicalalerts?.length || 0) + (individual.behavioralalerts?.length || 0)}
-                                </div>
-                              </td>
-                              <td className="py-4 px-4 text-slate-400 text-sm">
-                                {new Date(individual.last_activity).toLocaleDateString()}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-lg mb-2">Target Buyers</h3>
+                  <ul className="space-y-2">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                      NC Medicaid Peer Support Providers
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                      LME/MCO-contracted agencies
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                      Crisis diversion & HCBS programs
+                    </li>
+                  </ul>
                 </div>
-              )}
 
-              {/* Compliance Section */}
-              {selectedMetric === 'compliance' && (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-6">
-                      <h3 className="text-xl font-bold text-white mb-4">Compliance by Individual</h3>
-                      <div className="space-y-3">
-                        {analyticsData.filteredIndividuals.slice(0, 10).map((individual, idx) => (
-                          <div key={individual.id} className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className={`w-8 h-8 bg-gradient-to-br ${getColorClass(idx)} rounded-lg flex items-center justify-center text-white text-sm font-bold`}>
-                                {getInitials(individual.firstname, individual.lastname)}
-                              </div>
-                              <span className="text-slate-300 text-sm">{individual.firstname} {individual.lastname}</span>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <div className="w-24 bg-slate-700 rounded-full h-2">
-                                <div 
-                                  className={`h-full rounded-full ${
-                                    (individual.compliance_score || 0) >= 90 ? 'bg-gradient-to-r from-green-600 to-emerald-500' :
-                                    (individual.compliance_score || 0) >= 70 ? 'bg-gradient-to-r from-yellow-600 to-orange-500' :
-                                    'bg-gradient-to-r from-red-600 to-pink-500'
-                                  }`}
-                                  style={{width: `${individual.compliance_score || 0}%`}}
-                                ></div>
-                              </div>
-                              <span className="text-white text-sm font-semibold w-12 text-right">{(individual.compliance_score || 0)}%</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-6">
-                      <h3 className="text-xl font-bold text-white mb-4">Compliance Categories</h3>
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-300">Excellent (90-100%)</span>
-                          <div className="flex items-center gap-3">
-                            <div className="w-32 bg-slate-700 rounded-full h-2">
-                              <div className="h-full bg-gradient-to-r from-green-600 to-emerald-500 rounded-full"
-                                style={{width: `${(analyticsData.filteredIndividuals.filter(ind => (ind.compliance_score || 0) >= 90).length / analyticsData.totalIndividuals) * 100}%`}}
-                              ></div>
-                            </div>
-                            <span className="text-white font-semibold w-12 text-right">
-                              {analyticsData.filteredIndividuals.filter(ind => (ind.compliance_score || 0) >= 90).length}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-300">Good (70-89%)</span>
-                          <div className="flex items-center gap-3">
-                            <div className="w-32 bg-slate-700 rounded-full h-2">
-                              <div className="h-full bg-gradient-to-r from-blue-600 to-cyan-500 rounded-full"
-                                style={{width: `${(analyticsData.filteredIndividuals.filter(ind => (ind.compliance_score || 0) >= 70 && (ind.compliance_score || 0) < 90).length / analyticsData.totalIndividuals) * 100}%`}}
-                              ></div>
-                            </div>
-                            <span className="text-white font-semibold w-12 text-right">
-                              {analyticsData.filteredIndividuals.filter(ind => (ind.compliance_score || 0) >= 70 && (ind.compliance_score || 0) < 90).length}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-300">Needs Attention (50-69%)</span>
-                          <div className="flex items-center gap-3">
-                            <div className="w-32 bg-slate-700 rounded-full h-2">
-                              <div className="h-full bg-gradient-to-r from-yellow-600 to-orange-500 rounded-full"
-                                style={{width: `${(analyticsData.filteredIndividuals.filter(ind => (ind.compliance_score || 0) >= 50 && (ind.compliance_score || 0) < 70).length / analyticsData.totalIndividuals) * 100}%`}}
-                              ></div>
-                            </div>
-                            <span className="text-white font-semibold w-12 text-right">
-                              {analyticsData.filteredIndividuals.filter(ind => (ind.compliance_score || 0) >= 50 && (ind.compliance_score || 0) < 70).length}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-300">Critical (Below 50%)</span>
-                          <div className="flex items-center gap-3">
-                            <div className="w-32 bg-slate-700 rounded-full h-2">
-                              <div className="h-full bg-gradient-to-r from-red-600 to-pink-500 rounded-full"
-                                style={{width: `${(analyticsData.filteredIndividuals.filter(ind => (ind.compliance_score || 0) < 50).length / analyticsData.totalIndividuals) * 100}%`}}
-                              ></div>
-                            </div>
-                            <span className="text-white font-semibold w-12 text-right">
-                              {analyticsData.filteredIndividuals.filter(ind => (ind.compliance_score || 0) < 50).length}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                <div className="bg-red-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-lg mb-2">System Principles</h3>
+                  <ul className="space-y-2">
+                    {nonNegotiablePrinciples.map((principle, index) => (
+                      <li key={index} className="flex items-center gap-2">
+                        <principle.icon className="w-4 h-4 text-red-500" />
+                        {principle.text}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-              )}
 
-              {/* Add more metric sections as needed */}
-              
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-lg mb-2">Key Benefits</h3>
+                  <ul className="space-y-2">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                      Prevents audit findings
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                      Reduces recoupments
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                      Faster billing cycles
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                      Safer peer practice
+                    </li>
+                  </ul>
+                </div>
+              </div>
             </div>
-          </ScrollArea>
+
+            <NoteLifecycle />
+
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-2xl font-bold mb-4">Core Data Models</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                  { name: 'User', fields: ['id', 'role', 'credentials'] },
+                  { name: 'Client', fields: ['name', 'Medicaid ID', 'MCP', 'auth dates', 'units'] },
+                  { name: 'Session', fields: ['timer', 'duration', 'units', 'location', 'status'] },
+                  { name: 'Note', fields: ['goal', 'interventions', 'progress', 'next steps'] },
+                  { name: 'Authorization', fields: ['units authorized', 'units used', 'warnings'] },
+                  { name: 'Audit Log', fields: ['entity', 'action', 'user', 'timestamp'] },
+                  { name: 'Resource', fields: ['category', 'location', 'MCP approved', 'verification'] },
+                  { name: 'Escalation', fields: ['tier', 'consent', '988 handoff', 'outcome'] }
+                ].map((model, index) => (
+                  <div key={index} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <h3 className="font-semibold mb-2">{model.name}</h3>
+                    <ul className="text-sm text-gray-600">
+                      {model.fields.map((field, idx) => (
+                        <li key={idx} className="truncate">• {field}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Roles Section */}
+        {activeSection === 'roles' && (
+          <div className="space-y-8">
+            <div className="flex flex-wrap gap-4 mb-6">
+              {Object.entries(roles).map(([key, role]) => {
+                const Icon = role.icon;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setActiveRole(key)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${activeRole === key
+                        ? `${role.color} text-white`
+                        : 'bg-white text-gray-700 hover:bg-gray-50 border'
+                      }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span className="font-medium">{role.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className={`p-3 rounded-full ${roles[activeRole].color} text-white`}>
+                  <ActiveRoleIcon className="w-6 h-6" />
+                </div>
+                <h2 className="text-2xl font-bold">{roles[activeRole].name}</h2>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div>
+                  <h3 className="text-lg font-semibold mb-4 text-green-600 flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5" />
+                    Can Do
+                  </h3>
+                  <ul className="space-y-3">
+                    {roles[activeRole].permissions.can.map((permission, index) => (
+                      <li key={index} className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
+                        <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                        <span>{permission}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {roles[activeRole].permissions.cannot.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4 text-red-600 flex items-center gap-2">
+                      <XCircle className="w-5 h-5" />
+                      Cannot Do
+                    </h3>
+                    <ul className="space-y-3">
+                      {roles[activeRole].permissions.cannot.map((permission, index) => (
+                        <li key={index} className="flex items-start gap-3 p-3 bg-red-50 rounded-lg">
+                          <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                          <span>{permission}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Features Section */}
+        {activeSection === 'features' && (
+          <div className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {coreFeatures.map((feature) => {
+                const Icon = feature.icon;
+                return (
+                  <div
+                    key={feature.id}
+                    className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer"
+                    onClick={() => setActiveSection('compliance')}
+                  >
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-blue-100 rounded-lg">
+                        <Icon className="w-6 h-6 text-blue-600" />
+                      </div>
+                      <h3 className="text-lg font-semibold">{feature.name}</h3>
+                    </div>
+                    <p className="text-gray-600 mb-4">{feature.description}</p>
+                    <ul className="space-y-2">
+                      {feature.details.slice(0, 3).map((detail, index) => (
+                        <li key={index} className="text-sm text-gray-700 flex items-start gap-2">
+                          <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                          {detail}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Compliance Section */}
+        {activeSection === 'compliance' && (
+          <div className="space-y-8">
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-2xl font-bold mb-6">NC Medicaid Compliance Engine</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-blue-500" />
+                    Enforcement Points
+                  </h3>
+                  <div className="space-y-4">
+                    {[
+                      { title: 'Time & Units', checks: ['No manual entry', '15-min minimum', 'Auto-calculation', 'No overrides'] },
+                      { title: 'Authorization', checks: ['Date range validation', 'Unit cap enforcement', 'Real-time checks', 'Warning thresholds'] },
+                      { title: 'Documentation', checks: ['Required fields', 'Clinical language blocking', 'Goal alignment', 'Supervisor review'] },
+                      { title: 'Scope of Practice', checks: ['Peer-only language', 'No clinical terms', 'No diagnosis/treatment', 'Supervision required'] }
+                    ].map((category, idx) => (
+                      <div key={idx} className="border-l-4 border-blue-500 pl-4 py-2">
+                        <h4 className="font-semibold mb-2">{category.title}</h4>
+                        <ul className="space-y-1">
+                          {category.checks.map((check, i) => (
+                            <li key={i} className="text-sm text-gray-600 flex items-center gap-2">
+                              <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                              {check}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-green-500" />
+                    Audit Defense Metrics
+                  </h3>
+                  <div className="space-y-4">
+                    {[
+                      { metric: 'Non-Compliant Service Prevention', target: '≥99% blocked' },
+                      { metric: 'Supervisor Approval Rate', target: '≥98% approved' },
+                      { metric: 'Authorization Adherence', target: '≥99% within auth' },
+                      { metric: 'Clinical Language Prevention', target: '100% blocked' },
+                      { metric: 'Timely Documentation', target: '100% real-time' },
+                      { metric: 'Audit Export Completeness', target: '100% fields included' }
+                    ].map((item, idx) => (
+                      <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                        <span>{item.metric}</span>
+                        <span className="font-semibold text-green-600">{item.target}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold mb-4">AI Safeguards</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="border rounded-lg p-4">
+                  <h4 className="font-semibold text-green-600 mb-3">AI CAN:</h4>
+                  <ul className="space-y-2">
+                    {[
+                      'Rewrite peer text for clarity',
+                      'Remove clinical language',
+                      'Check for missing fields',
+                      'Suggest peer-safe alternatives'
+                    ].map((item, idx) => (
+                      <li key={idx} className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="border rounded-lg p-4">
+                  <h4 className="font-semibold text-red-600 mb-3">AI CANNOT:</h4>
+                  <ul className="space-y-2">
+                    {[
+                      'Add time or services',
+                      'Add diagnoses or symptoms',
+                      'Change meaning of content',
+                      'Make clinical recommendations'
+                    ].map((item, idx) => (
+                      <li key={idx} className="flex items-center gap-2">
+                        <XCircle className="w-4 h-4 text-red-500" />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* Footer */}
+      <footer className="bg-white border-t mt-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="text-center text-gray-600">
+            <p className="font-semibold">PeerBridge Notes™ — NC Medicaid-Compliant Peer Support Note Engine</p>
+            <p className="text-sm mt-2">Designed for HIPAA compliance • SOC 2 ready • State procurement safe</p>
+          </div>
         </div>
-      </div>
+      </footer>
     </div>
   );
-};
-
-export default AnalyticsPage;
+}
