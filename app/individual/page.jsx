@@ -9,6 +9,7 @@ import {
   TrendingUp, Settings, Menu, Bell, ChevronDown, BarChart3, Brain,NetworkIcon,
   Zap, Sparkles, Award, TrendingDown, Target, StickyNote
 } from 'lucide-react';
+import { ChevronUp } from 'lucide-react';
 import { ScrollArea } from "../../components/ui/scroll-area";
 import { useUser } from '@clerk/nextjs';
 import { createClient } from '@supabase/supabase-js';
@@ -27,7 +28,8 @@ const IndividualsPage = () => {
   const router = useRouter();
   const { user, isLoaded } = useUser();
   const { userProfile, loading: profileLoading, hasPermission, hasAnyPermission } = useUserProfile();
-  
+const [sortColumn, setSortColumn] = useState(null);
+const [sortDirection, setSortDirection] = useState('asc'); // 'asc' or 'desc'
   const [individuals, setIndividuals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -49,6 +51,19 @@ const [statusUpdateData, setStatusUpdateData] = useState({
   effectiveDate: new Date().toISOString().split('T')[0],
   notes: ''
 });
+
+const handleSort = (column) => {
+  if (sortColumn === column) {
+    // Toggle direction if clicking the same column
+    setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+  } else {
+    // Set new column and default to ascending
+    setSortColumn(column);
+    setSortDirection('asc');
+  }
+};
+
+
   // Permission checks
   const canViewIndividuals = hasAnyPermission([
     PERMISSIONS.DAILY_NOTES_VIEW,
@@ -365,7 +380,8 @@ const [statusUpdateData, setStatusUpdateData] = useState({
     });
   };
 
-  const filteredIndividuals = individuals.filter(ind => {
+ const filteredIndividuals = individuals
+  .filter(ind => {
     const matchesSearch = 
       ind.firstname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       ind.lastname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -375,6 +391,40 @@ const [statusUpdateData, setStatusUpdateData] = useState({
     const matchesFilter = filterStatus === 'all' || ind.status === filterStatus;
 
     return matchesSearch && matchesFilter;
+  })
+  .sort((a, b) => {
+    if (!sortColumn) return 0;
+
+    let aVal, bVal;
+
+    switch (sortColumn) {
+      case 'name':
+        aVal = `${a.firstname} ${a.lastname}`.toLowerCase();
+        bVal = `${b.firstname} ${b.lastname}`.toLowerCase();
+        break;
+      case 'id':
+        aVal = a.individualid?.toLowerCase() || '';
+        bVal = b.individualid?.toLowerCase() || '';
+        break;
+      case 'location':
+        aVal = (a.homeassignment || a.location || '').toLowerCase();
+        bVal = (b.homeassignment || b.location || '').toLowerCase();
+        break;
+      case 'status':
+        aVal = a.status?.toLowerCase() || '';
+        bVal = b.status?.toLowerCase() || '';
+        break;
+      case 'lastActivity':
+        aVal = new Date(a.last_activity).getTime();
+        bVal = new Date(b.last_activity).getTime();
+        break;
+      default:
+        return 0;
+    }
+
+    if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+    if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
   });
 
   const getInitials = (firstname, lastname) => {
@@ -1300,16 +1350,66 @@ const TableRow = ({ individual, idx }) => (
                       <ScrollArea className="h-[500px] rounded-xl">
                         <div className="pr-4">
                           <table className="w-full">
-                            <thead className="sticky top-0 bg-slate-900/95 backdrop-blur-sm z-10">
-                              <tr className="border-b border-slate-700/50">
-                                <th className="text-left py-4 px-4 text-slate-400 font-bold text-xs uppercase tracking-wider">Individual</th>
-                                <th className="text-left py-4 px-4 text-slate-400 font-bold text-xs uppercase tracking-wider">ID</th>
-                                <th className="text-left py-4 px-4 text-slate-400 font-bold text-xs uppercase tracking-wider">Location</th>
-                                <th className="text-left py-4 px-4 text-slate-400 font-bold text-xs uppercase tracking-wider">Status</th>
-                                <th className="text-left py-4 px-4 text-slate-400 font-bold text-xs uppercase tracking-wider">Last Activity</th>
-                                <th className="text-left py-4 px-4 text-slate-400 font-bold text-xs uppercase tracking-wider">Actions</th>
-                              </tr>
-                            </thead>
+                           <thead className="sticky top-0 bg-slate-900/95 backdrop-blur-sm z-10">
+  <tr className="border-b border-slate-700/50">
+    <th 
+      onClick={() => handleSort('name')}
+      className="text-left py-4 px-4 text-slate-400 font-bold text-xs uppercase tracking-wider cursor-pointer hover:text-emerald-400 transition-colors group"
+    >
+      <div className="flex items-center gap-2">
+        Individual
+        {sortColumn === 'name' && (
+          sortDirection === 'asc' ? <ChevronUp size={14} className="text-emerald-400" /> : <ChevronDown size={14} className="text-emerald-400" />
+        )}
+      </div>
+    </th>
+    <th 
+      onClick={() => handleSort('id')}
+      className="text-left py-4 px-4 text-slate-400 font-bold text-xs uppercase tracking-wider cursor-pointer hover:text-emerald-400 transition-colors group"
+    >
+      <div className="flex items-center gap-2">
+        ID
+        {sortColumn === 'id' && (
+          sortDirection === 'asc' ? <ChevronUp size={14} className="text-emerald-400" /> : <ChevronDown size={14} className="text-emerald-400" />
+        )}
+      </div>
+    </th>
+    <th 
+      onClick={() => handleSort('location')}
+      className="text-left py-4 px-4 text-slate-400 font-bold text-xs uppercase tracking-wider cursor-pointer hover:text-emerald-400 transition-colors group"
+    >
+      <div className="flex items-center gap-2">
+        Location
+        {sortColumn === 'location' && (
+          sortDirection === 'asc' ? <ChevronUp size={14} className="text-emerald-400" /> : <ChevronDown size={14} className="text-emerald-400" />
+        )}
+      </div>
+    </th>
+    <th 
+      onClick={() => handleSort('status')}
+      className="text-left py-4 px-4 text-slate-400 font-bold text-xs uppercase tracking-wider cursor-pointer hover:text-emerald-400 transition-colors group"
+    >
+      <div className="flex items-center gap-2">
+        Status
+        {sortColumn === 'status' && (
+          sortDirection === 'asc' ? <ChevronUp size={14} className="text-emerald-400" /> : <ChevronDown size={14} className="text-emerald-400" />
+        )}
+      </div>
+    </th>
+    <th 
+      onClick={() => handleSort('lastActivity')}
+      className="text-left py-4 px-4 text-slate-400 font-bold text-xs uppercase tracking-wider cursor-pointer hover:text-emerald-400 transition-colors group"
+    >
+      <div className="flex items-center gap-2">
+        Last Activity
+        {sortColumn === 'lastActivity' && (
+          sortDirection === 'asc' ? <ChevronUp size={14} className="text-emerald-400" /> : <ChevronDown size={14} className="text-emerald-400" />
+        )}
+      </div>
+    </th>
+    <th className="text-left py-4 px-4 text-slate-400 font-bold text-xs uppercase tracking-wider">Actions</th>
+  </tr>
+</thead>
                             <tbody>
                               {filteredIndividuals.map((individual, idx) => (
                                 <TableRow key={individual.id} individual={individual} idx={idx} />
