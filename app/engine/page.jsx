@@ -6,7 +6,7 @@ import {
   BarChart3, PieChart, LineChart, ArrowUp, ArrowDown, Minus,
   CheckCircle, XCircle, AlertCircle, Info, Zap, Sparkles,
   ChevronRight, ChevronDown, Filter, Download, Search, Bell,
-  Menu, X, Home, CreditCard, NetworkIcon, Loader2, Eye,
+  Menu, X, Home, CreditCard, NetworkIcon, Loader2, Eye,User2Icon,
   TrendingUpIcon, Percent, UserCheck, AlertOctagon, MapPin,
   DollarSign, Gauge, TrendingUpDownIcon, Building2, GraduationCap,
   UserX, UserPlus, BookOpen, ClipboardCheck, AlertCircleIcon,
@@ -74,18 +74,20 @@ const ForesightEnginePage = () => {
     quarterlyReviewStatus: {}
   });
 
-  const menuItems = [
-    { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
-    { id: 'individual', icon: Users, label: 'Individuals', badge: null },
-    { id: 'medicine', icon: Pill, label: 'Medications', badge: null },
-    { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: '2' },
-    { id: 'privacy', icon: Shield, label: 'Data Privacy', badge: 'NEW' },
-    { id: 'report', icon: FileText, label: 'Report', badge: 'NEW' },
-    { id: 'engine', icon: Brain, label: 'Foresight Engine', badge: 'NEW' },
-    { id: 'intelligence', icon: NetworkIcon, label: 'User Foresight', badge: 'NEW' },
-    { id: 'billing', icon: CreditCard, label: 'Billing', badge: null },
-    { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null }
-  ];
+     const menuItems = [
+         { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
+         { id: 'individual', icon: Users, label: 'Individuals', badge: null },
+         { id: 'medicine', icon: Pill, label: 'Medications', badge: null },
+         { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: '3' },
+          { id: 'bill', icon: Shield, label: 'Billing Report', badge: 'NEW' },
+           { id: 'staff', icon: User2Icon, label: 'Add Staff', badge: 'NEW' },
+         { id: 'privacy', icon: Shield, label: 'Data Privacy', badge: 'NEW' },
+         { id: 'report', icon: FileText, label: 'Report', badge: 'NEW' },
+         { id: 'engine', icon: Pill, label: 'Foresight Engine', badge: 'NEW' },
+         { id: 'intelligence', icon: NetworkIcon, label: 'User Foresight', badge: 'NEW' },
+         { id: 'billing', icon: CreditCard, label: 'Billing', badge: null },
+         { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null }
+       ];
 
   useEffect(() => {
     if (isLoaded && user && !profileLoading && userProfile) {

@@ -146,59 +146,45 @@ const IndividualProfilePage = () => {
     effectivedate: '',
     nextreviewdate: '',
     qidpnotes: '',
+// ISP Outcomes (Sections 3-5)
+  isp_outcomes: [],
 
-
-      
-  // Person-Centered Information (already added)
+    // ISP Fields
+  isp_effective_start: '',
+  isp_effective_end: '',
+  isp_next_review: '',
+  funding_source: '',
+  qddp_case_manager: '',
+  
+  // Person-Centered Information
   important_to: '',
   important_for: '',
   strengths_interests: '',
   
-  // Community Integration (already added)
-  community_activities: [],
+  // Community Integration
+  community_integration_plan: '',
   transportation_method: '',
   community_barriers: '',
   
-  // Behavior Support (already added)
-  behavior_summary: '',
-  behavior_strategies: '',
+  // Behavior Support
+  behavior_support_summary: '',
   abc_data_required: false,
   
-  // Health & Wellness (already added)
-  health_summary: '',
-  seizure_history: '',
-  medication_monitoring_notes: '',
+  // Health & Wellness
+  health_wellness_summary: '',
+  seizure_history: false,
+  medication_monitoring: '',
   
-  // Quarterly Reviews (already added)
+  // Staff Training
+  staff_training_requirements: [],
+  
+  // Quarterly Reviews
   quarterly_reviews: [],
   
-  // ISP Dates (already added)
-  isp_effective_start: '',
-  isp_effective_end: '',
-  isp_next_review: '',
-  
-  // NEW: Lease / Residency Agreement
-  lease_start_date: '',
-  lease_end_date: '',
-  rent_amount: '',
-  rights_explained: false,
-  signed_by_individual: false,
-  lease_signature_date: '',
-  
-  // NEW: Complaint & Grievance tracking
-  complaints: [],
-  
-  // NEW: Corrective Action Plans
-  corrective_action_plans: [],
-
-staff_training_requirements: [],
-
-// NEW: Assigned Staff tracking
-  assigned_staff: []
-
-
-  
-
+  // Rights & Risk
+  rights_restrictions_notes: '',
+  identified_risks: [],
+  risk_mitigation_strategies: ''
   });
 
   // Load PDF.js and jsPDF on component mount
@@ -293,9 +279,7 @@ staff_training_requirements: [],
           medicalalerts: data.medicalalerts || [],
           behavioralalerts: data.behavioralalerts || [],
           rightsrestrictions: data.rightsrestrictions || [],
-          hcbsdomains: data.hcbsdomains || [],
-          staff_training_requirements: data.staff_training_requirements || [], // ADD THIS
-        assigned_staff: data.assigned_staff || [] // ADD THIS
+          hcbsdomains: data.hcbsdomains || []
         });
       }
     } catch (error) {
@@ -893,21 +877,15 @@ staff_training_requirements: [],
     );
   }
 
-const tabs = [
-  { id: 'overview', label: 'Overview', icon: User, permission: canViewProfile },
-  { id: 'person-centered', label: 'Person-Centered Info', icon: Heart, permission: canViewPlans },
-  { id: 'outcomes', label: 'Outcomes & Objectives', icon: Target, permission: canViewPlans },
-  { id: 'community-integration', label: 'Community Integration', icon: Users, permission: canViewPlans },
-  { id: 'behavior-support', label: 'Behavior Support', icon: Activity, permission: canViewPlans },
-  { id: 'health-wellness', label: 'Health & Wellness', icon: Heart, permission: canViewPlans },
-  { id: 'lease-residency', label: 'Lease & Residency', icon: HomeIcon, permission: canViewPlans },
-  { id: 'complaints-grievances', label: 'Complaints & Grievances', icon: AlertCircle, permission: canManageAlerts || canViewPlans },
-  { id: 'corrective-actions', label: 'Corrective Actions', icon: AlertTriangle, permission: canManageRisks || canViewPlans },
-  { id: 'staff', label: 'Staff & Training', icon: Users, permission: canViewPlans }, // NEW TAB
-  { id: 'rights-agreements', label: 'Rights & Agreements', icon: FileText, permission: canViewPlans },
-  { id: 'risks', label: 'Risk Management', icon: Shield, permission: canManageRisks || canViewPlans },
-  { id: 'quarterly-reviews', label: 'Quarterly Reviews', icon: Calendar, permission: canViewPlans }
-].filter(tab => tab.permission);
+  const tabs = [
+    { id: 'overview', label: 'Overview', icon: User, permission: canViewProfile },
+      { id: 'isp', label: 'Individual Support Plan', icon: FileText, permission: canViewPlans }, // NEW TAB
+    { id: 'person-centered-plan', label: 'Person-Centered Plan', icon: FileText, permission: canViewPlans },
+    { id: 'goals', label: 'Goals & Outcomes', icon: Target, permission: canViewPlans },
+     { id: 'rights-agreements', label: 'Rights & Agreements', icon: FileText, permission: canViewPlans },
+    { id: 'risks', label: 'Risk Management', icon: Shield, permission: canManageRisks || canViewPlans },
+    { id: 'alerts', label: 'Alerts & Restrictions', icon: AlertTriangle, permission: canManageAlerts || canViewPlans }
+  ].filter(tab => tab.permission);
 
   return (
     <div className="min-h-screen bg-slate-950 p-6">
@@ -1293,1880 +1271,738 @@ Edit Profile
             </div>
           )}
 
-          {/* Lease & Residency Agreement Tab */}
-{activeTab === 'lease-residency' && (
+          {/* ISP Tab - NEW */}
+{activeTab === 'isp' && (
   <div className="space-y-6">
     {!canViewPlans ? (
       <div className="text-center py-16">
         <Lock className="w-16 h-16 text-slate-600 mx-auto mb-4" />
         <h3 className="text-xl font-bold text-slate-400 mb-2">Access Restricted</h3>
-        <p className="text-slate-500">You do not have permission to view lease and residency information.</p>
+        <p className="text-slate-500">You do not have permission to view the Individual Support Plan.</p>
       </div>
     ) : (
       <>
+        {/* Section 1: Individual Information */}
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <HomeIcon size={20} className="text-indigo-400" />
-            Lease / Residency Agreement
+          <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+            <FileText className="text-indigo-400" size={24} />
+            Section 1 — Individual Information
           </h3>
-          
-          <div className="bg-amber-600/10 border border-amber-500/30 rounded-lg p-4 mb-6">
-            <div className="flex items-start gap-2">
-              <Info size={20} className="text-amber-400 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-amber-400 mb-1">HCBS Compliance Required</p>
-                <p className="text-sm text-slate-300">
-                  Unsigned lease = HCBS violation risk. All residents must have a signed residency agreement with rights explained.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-2">
-                  Lease Start Date <span className="text-red-400">*</span>
-                </label>
-                <input
-                  type="date"
-                  name="lease_start_date"
-                  value={formData.lease_start_date}
-                  onChange={handleInputChange}
-                  disabled={!isEditing || !canEditPlans}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-2">
-                  Lease End Date
-                </label>
-                <input
-                  type="date"
-                  name="lease_end_date"
-                  value={formData.lease_end_date}
-                  onChange={handleInputChange}
-                  disabled={!isEditing || !canEditPlans}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-2">
-                  Rent Amount (if applicable)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-4 top-3.5 text-slate-400">$</span>
-                  <input
-                    type="number"
-                    name="rent_amount"
-                    value={formData.rent_amount}
-                    onChange={handleInputChange}
-                    disabled={!isEditing || !canEditPlans}
-                    placeholder="0.00"
-                    step="0.01"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-8 pr-4 py-3 text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 transition-all"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-2">
-                  Lease Signature Date <span className="text-red-400">*</span>
-                </label>
-                <input
-                  type="date"
-                  name="lease_signature_date"
-                  value={formData.lease_signature_date}
-                  onChange={handleInputChange}
-                  disabled={!isEditing || !canEditPlans}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 transition-all"
-                />
-              </div>
-            </div>
-
-            {/* HCBS Rights Checklist */}
-            <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-4">
-              <h4 className="text-md font-semibold text-white mb-4">HCBS Rights Documentation</h4>
-              
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-lg">
-                  <input
-                    type="checkbox"
-                    name="rights_explained"
-                    checked={formData.rights_explained}
-                    onChange={(e) => setFormData(prev => ({ ...prev, rights_explained: e.target.checked }))}
-                    disabled={!isEditing || !canEditPlans}
-                    className="w-5 h-5 text-emerald-600 bg-slate-800 border-slate-600 rounded focus:ring-emerald-500 disabled:opacity-50"
-                  />
-                  <label className="text-sm text-slate-300 flex-1">
-                    <span className="font-semibold text-white">Rights Explained</span>
-                    <p className="text-xs text-slate-400 mt-0.5">Individual's rights, privacy, dignity, and autonomy have been explained</p>
-                  </label>
-                  {formData.rights_explained && (
-                    <CheckCircle size={20} className="text-emerald-400" />
-                  )}
-                </div>
-
-                <div className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-lg">
-                  <input
-                    type="checkbox"
-                    name="signed_by_individual"
-                    checked={formData.signed_by_individual}
-                    onChange={(e) => setFormData(prev => ({ ...prev, signed_by_individual: e.target.checked }))}
-                    disabled={!isEditing || !canEditPlans}
-                    className="w-5 h-5 text-emerald-600 bg-slate-800 border-slate-600 rounded focus:ring-emerald-500 disabled:opacity-50"
-                  />
-                  <label className="text-sm text-slate-300 flex-1">
-                    <span className="font-semibold text-white">Signed by Individual/Guardian</span>
-                    <p className="text-xs text-slate-400 mt-0.5">Individual or legal guardian has signed the agreement</p>
-                  </label>
-                  {formData.signed_by_individual && (
-                    <CheckCircle size={20} className="text-emerald-400" />
-                  )}
-                </div>
-              </div>
-
-              {/* Warning if not compliant */}
-              {(!formData.rights_explained || !formData.signed_by_individual || !formData.lease_signature_date) && (
-                <div className="mt-4 bg-red-600/10 border border-red-500/30 rounded-lg p-3">
-                  <div className="flex items-start gap-2">
-                    <AlertTriangle size={18} className="text-red-400 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-semibold text-red-400">HCBS Compliance Warning</p>
-                      <p className="text-xs text-slate-300 mt-1">
-                        Incomplete lease documentation may result in HCBS violations. Ensure all fields are completed and signed.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </>
-    )}
-  </div>
-)}
-
-{/* Staff Training Requirements Tab */}
-{activeTab === 'staff-training' && (
-  <div className="space-y-6">
-    {!canViewPlans ? (
-      <div className="text-center py-16">
-        <Lock className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-        <h3 className="text-xl font-bold text-slate-400 mb-2">Access Restricted</h3>
-        <p className="text-slate-500">You do not have permission to view staff training requirements.</p>
-      </div>
-    ) : (
-      <>
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <Award size={20} className="text-yellow-400" />
-                Staff Training Requirements
-              </h3>
-              <p className="text-sm text-slate-400 mt-1">
-                Required training for staff working with this individual (per ISP Section 10)
-              </p>
-            </div>
-            {isEditing && canEditPlans && (
-              <button
-                onClick={() => {
-                  const newRequirement = {
-                    id: Date.now().toString(),
-                    training_type: '',
-                    required: true,
-                    frequency: 'One-Time',
-                    notes: '',
-                    created_at: new Date().toISOString()
-                  };
-                  setFormData(prev => ({
-                    ...prev,
-                    staff_training_requirements: [...(prev.staff_training_requirements || []), newRequirement]
-                  }));
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-semibold transition-all"
-              >
-                <Plus size={16} />
-                Add Requirement
-              </button>
-            )}
-          </div>
-
-          {/* Standard Required Trainings (Always Required) */}
-          <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-4 mb-6">
-            <h4 className="text-sm font-semibold text-slate-300 mb-3">
-              Standard Required Training (All Staff)
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {[
-                'ISP Review & Acknowledgment',
-                'HCBS Rights & Dignity Training',
-                'Medication Administration (if applicable)',
-                'Emergency Procedures & First Aid'
-              ].map((training) => (
-                <div key={training} className="flex items-center gap-2 p-3 bg-slate-800/50 rounded-lg">
-                  <CheckCircle size={16} className="text-emerald-400 flex-shrink-0" />
-                  <span className="text-sm text-slate-300">{training}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Individual-Specific Requirements */}
-          <h4 className="text-sm font-semibold text-slate-300 mb-3">
-            Individual-Specific Training Requirements
-          </h4>
-
-          {(!formData.staff_training_requirements || formData.staff_training_requirements.length === 0) ? (
-            <div className="text-center py-12 bg-slate-900/50 rounded-lg border border-slate-700">
-              <Award className="w-12 h-12 mx-auto mb-3 text-slate-600" />
-              <p className="text-sm text-slate-400 mb-1">No individual-specific training requirements</p>
-              <p className="text-xs text-slate-500">Add specialized training if needed for this individual</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {formData.staff_training_requirements.map((req) => (
-                <div key={req.id} className="bg-slate-900/50 border border-slate-700 rounded-lg p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-medium text-slate-400 mb-1">
-                        Training Type <span className="text-red-400">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={req.training_type}
-                        onChange={(e) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            staff_training_requirements: prev.staff_training_requirements.map(r => 
-                              r.id === req.id ? { ...r, training_type: e.target.value } : r
-                            )
-                          }));
-                        }}
-                        disabled={!isEditing || !canEditPlans}
-                        placeholder="e.g., Behavior support strategies, Dietary restrictions training, Seizure protocol"
-                        className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-yellow-500 disabled:opacity-50 transition-all"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1">Frequency</label>
-                      <select
-                        value={req.frequency || 'One-Time'}
-                        onChange={(e) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            staff_training_requirements: prev.staff_training_requirements.map(r => 
-                              r.id === req.id ? { ...r, frequency: e.target.value } : r
-                            )
-                          }));
-                        }}
-                        disabled={!isEditing || !canEditPlans}
-                        className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-yellow-500 disabled:opacity-50 transition-all"
-                      >
-                        <option value="One-Time">One-Time (upon assignment)</option>
-                        <option value="Quarterly">Quarterly</option>
-                        <option value="Annually">Annually</option>
-                        <option value="As Needed">As Needed</option>
-                      </select>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={req.required !== false}
-                        onChange={(e) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            staff_training_requirements: prev.staff_training_requirements.map(r => 
-                              r.id === req.id ? { ...r, required: e.target.checked } : r
-                            )
-                          }));
-                        }}
-                        disabled={!isEditing || !canEditPlans}
-                        className="w-4 h-4 text-yellow-600 bg-slate-800 border-slate-600 rounded focus:ring-yellow-500 disabled:opacity-50"
-                      />
-                      <label className="text-sm text-slate-300">
-                        Required (staff cannot work without this training)
-                      </label>
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-medium text-slate-400 mb-1">
-                        Training Notes / Content Description
-                      </label>
-                      <textarea
-                        value={req.notes}
-                        onChange={(e) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            staff_training_requirements: prev.staff_training_requirements.map(r => 
-                              r.id === req.id ? { ...r, notes: e.target.value } : r
-                            )
-                          }));
-                        }}
-                        disabled={!isEditing || !canEditPlans}
-                        rows="2"
-                        placeholder="Describe what staff need to know (triggers, interventions, protocols, preferences, etc.)"
-                        className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-yellow-500 disabled:opacity-50 transition-all resize-none"
-                      />
-                    </div>
-
-                    {isEditing && canEditPlans && (
-                      <div className="md:col-span-2">
-                        <button
-                          onClick={() => {
-                            if (confirm('Are you sure you want to delete this training requirement?')) {
-                              setFormData(prev => ({
-                                ...prev,
-                                staff_training_requirements: prev.staff_training_requirements.filter(r => r.id !== req.id)
-                              }));
-                            }
-                          }}
-                          className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg font-semibold transition-all flex items-center gap-2 text-sm"
-                        >
-                          <Trash2 size={14} />
-                          Delete Requirement
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Information Box */}
-          <div className="mt-6 bg-blue-600/10 border border-blue-500/30 rounded-lg p-4">
-            <div className="flex items-start gap-2">
-              <Info size={18} className="text-blue-400 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-blue-400 mb-1">ISP Compliance Requirement</p>
-                <p className="text-xs text-slate-300">
-                  All staff working with this individual must complete ISP review and any individual-specific training requirements. 
-                  Training records should be maintained in the Staff module.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </>
-    )}
-  </div>
-)}
-
-{/* Staff & Training Tab */}
-{activeTab === 'staff' && (
-  <div className="space-y-6">
-    {!canViewPlans ? (
-      <div className="text-center py-16">
-        <Lock className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-        <h3 className="text-xl font-bold text-slate-400 mb-2">Access Restricted</h3>
-        <p className="text-slate-500">You do not have permission to view staff and training information.</p>
-      </div>
-    ) : (
-      <>
-        {/* SECTION 1: Assigned Staff */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <Users size={20} className="text-blue-400" />
-                Assigned Staff
-              </h3>
-              <p className="text-sm text-slate-400 mt-1">
-                Staff members who provide direct support to this individual
-              </p>
-            </div>
-            {isEditing && canEditPlans && (
-              <button
-                onClick={() => {
-                  const newStaff = {
-                    id: Date.now().toString(),
-                    staff_name: '',
-                    staff_id: '',
-                    role: '',
-                    primary_contact: false,
-                    shift_assignment: '1st Shift',
-                    contact_phone: '',
-                    contact_email: '',
-                    start_date: new Date().toISOString().split('T')[0],
-                    status: 'Active',
-                    training_completed: false,
-                    training_completion_date: '',
-                    notes: '',
-                    created_at: new Date().toISOString()
-                  };
-                  setFormData(prev => ({
-                    ...prev,
-                    assigned_staff: [...(prev.assigned_staff || []), newStaff]
-                  }));
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-all"
-              >
-                <Plus size={16} />
-                Add Staff
-              </button>
-            )}
-          </div>
-
-          {(!formData.assigned_staff || formData.assigned_staff.length === 0) ? (
-            <div className="text-center py-12 bg-slate-900/50 rounded-lg border border-slate-700">
-              <Users className="w-16 h-16 mx-auto mb-4 text-slate-600" />
-              <p className="text-lg mb-2 text-slate-400">No staff assigned yet</p>
-              <p className="text-sm text-slate-500">Add staff members who work with this individual</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {formData.assigned_staff.map((staff) => (
-                <div 
-                  key={staff.id} 
-                  className={`bg-slate-900/50 border rounded-lg p-4 ${
-                    staff.primary_contact 
-                      ? 'border-blue-500/50' 
-                      : 'border-slate-700'
-                  }`}
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                        staff.training_completed 
-                          ? 'bg-emerald-600/20 border-2 border-emerald-500' 
-                          : 'bg-yellow-600/20 border-2 border-yellow-500'
-                      }`}>
-                        <User size={20} className={staff.training_completed ? 'text-emerald-400' : 'text-yellow-400'} />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg font-bold text-white">
-                            {staff.staff_name || 'Unnamed Staff'}
-                          </span>
-                          {staff.primary_contact && (
-                            <span className="px-2 py-1 bg-blue-600/20 text-blue-400 text-xs rounded-full font-bold border border-blue-500/30">
-                              Primary Contact
-                            </span>
-                          )}
-                          <span className={`px-2 py-1 text-xs rounded-full font-bold border ${
-                            staff.status === 'Active'
-                              ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/30'
-                              : 'bg-slate-600/20 text-slate-400 border-slate-500/30'
-                          }`}>
-                            {staff.status || 'Active'}
-                          </span>
-                        </div>
-                        <p className="text-sm text-slate-400 mt-1">
-                          {staff.role || 'No role specified'} • {staff.shift_assignment || 'No shift assigned'}
-                        </p>
-                      </div>
-                    </div>
-                    {isEditing && canEditPlans && (
-                      <button
-                        onClick={() => {
-                          if (confirm('Are you sure you want to remove this staff assignment?')) {
-                            setFormData(prev => ({
-                              ...prev,
-                              assigned_staff: prev.assigned_staff.filter(s => s.id !== staff.id)
-                            }));
-                          }
-                        }}
-                        className="text-red-400 hover:text-red-300 transition-colors"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1">
-                        Staff Name <span className="text-red-400">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={staff.staff_name}
-                        onChange={(e) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            assigned_staff: prev.assigned_staff.map(s => 
-                              s.id === staff.id ? { ...s, staff_name: e.target.value } : s
-                            )
-                          }));
-                        }}
-                        disabled={!isEditing || !canEditPlans}
-                        placeholder="Full name"
-                        className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1">Staff ID / Employee #</label>
-                      <input
-                        type="text"
-                        value={staff.staff_id}
-                        onChange={(e) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            assigned_staff: prev.assigned_staff.map(s => 
-                              s.id === staff.id ? { ...s, staff_id: e.target.value } : s
-                            )
-                          }));
-                        }}
-                        disabled={!isEditing || !canEditPlans}
-                        placeholder="Employee ID"
-                        className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1">Role / Position</label>
-                      <select
-                        value={staff.role}
-                        onChange={(e) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            assigned_staff: prev.assigned_staff.map(s => 
-                              s.id === staff.id ? { ...s, role: e.target.value } : s
-                            )
-                          }));
-                        }}
-                        disabled={!isEditing || !canEditPlans}
-                        className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all"
-                      >
-                        <option value="">Select Role</option>
-                        <option value="Direct Support Professional (DSP)">Direct Support Professional (DSP)</option>
-                        <option value="House Manager">House Manager</option>
-                        <option value="QDDP">QDDP</option>
-                        <option value="Nurse">Nurse</option>
-                        <option value="Behavioral Specialist">Behavioral Specialist</option>
-                        <option value="Job Coach">Job Coach</option>
-                        <option value="Case Manager">Case Manager</option>
-                        <option value="Other">Other</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1">Shift Assignment</label>
-                      <select
-                        value={staff.shift_assignment}
-                        onChange={(e) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            assigned_staff: prev.assigned_staff.map(s => 
-                              s.id === staff.id ? { ...s, shift_assignment: e.target.value } : s
-                            )
-                          }));
-                        }}
-                        disabled={!isEditing || !canEditPlans}
-                        className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all"
-                      >
-                        <option value="1st Shift">1st Shift (Day)</option>
-                        <option value="2nd Shift">2nd Shift (Evening)</option>
-                        <option value="3rd Shift">3rd Shift (Night)</option>
-                        <option value="Awake Overnight">Awake Overnight</option>
-                        <option value="Rotating">Rotating</option>
-                        <option value="PRN / As Needed">PRN / As Needed</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1">Contact Phone</label>
-                      <input
-                        type="tel"
-                        value={staff.contact_phone}
-                        onChange={(e) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            assigned_staff: prev.assigned_staff.map(s => 
-                              s.id === staff.id ? { ...s, contact_phone: e.target.value } : s
-                            )
-                          }));
-                        }}
-                        disabled={!isEditing || !canEditPlans}
-                        placeholder="Phone number"
-                        className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1">Contact Email</label>
-                      <input
-                        type="email"
-                        value={staff.contact_email}
-                        onChange={(e) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            assigned_staff: prev.assigned_staff.map(s => 
-                              s.id === staff.id ? { ...s, contact_email: e.target.value } : s
-                            )
-                          }));
-                        }}
-                        disabled={!isEditing || !canEditPlans}
-                        placeholder="Email address"
-                        className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1">Start Date</label>
-                      <input
-                        type="date"
-                        value={staff.start_date}
-                        onChange={(e) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            assigned_staff: prev.assigned_staff.map(s => 
-                              s.id === staff.id ? { ...s, start_date: e.target.value } : s
-                            )
-                          }));
-                        }}
-                        disabled={!isEditing || !canEditPlans}
-                        className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1">Status</label>
-                      <select
-                        value={staff.status}
-                        onChange={(e) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            assigned_staff: prev.assigned_staff.map(s => 
-                              s.id === staff.id ? { ...s, status: e.target.value } : s
-                            )
-                          }));
-                        }}
-                        disabled={!isEditing || !canEditPlans}
-                        className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all"
-                      >
-                        <option value="Active">Active</option>
-                        <option value="On Leave">On Leave</option>
-                        <option value="Inactive">Inactive</option>
-                      </select>
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-medium text-slate-400 mb-1">Notes</label>
-                      <textarea
-                        value={staff.notes}
-                        onChange={(e) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            assigned_staff: prev.assigned_staff.map(s => 
-                              s.id === staff.id ? { ...s, notes: e.target.value } : s
-                            )
-                          }));
-                        }}
-                        disabled={!isEditing || !canEditPlans}
-                        rows="2"
-                        placeholder="Special notes, schedule preferences, expertise, etc."
-                        className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all resize-none"
-                      />
-                    </div>
-
-                    {/* Training Status */}
-                    <div className="md:col-span-2 pt-3 border-t border-slate-700">
-                      <div className="flex items-center gap-6">
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={staff.primary_contact}
-                            onChange={(e) => {
-                              setFormData(prev => ({
-                                ...prev,
-                                assigned_staff: prev.assigned_staff.map(s => 
-                                  s.id === staff.id ? { ...s, primary_contact: e.target.checked } : s
-                                )
-                              }));
-                            }}
-                            disabled={!isEditing || !canEditPlans}
-                            className="w-4 h-4 text-blue-600 bg-slate-800 border-slate-600 rounded focus:ring-blue-500 disabled:opacity-50"
-                          />
-                          <label className="text-sm text-slate-300">Primary Contact for this Individual</label>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={staff.training_completed}
-                            onChange={(e) => {
-                              setFormData(prev => ({
-                                ...prev,
-                                assigned_staff: prev.assigned_staff.map(s => 
-                                  s.id === staff.id ? { 
-                                    ...s, 
-                                    training_completed: e.target.checked,
-                                    training_completion_date: e.target.checked ? new Date().toISOString().split('T')[0] : ''
-                                  } : s
-                                )
-                              }));
-                            }}
-                            disabled={!isEditing || !canEditPlans}
-                            className="w-4 h-4 text-emerald-600 bg-slate-800 border-slate-600 rounded focus:ring-emerald-500 disabled:opacity-50"
-                          />
-                          <label className="text-sm text-slate-300">ISP Training Completed</label>
-                          {staff.training_completed && staff.training_completion_date && (
-                            <span className="text-xs text-slate-500">
-                              ({new Date(staff.training_completion_date).toLocaleDateString()})
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Training Alert */}
-                  {!staff.training_completed && (
-                    <div className="mt-4 bg-yellow-600/10 border border-yellow-500/30 rounded-lg p-3">
-                      <div className="flex items-start gap-2">
-                        <AlertTriangle size={16} className="text-yellow-400 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="text-sm font-semibold text-yellow-400">Training Required</p>
-                          <p className="text-xs text-slate-300 mt-1">
-                            This staff member must complete ISP review and all required training before providing direct support.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Staff Summary */}
-          {formData.assigned_staff?.length > 0 && (
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-blue-600/10 border border-blue-500/30 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <Users size={20} className="text-blue-400" />
-                  <span className="text-2xl font-bold text-white">
-                    {formData.assigned_staff.filter(s => s.status === 'Active').length}
-                  </span>
-                </div>
-                <p className="text-sm text-slate-300 font-semibold">Active Staff</p>
-              </div>
-              <div className="bg-emerald-600/10 border border-emerald-500/30 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <CheckCircle size={20} className="text-emerald-400" />
-                  <span className="text-2xl font-bold text-white">
-                    {formData.assigned_staff.filter(s => s.training_completed).length}
-                  </span>
-                </div>
-                <p className="text-sm text-slate-300 font-semibold">Training Complete</p>
-              </div>
-              <div className="bg-yellow-600/10 border border-yellow-500/30 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <AlertTriangle size={20} className="text-yellow-400" />
-                  <span className="text-2xl font-bold text-white">
-                    {formData.assigned_staff.filter(s => !s.training_completed && s.status === 'Active').length}
-                  </span>
-                </div>
-                <p className="text-sm text-slate-300 font-semibold">Training Pending</p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* SECTION 2: Staff Training Requirements */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <Award size={20} className="text-yellow-400" />
-                Staff Training Requirements
-              </h3>
-              <p className="text-sm text-slate-400 mt-1">
-                Required training for ALL staff working with this individual (per ISP Section 10)
-              </p>
-            </div>
-            {isEditing && canEditPlans && (
-              <button
-                onClick={() => {
-                  const newRequirement = {
-                    id: Date.now().toString(),
-                    training_type: '',
-                    required: true,
-                    frequency: 'One-Time',
-                    notes: '',
-                    created_at: new Date().toISOString()
-                  };
-                  setFormData(prev => ({
-                    ...prev,
-                    staff_training_requirements: [...(prev.staff_training_requirements || []), newRequirement]
-                  }));
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-semibold transition-all"
-              >
-                <Plus size={16} />
-                Add Requirement
-              </button>
-            )}
-          </div>
-
-          {/* Standard Required Trainings (Always Required) */}
-          <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-4 mb-6">
-            <h4 className="text-sm font-semibold text-slate-300 mb-3">
-              Standard Required Training (All Staff)
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {[
-                'ISP Review & Acknowledgment',
-                'HCBS Rights & Dignity Training',
-                'Medication Administration (if applicable)',
-                'Emergency Procedures & First Aid'
-              ].map((training) => (
-                <div key={training} className="flex items-center gap-2 p-3 bg-slate-800/50 rounded-lg">
-                  <CheckCircle size={16} className="text-emerald-400 flex-shrink-0" />
-                  <span className="text-sm text-slate-300">{training}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Individual-Specific Requirements */}
-          <h4 className="text-sm font-semibold text-slate-300 mb-3">
-            Individual-Specific Training Requirements
-          </h4>
-
-          {(!formData.staff_training_requirements || formData.staff_training_requirements.length === 0) ? (
-            <div className="text-center py-12 bg-slate-900/50 rounded-lg border border-slate-700">
-              <Award className="w-12 h-12 mx-auto mb-3 text-slate-600" />
-              <p className="text-sm text-slate-400 mb-1">No individual-specific training requirements</p>
-              <p className="text-xs text-slate-500">Add specialized training if needed for this individual</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {formData.staff_training_requirements.map((req) => (
-                <div key={req.id} className="bg-slate-900/50 border border-slate-700 rounded-lg p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-medium text-slate-400 mb-1">
-                        Training Type <span className="text-red-400">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={req.training_type}
-                        onChange={(e) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            staff_training_requirements: prev.staff_training_requirements.map(r => 
-                              r.id === req.id ? { ...r, training_type: e.target.value } : r
-                            )
-                          }));
-                        }}
-                        disabled={!isEditing || !canEditPlans}
-                        placeholder="e.g., Behavior support strategies, Dietary restrictions training, Seizure protocol"
-                        className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-yellow-500 disabled:opacity-50 transition-all"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1">Frequency</label>
-                      <select
-                        value={req.frequency || 'One-Time'}
-                        onChange={(e) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            staff_training_requirements: prev.staff_training_requirements.map(r => 
-                              r.id === req.id ? { ...r, frequency: e.target.value } : r
-                            )
-                          }));
-                        }}
-                        disabled={!isEditing || !canEditPlans}
-                        className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-yellow-500 disabled:opacity-50 transition-all"
-                      >
-                        <option value="One-Time">One-Time (upon assignment)</option>
-                        <option value="Quarterly">Quarterly</option>
-                        <option value="Annually">Annually</option>
-                        <option value="As Needed">As Needed</option>
-                      </select>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={req.required !== false}
-                        onChange={(e) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            staff_training_requirements: prev.staff_training_requirements.map(r => 
-                              r.id === req.id ? { ...r, required: e.target.checked } : r
-                            )
-                          }));
-                        }}
-                        disabled={!isEditing || !canEditPlans}
-                        className="w-4 h-4 text-yellow-600 bg-slate-800 border-slate-600 rounded focus:ring-yellow-500 disabled:opacity-50"
-                      />
-                      <label className="text-sm text-slate-300">
-                        Required (staff cannot work without this training)
-                      </label>
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-medium text-slate-400 mb-1">
-                        Training Notes / Content Description
-                      </label>
-                      <textarea
-                        value={req.notes}
-                        onChange={(e) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            staff_training_requirements: prev.staff_training_requirements.map(r => 
-                              r.id === req.id ? { ...r, notes: e.target.value } : r
-                            )
-                          }));
-                        }}
-                        disabled={!isEditing || !canEditPlans}
-                        rows="2"
-                        placeholder="Describe what staff need to know (triggers, interventions, protocols, preferences, etc.)"
-                        className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-yellow-500 disabled:opacity-50 transition-all resize-none"
-                      />
-                    </div>
-
-                    {isEditing && canEditPlans && (
-                      <div className="md:col-span-2">
-                        <button
-                          onClick={() => {
-                            if (confirm('Are you sure you want to delete this training requirement?')) {
-                              setFormData(prev => ({
-                                ...prev,
-                                staff_training_requirements: prev.staff_training_requirements.filter(r => r.id !== req.id)
-                              }));
-                            }
-                          }}
-                          className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg font-semibold transition-all flex items-center gap-2 text-sm"
-                        >
-                          <Trash2 size={14} />
-Delete Requirement
-</button>
-</div>
-)}
-</div>
-
-</div>
-))}
-</div>
-)}
-{/* Information Box */}
-      <div className="mt-6 bg-blue-600/10 border border-blue-500/30 rounded-lg p-4">
-        <div className="flex items-start gap-2">
-          <Info size={18} className="text-blue-400 mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="text-sm font-semibold text-blue-400 mb-1">ISP Compliance Requirement</p>
-            <p className="text-xs text-slate-300">
-              All staff working with this individual must complete ISP review and any individual-specific training requirements. 
-              Training records should be maintained in the Staff module and verified before assignment.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </>
-)}
-</div>
-)}
-
-
-
-{/* Complaints & Grievances Tab */}
-{activeTab === 'complaints-grievances' && (
-  <div className="space-y-6">
-    {!canManageAlerts && !canViewPlans ? (
-      <div className="text-center py-16">
-        <Lock className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-        <h3 className="text-xl font-bold text-slate-400 mb-2">Access Restricted</h3>
-        <p className="text-slate-500">You do not have permission to view complaints and grievances.</p>
-      </div>
-    ) : (
-      <>
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <AlertCircle size={20} className="text-orange-400" />
-                Complaint & Grievance Log
-              </h3>
-              <p className="text-sm text-slate-400 mt-1">
-                Document and track all complaints and grievances for rights & autonomy compliance
-              </p>
-            </div>
-            {isEditing && canManageAlerts && (
-              <button
-                onClick={() => {
-                  const newComplaint = {
-                    id: Date.now().toString(),
-                    complaint_id: `CMP-${Date.now()}`,
-                    date_filed: new Date().toISOString().split('T')[0],
-                    complaint_type: '',
-                    description: '',
-                    report_method: 'Verbal',
-                    resolution_status: 'Open',
-                    resolution_date: '',
-                    resolution_summary: '',
-                    filed_by: userProfile.fullname,
-                    created_at: new Date().toISOString()
-                  };
-                  setFormData(prev => ({
-                    ...prev,
-                    complaints: [...(prev.complaints || []), newComplaint]
-                  }));
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold transition-all"
-              >
-                <Plus size={16} />
-                Add Complaint
-              </button>
-            )}
-          </div>
-
-          {(!formData.complaints || formData.complaints.length === 0) ? (
-            <div className="text-center py-12 text-slate-400">
-              <AlertCircle className="w-16 h-16 mx-auto mb-4 text-slate-600" />
-              <p className="text-lg mb-2">No complaints or grievances filed</p>
-              <p className="text-sm text-slate-500">All complaints should be documented for compliance tracking</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {formData.complaints.map((complaint) => (
-                <div 
-                  key={complaint.id} 
-                  className={`bg-slate-900/50 border rounded-lg p-4 ${
-                    complaint.resolution_status === 'Open' 
-                      ? 'border-orange-500/50' 
-                      : 'border-slate-700'
-                  }`}
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <span className="text-xs font-mono text-slate-400">{complaint.complaint_id}</span>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                          complaint.resolution_status === 'Open'
-                            ? 'bg-orange-600/20 text-orange-400 border border-orange-500/30'
-                            : 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30'
-                        }`}>
-                          {complaint.resolution_status}
-                        </span>
-                      </div>
-                    </div>
-                    {isEditing && canManageAlerts && (
-                      <button
-                        onClick={() => {
-                          if (confirm('Are you sure you want to delete this complaint record?')) {
-                            setFormData(prev => ({
-                              ...prev,
-                              complaints: prev.complaints.filter(c => c.id !== complaint.id)
-                            }));
-                          }
-                        }}
-                        className="text-red-400 hover:text-red-300 transition-colors"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1">Date Filed</label>
-                      <input
-                        type="date"
-                        value={complaint.date_filed}
-                        onChange={(e) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            complaints: prev.complaints.map(c => 
-                              c.id === complaint.id ? { ...c, date_filed: e.target.value } : c
-                            )
-                          }));
-                        }}
-                        disabled={!isEditing || !canManageAlerts}
-                        className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500 disabled:opacity-50 transition-all"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1">Complaint Type</label>
-                      <select
-                        value={complaint.complaint_type}
-                        onChange={(e) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            complaints: prev.complaints.map(c => 
-                              c.id === complaint.id ? { ...c, complaint_type: e.target.value } : c
-                            )
-                          }));
-                        }}
-                        disabled={!isEditing || !canManageAlerts}
-                        className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500 disabled:opacity-50 transition-all"
-                      >
-                        <option value="">Select Type</option>
-                        <option value="Rights Violation">Rights Violation</option>
-                        <option value="Service Quality">Service Quality</option>
-                        <option value="Staff Conduct">Staff Conduct</option>
-                        <option value="Safety Concern">Safety Concern</option>
-                        <option value="Financial">Financial</option>
-                        <option value="Other">Other</option>
-                      </select>
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-medium text-slate-400 mb-1">Description</label>
-                      <textarea
-                        value={complaint.description}
-                        onChange={(e) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            complaints: prev.complaints.map(c => 
-                              c.id === complaint.id ? { ...c, description: e.target.value } : c
-                            )
-                          }));
-                        }}
-                        disabled={!isEditing || !canManageAlerts}
-                        rows="3"
-                        placeholder="Detailed description of the complaint..."
-                        className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500 disabled:opacity-50 transition-all resize-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1">Report Method</label>
-                      <select
-                        value={complaint.report_method}
-                        onChange={(e) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            complaints: prev.complaints.map(c => 
-                              c.id === complaint.id ? { ...c, report_method: e.target.value } : c
-                            )
-                          }));
-                        }}
-                        disabled={!isEditing || !canManageAlerts}
-                        className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500 disabled:opacity-50 transition-all"
-                      >
-                        <option value="Verbal">Verbal</option>
-                        <option value="Written">Written</option>
-                        <option value="Email">Email</option>
-                        <option value="Phone">Phone</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1">Resolution Status</label>
-                      <select
-                        value={complaint.resolution_status}
-                        onChange={(e) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            complaints: prev.complaints.map(c => 
-                              c.id === complaint.id ? { ...c, resolution_status: e.target.value } : c
-                            )
-                          }));
-                        }}
-                        disabled={!isEditing || !canManageAlerts}
-                        className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500 disabled:opacity-50 transition-all"
-                      >
-                        <option value="Open">Open</option>
-                        <option value="In Progress">In Progress</option>
-                        <option value="Closed">Closed</option>
-                      </select>
-                    </div>
-
-                    {complaint.resolution_status === 'Closed' && (
-                      <>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-400 mb-1">Resolution Date</label>
-                          <input
-                            type="date"
-                            value={complaint.resolution_date}
-                            onChange={(e) => {
-                              setFormData(prev => ({
-                                ...prev,
-                                complaints: prev.complaints.map(c => 
-                                  c.id === complaint.id ? { ...c, resolution_date: e.target.value } : c
-                                )
-                              }));
-                            }}
-                            disabled={!isEditing || !canManageAlerts}
-                            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500 disabled:opacity-50 transition-all"
-                          />
-                        </div>
-
-                        <div className="md:col-span-2">
-                          <label className="block text-xs font-medium text-slate-400 mb-1">Resolution Summary</label>
-                          <textarea
-                            value={complaint.resolution_summary}
-                            onChange={(e) => {
-                              setFormData(prev => ({
-                                ...prev,
-                                complaints: prev.complaints.map(c => 
-                                  c.id === complaint.id ? { ...c, resolution_summary: e.target.value } : c
-                                )
-                              }));
-                            }}
-                            disabled={!isEditing || !canManageAlerts}
-                            rows="2"
-                            placeholder="How was this complaint resolved?"
-                            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500 disabled:opacity-50 transition-all resize-none"
-                          />
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Open Complaints Alert */}
-          {formData.complaints?.filter(c => c.resolution_status === 'Open').length > 0 && (
-            <div className="mt-4 bg-orange-600/10 border border-orange-500/30 rounded-lg p-4">
-              <div className="flex items-start gap-2">
-                <AlertTriangle size={18} className="text-orange-400 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-semibold text-orange-400">
-                    {formData.complaints.filter(c => c.resolution_status === 'Open').length} Open Complaint(s)
-                  </p>
-                  <p className="text-xs text-slate-300 mt-1">
-                    Open complaints surface in autonomy reports and may require immediate attention.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </>
-    )}
-  </div>
-)}
-
-{/* Corrective Action Plans Tab */}
-{activeTab === 'corrective-actions' && (
-  <div className="space-y-6">
-    {!canManageRisks && !canViewPlans ? (
-      <div className="text-center py-16">
-        <Lock className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-        <h3 className="text-xl font-bold text-slate-400 mb-2">Access Restricted</h3>
-        <p className="text-slate-500">You do not have permission to view corrective action plans.</p>
-      </div>
-    ) : (
-      <>
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <AlertTriangle size={20} className="text-red-400" />
-                Corrective Action Plans (CAP)
-              </h3>
-              <p className="text-sm text-slate-400 mt-1">
-                Document corrective actions for incidents, trends, or audit findings
-              </p>
-            </div>
-            {isEditing && canManageRisks && (
-              <button
-                onClick={() => {
-                  const newCAP = {
-                    id: Date.now().toString(),
-                    cap_id: `CAP-${Date.now()}`,
-                    trigger_event: '',
-                    trigger_type: 'Incident',
-                    root_cause: '',
-                    corrective_actions: '',
-                    responsible_staff: '',
-                    due_date: '',
-                    status: 'Open',
-                    effectiveness_review_date: '',
-                    effectiveness_notes: '',
-                    created_by: userProfile.fullname,
-                    created_at: new Date().toISOString()
-                  };
-                  setFormData(prev => ({
-                    ...prev,
-                    corrective_action_plans: [...(prev.corrective_action_plans || []), newCAP]
-                  }));
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-all"
-              >
-                <Plus size={16} />
-                Add CAP
-              </button>
-            )}
-          </div>
-
-          {(!formData.corrective_action_plans || formData.corrective_action_plans.length === 0) ? (
-            <div className="text-center py-12 text-slate-400">
-              <AlertTriangle className="w-16 h-16 mx-auto mb-4 text-slate-600" />
-              <p className="text-lg mb-2">No corrective action plans</p>
-              <p className="text-sm text-slate-500">CAPs are required for repeat issues and serious incidents</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {formData.corrective_action_plans.map((cap) => (
-                <div 
-                  key={cap.id} 
-                  className={`bg-slate-900/50 border rounded-lg p-5 ${
-                    cap.status === 'Open' || cap.status === 'In Progress'
-                      ? 'border-red-500/50' 
-                      : 'border-emerald-500/50'
-                  }`}
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <span className="text-xs font-mono text-slate-400">{cap.cap_id}</span>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                          cap.status === 'Open'
-                            ? 'bg-red-600/20 text-red-400 border border-red-500/30'
-                            : cap.status === 'In Progress'
-                            ? 'bg-yellow-600/20 text-yellow-400 border border-yellow-500/30'
-                            : 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30'
-                        }`}>
-                          {cap.status}
-                        </span>
-                      </div>
-                    </div>
-                    {isEditing && canManageRisks && (
-                      <button
-                        onClick={() => {
-                          if (confirm('Are you sure you want to delete this CAP?')) {
-                            setFormData(prev => ({
-                              ...prev,
-                              corrective_action_plans: prev.corrective_action_plans.filter(c => c.id !== cap.id)
-                            }));
-                          }
-                        }}
-                        className="text-red-400 hover:text-red-300 transition-colors"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="space-y-4">
-                    {/* Trigger Event */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-slate-400 mb-1">Trigger Type</label>
-                        <select
-                          value={cap.trigger_type}
-                          onChange={(e) => {
-                            setFormData(prev => ({
-                              ...prev,
-                              corrective_action_plans: prev.corrective_action_plans.map(c => 
-                                c.id === cap.id ? { ...c, trigger_type: e.target.value } : c
-                              )
-                            }));
-                          }}
-                          disabled={!isEditing || !canManageRisks}
-                          className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500 disabled:opacity-50 transition-all"
-                        >
-                          <option value="Incident">Incident</option>
-                          <option value="Audit Finding">Audit Finding</option>
-                          <option value="Trend Report">Trend Report</option>
-                          <option value="Complaint">Complaint</option>
-                          <option value="Other">Other</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-slate-400 mb-1">Trigger Event/ID</label>
-                        <input
-                          type="text"
-                          value={cap.trigger_event}
-                          onChange={(e) => {
-                            setFormData(prev => ({
-                              ...prev,
-                              corrective_action_plans: prev.corrective_action_plans.map(c => 
-                                c.id === cap.id ? { ...c, trigger_event:e.target.value } : c
-)
-}));
-}}
-disabled={!isEditing || !canManageRisks}
-placeholder="e.g., INC-12345, Audit 2025-Q1"
-className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500 disabled:opacity-50 transition-all"
-/>
-</div>
-</div>
-{/* Root Cause Analysis */}
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">
-                    Root Cause Analysis <span className="text-red-400">*</span>
-                  </label>
-                  <textarea
-                    value={cap.root_cause}
-                    onChange={(e) => {
-                      setFormData(prev => ({
-                        ...prev,
-                        corrective_action_plans: prev.corrective_action_plans.map(c => 
-                          c.id === cap.id ? { ...c, root_cause: e.target.value } : c
-                        )
-                      }));
-                    }}
-                    disabled={!isEditing || !canManageRisks}
-                    rows="3"
-                    placeholder="Why did this happen? (training gap, staffing shortage, process failure, communication issue, etc.)"
-                    className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500 disabled:opacity-50 transition-all resize-none"
-                  />
-                </div>
-
-                {/* Corrective Actions */}
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">
-                    Corrective Action Steps <span className="text-red-400">*</span>
-                  </label>
-                  <textarea
-                    value={cap.corrective_actions}
-                    onChange={(e) => {
-                      setFormData(prev => ({
-                        ...prev,
-                        corrective_action_plans: prev.corrective_action_plans.map(c => 
-                          c.id === cap.id ? { ...c, corrective_actions: e.target.value } : c
-                        )
-                      }));
-                    }}
-                    disabled={!isEditing || !canManageRisks}
-                    rows="4"
-                    placeholder="What specific actions will be taken? (retraining staff, updating procedures, changing schedules, adding oversight)"
-                    className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500 disabled:opacity-50 transition-all resize-none"
-                  />
-                </div>
-
-                {/* Responsibility & Timeline */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 mb-1">Responsible Staff</label>
-                    <input
-                      type="text"
-                      value={cap.responsible_staff}
-                      onChange={(e) => {
-                        setFormData(prev => ({
-                          ...prev,
-                          corrective_action_plans: prev.corrective_action_plans.map(c => 
-                            c.id === cap.id ? { ...c, responsible_staff: e.target.value } : c
-                          )
-                        }));
-                      }}
-                      disabled={!isEditing || !canManageRisks}
-                      placeholder="Name and role"
-                      className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500 disabled:opacity-50 transition-all"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 mb-1">Due Date</label>
-                    <input
-                      type="date"
-                      value={cap.due_date}
-                      onChange={(e) => {
-                        setFormData(prev => ({
-                          ...prev,
-                          corrective_action_plans: prev.corrective_action_plans.map(c => 
-                            c.id === cap.id ? { ...c, due_date: e.target.value } : c
-                          )
-                        }));
-                      }}
-                      disabled={!isEditing || !canManageRisks}
-                      className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500 disabled:opacity-50 transition-all"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 mb-1">Status</label>
-                    <select
-                      value={cap.status}
-                      onChange={(e) => {
-                        setFormData(prev => ({
-                          ...prev,
-                          corrective_action_plans: prev.corrective_action_plans.map(c => 
-                            c.id === cap.id ? { ...c, status: e.target.value } : c
-                          )
-                        }));
-                      }}
-                      disabled={!isEditing || !canManageRisks}
-                      className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500 disabled:opacity-50 transition-all"
-                    >
-                      <option value="Open">Open</option>
-                      <option value="In Progress">In Progress</option>
-                      <option value="Completed">Completed</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Effectiveness Review (if completed) */}
-                {cap.status === 'Completed' && (
-                  <div className="pt-4 border-t border-slate-700">
-                    <h5 className="text-sm font-semibold text-emerald-400 mb-3">Effectiveness Review</h5>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-slate-400 mb-1">Review Date</label>
-                        <input
-                          type="date"
-                          value={cap.effectiveness_review_date}
-                          onChange={(e) => {
-                            setFormData(prev => ({
-                              ...prev,
-                              corrective_action_plans: prev.corrective_action_plans.map(c => 
-                                c.id === cap.id ? { ...c, effectiveness_review_date: e.target.value } : c
-                              )
-                            }));
-                          }}
-                          disabled={!isEditing || !canManageRisks}
-                          className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500 disabled:opacity-50 transition-all"
-                        />
-                      </div>
-
-                      <div className="md:col-span-2">
-                        <label className="block text-xs font-medium text-slate-400 mb-1">Effectiveness Notes</label>
-                        <textarea
-                          value={cap.effectiveness_notes}
-                          onChange={(e) => {
-                            setFormData(prev => ({
-                              ...prev,
-                              corrective_action_plans: prev.corrective_action_plans.map(c => 
-                                c.id === cap.id ? { ...c, effectiveness_notes: e.target.value } : c
-                              )
-                            }));
-                          }}
-                          disabled={!isEditing || !canManageRisks}
-                          rows="2"
-                          placeholder="Was the CAP effective? Any repeat issues?"
-                          className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500 disabled:opacity-50 transition-all resize-none"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Active CAPs Alert */}
-      {formData.corrective_action_plans?.filter(c => c.status === 'Open' || c.status === 'In Progress').length > 0 && (
-        <div className="mt-4 bg-red-600/10 border border-red-500/30 rounded-lg p-4">
-          <div className="flex items-start gap-2">
-            <AlertTriangle size={18} className="text-red-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-sm font-semibold text-red-400">
-                {formData.corrective_action_plans.filter(c => c.status === 'Open' || c.status === 'In Progress').length} Active CAP(s)
-              </p>
-              <p className="text-xs text-slate-300 mt-1">
-                Corrective actions must be completed and reviewed for effectiveness.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  </>
-)}
-</div>
-)}
-
-          {/* Person-Centered Information Tab */}
-{activeTab === 'person-centered' && (
-  <div className="space-y-6">
-    {!canViewPlans ? (
-      <div className="text-center py-16">
-        <Lock className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-        <h3 className="text-xl font-bold text-slate-400 mb-2">Access Restricted</h3>
-        <p className="text-slate-500">You do not have permission to view person-centered information.</p>
-      </div>
-    ) : (
-      <>
-        {/* What Is Important TO */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <h3 className="text-xl font-bold text-emerald-400 mb-4 flex items-center gap-2">
-            <Heart size={20} />
-            What Is Important TO {formData.firstname}
-          </h3>
-          <p className="text-sm text-slate-400 mb-3">
-            In the individual's own words - their preferences, desires, and what matters most to them
-          </p>
-          <textarea
-            name="important_to"
-            value={formData.important_to}
-            onChange={handleInputChange}
-            disabled={!isEditing || !canEditPlans}
-            rows="5"
-            placeholder="What does this individual want? What are their preferences and desires?"
-            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50 transition-all resize-none"
-          />
-        </div>
-
-        {/* What Is Important FOR */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <h3 className="text-xl font-bold text-blue-400 mb-4 flex items-center gap-2">
-            <Shield size={20} />
-            What Is Important FOR {formData.firstname}
-          </h3>
-          <p className="text-sm text-slate-400 mb-3">
-            Health, safety, and support needs from a clinical/support perspective
-          </p>
-          <textarea
-            name="important_for"
-            value={formData.important_for}
-            onChange={handleInputChange}
-            disabled={!isEditing || !canEditPlans}
-            rows="5"
-            placeholder="What does this individual need for health, safety, and well-being?"
-            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all resize-none"
-          />
-        </div>
-
-        {/* Strengths, Interests, and Skills */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <h3 className="text-xl font-bold text-purple-400 mb-4 flex items-center gap-2">
-            <Award size={20} />
-            Strengths, Interests, and Skills
-          </h3>
-          <p className="text-sm text-slate-400 mb-3">
-            Positive attributes, talents, and capabilities
-          </p>
-          <textarea
-            name="strengths_interests"
-            value={formData.strengths_interests}
-            onChange={handleInputChange}
-            disabled={!isEditing || !canEditPlans}
-            rows="5"
-            placeholder="What are this individual's strengths, interests, and skills?"
-            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 disabled:opacity-50 transition-all resize-none"
-          />
-        </div>
-      </>
-    )}
-  </div>
-)}
-
-{/* Community Integration Tab */}
-{activeTab === 'community-integration' && (
-  <div className="space-y-6">
-    {!canViewPlans ? (
-      <div className="text-center py-16">
-        <Lock className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-        <h3 className="text-xl font-bold text-slate-400 mb-2">Access Restricted</h3>
-        <p className="text-slate-500">You do not have permission to view community integration plans.</p>
-      </div>
-    ) : (
-      <>
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <Users size={20} className="text-indigo-400" />
-            Community Integration Plan
-          </h3>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-400 mb-2">
-                Community Activities & Participation
-              </label>
-              <textarea
-                name="community_activities"
-                value={formData.community_activities}
-                onChange={handleInputChange}
-                disabled={!isEditing || !canEditPlans}
-                rows="4"
-                placeholder="Describe community outings, activities, and participation (parks, restaurants, stores, etc.)"
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 transition-all resize-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-400 mb-2">
-                Transportation Method
-              </label>
+              <label className="block text-sm font-medium text-slate-400 mb-2">Funding Source</label>
               <input
                 type="text"
-                name="transportation_method"
-                value={formData.transportation_method}
+                name="funding_source"
+                value={formData.funding_source}
                 onChange={handleInputChange}
                 disabled={!isEditing || !canEditPlans}
-                placeholder="e.g., Staff transportation, public transit, family"
+                placeholder="e.g., Community Waiver Program (CWP)"
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 transition-all"
               />
             </div>
-
             <div>
-              <label className="block text-sm font-medium text-slate-400 mb-2">
-                Barriers & Mitigation Strategies
-              </label>
-              <textarea
-                name="community_barriers"
-                value={formData.community_barriers}
+              <label className="block text-sm font-medium text-slate-400 mb-2">QDDP / Case Manager</label>
+              <input
+                type="text"
+                name="qddp_case_manager"
+                value={formData.qddp_case_manager}
                 onChange={handleInputChange}
                 disabled={!isEditing || !canEditPlans}
-                rows="4"
-                placeholder="Identify barriers (anxiety, overstimulation, etc.) and strategies to address them"
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 transition-all resize-none"
+                placeholder="Name, QDDP"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">ISP Effective Start Date</label>
+              <input
+                type="date"
+                name="isp_effective_start"
+                value={formData.isp_effective_start}
+                onChange={handleInputChange}
+                disabled={!isEditing || !canEditPlans}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">ISP Effective End Date</label>
+              <input
+                type="date"
+                name="isp_effective_end"
+                value={formData.isp_effective_end}
+                onChange={handleInputChange}
+                disabled={!isEditing || !canEditPlans}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">Next Review Date</label>
+              <input
+                type="date"
+                name="isp_next_review"
+                value={formData.isp_next_review}
+                onChange={handleInputChange}
+                disabled={!isEditing || !canEditPlans}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 transition-all"
               />
             </div>
           </div>
         </div>
-      </>
-    )}
-  </div>
-)}
 
-{/* Behavior Support Tab */}
-{activeTab === 'behavior-support' && (
-  <div className="space-y-6">
-    {!canViewPlans ? (
-      <div className="text-center py-16">
-        <Lock className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-        <h3 className="text-xl font-bold text-slate-400 mb-2">Access Restricted</h3>
-        <p className="text-slate-500">You do not have permission to view behavior support information.</p>
-      </div>
-    ) : (
-      <>
+        {/* Section 2: Person-Centered Information */}
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <Activity size={20} className="text-yellow-400" />
-            Behavior Support Summary
+          <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+            <User className="text-purple-400" size={24} />
+            Section 2 — Person-Centered Information
           </h3>
-          
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-400 mb-2">
-                Behavior Description
+                What Is Important TO the Individual
+                <span className="text-xs text-slate-500 ml-2">(In their own words)</span>
               </label>
               <textarea
-                name="behavior_summary"
-                value={formData.behavior_summary}
+                name="important_to"
+                value={formData.important_to}
                 onChange={handleInputChange}
                 disabled={!isEditing || !canEditPlans}
                 rows="4"
-                placeholder="Describe behaviors, triggers, and patterns (e.g., anxiety-based behaviors, pacing, verbal protest)"
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-yellow-500 disabled:opacity-50 transition-all resize-none"
+                placeholder="What does the individual want? Their preferences, desires, and choices..."
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 disabled:opacity-50 transition-all resize-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">
+                What Is Important FOR the Individual
+                <span className="text-xs text-slate-500 ml-2">(Health, safety, and support needs)</span>
+              </label>
+              <textarea
+                name="important_for"
+                value={formData.important_for}
+                onChange={handleInputChange}
+                disabled={!isEditing || !canEditPlans}
+                rows="4"
+                placeholder="What does the individual need for health, safety, and well-being..."
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 disabled:opacity-50 transition-all resize-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">
+                Strengths, Interests, and Skills
+              </label>
+              <textarea
+                name="strengths_interests"
+                value={formData.strengths_interests}
+                onChange={handleInputChange}
+                disabled={!isEditing || !canEditPlans}
+                rows="4"
+                placeholder="List the individual's strengths, interests, abilities, and skills..."
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 disabled:opacity-50 transition-all resize-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Section 3, 4, 5: ISP Outcomes - Add after Section 2 and before Section 6 */}
+<div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+  <div className="flex items-center justify-between mb-4">
+    <h3 className="text-2xl font-bold text-white flex items-center gap-2">
+      <Target className="text-emerald-400" size={24} />
+      Sections 3-5 — ISP Outcomes
+    </h3>
+    {isEditing && canEditPlans && (
+      <button
+        onClick={() => {
+          const newOutcome = {
+            id: Date.now().toString(),
+            section_number: formData.isp_outcomes?.length + 3 || 3,
+            outcome_statement: '',
+            individual_words: '',
+            why_important: '',
+            hcbs_alignment: [],
+            objectives: [],
+            created_by: userProfile.fullname,
+            created_date: new Date().toISOString()
+          };
+          setFormData(prev => ({
+            ...prev,
+            isp_outcomes: [...(prev.isp_outcomes || []), newOutcome]
+          }));
+        }}
+        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition-all"
+      >
+        <Plus size={16} />
+        Add ISP Outcome
+      </button>
+    )}
+  </div>
+
+  {(!formData.isp_outcomes || formData.isp_outcomes.length === 0) ? (
+    <div className="text-center py-8 text-slate-400">
+      <Target className="w-12 h-12 mx-auto mb-3 text-slate-600" />
+      <p>No ISP outcomes defined yet</p>
+      <p className="text-sm text-slate-500 mt-2">Add outcomes with objectives, teaching strategies, and data collection methods</p>
+    </div>
+  ) : (
+    <div className="space-y-6">
+      {formData.isp_outcomes.map((outcome, outcomeIndex) => (
+        <div key={outcome.id} className="bg-slate-900/50 border border-emerald-500/30 rounded-lg p-6">
+          {/* Outcome Header */}
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-xl font-bold text-emerald-400">
+              Section {outcome.section_number} — Outcome {outcomeIndex + 1}
+            </h4>
+            {isEditing && canEditPlans && (
+              <button
+                onClick={() => {
+                  if (confirm('Are you sure you want to delete this ISP outcome and all its objectives?')) {
+                    setFormData(prev => ({
+                      ...prev,
+                      isp_outcomes: prev.isp_outcomes.filter((_, i) => i !== outcomeIndex)
+                    }));
+                  }
+                }}
+                className="text-red-400 hover:text-red-300 transition-colors"
+              >
+                <Trash2 size={20} />
+              </button>
+            )}
+          </div>
+
+          {/* Outcome Statement */}
+          <div className="space-y-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">
+                Outcome Statement (In Individual's Words)
+              </label>
+              <input
+                type="text"
+                value={outcome.individual_words}
+                onChange={(e) => {
+                  if (!isEditing || !canEditPlans) return;
+                  setFormData(prev => ({
+                    ...prev,
+                    isp_outcomes: prev.isp_outcomes.map((o, i) => 
+                      i === outcomeIndex ? { ...o, individual_words: e.target.value } : o
+                    )
+                  }));
+                }}
+                disabled={!isEditing || !canEditPlans}
+                placeholder='e.g., "I want to get ready by myself in the morning"'
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50 transition-all"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-400 mb-2">
-                Support Strategies & Interventions
+                Why This Outcome Is Important
               </label>
               <textarea
-                name="behavior_strategies"
-                value={formData.behavior_strategies}
-                onChange={handleInputChange}
+                value={outcome.why_important}
+                onChange={(e) => {
+                  if (!isEditing || !canEditPlans) return;
+                  setFormData(prev => ({
+                    ...prev,
+                    isp_outcomes: prev.isp_outcomes.map((o, i) => 
+                      i === outcomeIndex ? { ...o, why_important: e.target.value } : o
+                    )
+                  }));
+                }}
                 disabled={!isEditing || !canEditPlans}
-                rows="4"
-                placeholder="Describe coping strategies, interventions, and staff response procedures"
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-yellow-500 disabled:opacity-50 transition-all resize-none"
+                rows="3"
+                placeholder="Explain the significance and impact of this outcome..."
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50 transition-all resize-none"
               />
             </div>
 
-            <div className="flex items-center gap-3 p-4 bg-slate-900/50 rounded-lg border border-slate-700">
+            {/* HCBS Alignment */}
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-3">
+                HCBS Alignment
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {['Autonomy', 'Independence', 'Privacy & Dignity', 'Informed Choice', 'Community Integration', 'Choice', 'Social Relationships', 'Self-Determination', 'Health & Wellness', 'Safety'].map(alignment => (
+                  <div key={alignment} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id={`alignment_${outcomeIndex}_${alignment.replace(/\s+/g, '_')}`}
+                      checked={outcome.hcbs_alignment?.includes(alignment)}
+                      onChange={(e) => {
+                        if (!isEditing || !canEditPlans) return;
+                        setFormData(prev => ({
+                          ...prev,
+                          isp_outcomes: prev.isp_outcomes.map((o, i) => {
+                            if (i !== outcomeIndex) return o;
+                            return {
+                              ...o,
+                              hcbs_alignment: e.target.checked
+                                ? [...(o.hcbs_alignment || []), alignment]
+                                : (o.hcbs_alignment || []).filter(a => a !== alignment)
+                            };
+                          })
+                        }));
+                      }}
+                      disabled={!isEditing || !canEditPlans}
+                      className="w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-800 disabled:opacity-50"
+                    />
+                    <label 
+                      htmlFor={`alignment_${outcomeIndex}_${alignment.replace(/\s+/g, '_')}`}
+                      className="text-sm text-slate-300"
+                    >
+                      {alignment}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Objectives */}
+          <div className="border-t border-slate-700 pt-6">
+            <div className="flex items-center justify-between mb-4">
+              <h5 className="text-lg font-bold text-white">Objectives</h5>
+              {isEditing && canEditPlans && (
+                <button
+                  onClick={() => {
+                    const newObjective = {
+                      id: Date.now().toString(),
+                      objective_number: (outcome.objectives?.length || 0) + 1,
+                      description: '',
+                      criteria: '',
+                      teaching_strategies: '',
+                      data_collection: '',
+                      review_criteria: ''
+                    };
+                    setFormData(prev => ({
+                      ...prev,
+                      isp_outcomes: prev.isp_outcomes.map((o, i) => 
+                        i === outcomeIndex 
+                          ? { ...o, objectives: [...(o.objectives || []), newObjective] }
+                          : o
+                      )
+                    }));
+                  }}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg font-semibold transition-all"
+                >
+                  <Plus size={14} />
+                  Add Objective
+                </button>
+              )}
+            </div>
+
+            {(!outcome.objectives || outcome.objectives.length === 0) ? (
+              <div className="text-center py-6 bg-slate-800/30 rounded-lg border border-slate-700">
+                <FileText className="w-10 h-10 text-slate-600 mx-auto mb-2" />
+                <p className="text-sm text-slate-500">No objectives added yet</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {outcome.objectives.map((objective, objIndex) => (
+                  <div key={objective.id} className="bg-slate-800/50 border border-slate-600 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h6 className="text-md font-semibold text-blue-400">
+                        Objective {outcome.section_number}.{objective.objective_number}
+                      </h6>
+                      {isEditing && canEditPlans && (
+                        <button
+                          onClick={() => {
+                            if (confirm('Are you sure you want to delete this objective?')) {
+                              setFormData(prev => ({
+                                ...prev,
+                                isp_outcomes: prev.isp_outcomes.map((o, i) => 
+                                  i === outcomeIndex 
+                                    ? { ...o, objectives: o.objectives.filter((_, j) => j !== objIndex) }
+                                    : o
+                                )
+                              }));
+                            }
+                          }}
+                          className="text-red-400 hover:text-red-300 transition-colors"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">
+                          Objective Description
+                        </label>
+                        <textarea
+                          value={objective.description}
+                          onChange={(e) => {
+                            if (!isEditing || !canEditPlans) return;
+                            setFormData(prev => ({
+                              ...prev,
+                              isp_outcomes: prev.isp_outcomes.map((o, i) => {
+                                if (i !== outcomeIndex) return o;
+                                return {
+                                  ...o,
+                                  objectives: o.objectives.map((obj, j) => 
+                                    j === objIndex ? { ...obj, description: e.target.value } : obj
+                                  )
+                                };
+                              })
+                            }));
+                          }}
+                          disabled={!isEditing || !canEditPlans}
+                          rows="2"
+                          placeholder="e.g., John will brush his teeth using verbal prompts only..."
+                          className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all resize-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">
+                          Success Criteria
+                        </label>
+                        <input
+                          type="text"
+                          value={objective.criteria}
+                          onChange={(e) => {
+                            if (!isEditing || !canEditPlans) return;
+                            setFormData(prev => ({
+                              ...prev,
+                              isp_outcomes: prev.isp_outcomes.map((o, i) => {
+                                if (i !== outcomeIndex) return o;
+                                return {
+                                  ...o,
+                                  objectives: o.objectives.map((obj, j) => 
+                                    j === objIndex ? { ...obj, criteria: e.target.value } : obj
+                                  )
+                                };
+                              })
+                            }));
+                          }}
+                          disabled={!isEditing || !canEditPlans}
+                          placeholder="e.g., 4 out of 5 opportunities over 8 consecutive weeks"
+                          className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">
+                          Teaching Strategies
+                        </label>
+                        <textarea
+                          value={objective.teaching_strategies}
+                          onChange={(e) => {
+                            if (!isEditing || !canEditPlans) return;
+                            setFormData(prev => ({
+                              ...prev,
+                              isp_outcomes: prev.isp_outcomes.map((o, i) => {
+                                if (i !== outcomeIndex) return o;
+                                return {
+                                  ...o,
+                                  objectives: o.objectives.map((obj, j) => 
+                                    j === objIndex ? { ...obj, teaching_strategies: e.target.value } : obj
+                                  )
+                                };
+                              })
+                            }));
+                          }}
+                          disabled={!isEditing || !canEditPlans}
+                          rows="2"
+                          placeholder="e.g., Verbal prompting, modeling when needed, positive reinforcement..."
+                          className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all resize-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">
+                          Data Collection Method
+                        </label>
+                        <textarea
+                          value={objective.data_collection}
+                          onChange={(e) => {
+                            if (!isEditing || !canEditPlans) return;
+                            setFormData(prev => ({
+                              ...prev,
+                              isp_outcomes: prev.isp_outcomes.map((o, i) => {
+                                if (i !== outcomeIndex) return o;
+                                return {
+                                  ...o,
+                                  objectives: o.objectives.map((obj, j) => 
+                                    j === objIndex ? { ...obj, data_collection: e.target.value } : obj
+                                  )
+                                };
+                              })
+                            }));
+                          }}
+                          disabled={!isEditing || !canEditPlans}
+                          rows="2"
+                          placeholder="e.g., Prompt level used, completion percentage, narrative description..."
+                          className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all resize-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">
+                          Review & Mastery Criteria
+                        </label>
+                        <input
+                          type="text"
+                          value={objective.review_criteria}
+                          onChange={(e) => {
+                            if (!isEditing || !canEditPlans) return;
+                            setFormData(prev => ({
+                              ...prev,
+                              isp_outcomes: prev.isp_outcomes.map((o, i) => {
+                                if (i !== outcomeIndex) return o;
+                                return {
+                                  ...o,
+                                  objectives: o.objectives.map((obj, j) => 
+                                    j === objIndex ? { ...obj, review_criteria: e.target.value } : obj
+                                  )
+                                };
+                              })
+                            }));
+                          }}
+                          disabled={!isEditing || !canEditPlans}
+                          placeholder="e.g., Reviewed quarterly; mastered when criteria met for 4 consecutive weeks"
+                          className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  )}
+</div>
+
+        {/* Section 6: Rights, Risk, and Restrictions */}
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+          <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+            <Shield className="text-orange-400" size={24} />
+            Section 6 — Rights, Risk, and Restrictions
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">
+                Rights Restrictions
+              </label>
+              <textarea
+                name="rights_restrictions_notes"
+                value={formData.rights_restrictions_notes}
+                onChange={handleInputChange}
+                disabled={!isEditing || !canEditPlans}
+                rows="3"
+                placeholder="Document any rights restrictions or note 'None at this time'"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-orange-500 disabled:opacity-50 transition-all resize-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">
+                Risk Mitigation Strategies
+              </label>
+              <textarea
+                name="risk_mitigation_strategies"
+                value={formData.risk_mitigation_strategies}
+                onChange={handleInputChange}
+                disabled={!isEditing || !canEditPlans}
+                rows="4"
+                placeholder="Describe strategies to mitigate identified risks (e.g., predictable routines, advance notice of changes, quiet space available...)"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-orange-500 disabled:opacity-50 transition-all resize-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Section 7: Community Integration Plan */}
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+          <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+            <Users className="text-blue-400" size={24} />
+            Section 7 — Community Integration Plan
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">
+                Community Integration Plan
+              </label>
+              <textarea
+                name="community_integration_plan"
+                value={formData.community_integration_plan}
+                onChange={handleInputChange}
+                disabled={!isEditing || !canEditPlans}
+                rows="4"
+                placeholder="Describe community participation activities, outings, and integration opportunities..."
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all resize-none"
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-2">Transportation Method</label>
+                <input
+                  type="text"
+                  name="transportation_method"
+                  value={formData.transportation_method}
+                  onChange={handleInputChange}
+                  disabled={!isEditing || !canEditPlans}
+                  placeholder="e.g., Provided by staff, Public transit, Family"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-2">Community Barriers</label>
+                <input
+                  type="text"
+                  name="community_barriers"
+                  value={formData.community_barriers}
+                  onChange={handleInputChange}
+                  disabled={!isEditing || !canEditPlans}
+                  placeholder="e.g., Anxiety, Physical limitations, Transportation"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 8: Behavior Support Summary */}
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+          <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+            <Activity className="text-yellow-400" size={24} />
+            Section 8 — Behavior Support Summary
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">
+                Behavior Support Summary
+              </label>
+              <textarea
+                name="behavior_support_summary"
+                value={formData.behavior_support_summary}
+                onChange={handleInputChange}
+                disabled={!isEditing || !canEditPlans}
+                rows="4"
+                placeholder="Describe behavioral patterns, triggers, and support strategies..."
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-yellow-500 disabled:opacity-50 transition-all resize-none"
+              />
+            </div>
+            <div className="flex items-center gap-3">
               <input
                 type="checkbox"
+                id="abc_data_required"
                 name="abc_data_required"
                 checked={formData.abc_data_required}
                 onChange={(e) => setFormData(prev => ({ ...prev, abc_data_required: e.target.checked }))}
                 disabled={!isEditing || !canEditPlans}
-                className="w-5 h-5 text-yellow-600 bg-slate-800 border-slate-600 rounded focus:ring-yellow-500 disabled:opacity-50"
+                className="w-5 h-5 rounded border-slate-600 text-yellow-500 focus:ring-yellow-500 focus:ring-offset-slate-800 disabled:opacity-50"
               />
-              <label className="text-sm text-slate-300">
-                ABC Data Collection Required (Antecedent-Behavior-Consequence)
+              <label htmlFor="abc_data_required" className="text-sm font-medium text-slate-300">
+                ABC Data Collection Required
               </label>
             </div>
           </div>
         </div>
-      </>
-    )}
-  </div>
-)}
 
-{/* Health & Wellness Tab */}
-{activeTab === 'health-wellness' && (
-  <div className="space-y-6">
-    {!canViewPlans ? (
-      <div className="text-center py-16">
-        <Lock className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-        <h3 className="text-xl font-bold text-slate-400 mb-2">Access Restricted</h3>
-        <p className="text-slate-500">You do not have permission to view health and wellness information.</p>
-      </div>
-    ) : (
-      <>
+        {/* Section 9: Health & Wellness Summary */}
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <Heart size={20} className="text-red-400" />
-            Health & Wellness Summary
+          <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+            <Heart className="text-red-400" size={24} />
+            Section 9 — Health & Wellness Summary
           </h3>
-          
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-400 mb-2">
-                Health Summary
+                Health & Wellness Summary
               </label>
               <textarea
-                name="health_summary"
-                value={formData.health_summary}
+                name="health_wellness_summary"
+                value={formData.health_wellness_summary}
                 onChange={handleInputChange}
                 disabled={!isEditing || !canEditPlans}
                 rows="4"
-                placeholder="Overall health status, medications, and wellness notes"
+                placeholder="Describe current health status, medications, medical needs, and monitoring requirements..."
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500 disabled:opacity-50 transition-all resize-none"
               />
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-400 mb-2">
-                Seizure History
-              </label>
-              <input
-                type="text"
-                name="seizure_history"
-                value={formData.seizure_history}
-                onChange={handleInputChange}
-                disabled={!isEditing || !canEditPlans}
-                placeholder="e.g., No seizure history, or describe seizure type and frequency"
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500 disabled:opacity-50 transition-all"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-400 mb-2">
-                Medication Monitoring Notes
-              </label>
-              <textarea
-                name="medication_monitoring_notes"
-                value={formData.medication_monitoring_notes}
-                onChange={handleInputChange}
-                disabled={!isEditing || !canEditPlans}
-                rows="4"
-                placeholder="Medication monitoring requirements, side effects to watch for, reporting procedures"
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500 disabled:opacity-50 transition-all resize-none"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="seizure_history"
+                  name="seizure_history"
+                  checked={formData.seizure_history}
+                  onChange={(e) => setFormData(prev => ({ ...prev, seizure_history: e.target.checked }))}
+                  disabled={!isEditing || !canEditPlans}
+                  className="w-5 h-5 rounded border-slate-600 text-red-500 focus:ring-red-500 focus:ring-offset-slate-800 disabled:opacity-50"
+                />
+                <label htmlFor="seizure_history" className="text-sm font-medium text-slate-300">
+                  Seizure History
+                </label>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-2">Medication Monitoring Notes</label>
+                <input
+                  type="text"
+                  name="medication_monitoring"
+                  value={formData.medication_monitoring}
+                  onChange={handleInputChange}
+                  disabled={!isEditing || !canEditPlans}
+                  placeholder="Special monitoring requirements..."
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500 disabled:opacity-50 transition-all"
+                />
+              </div>
             </div>
           </div>
         </div>
-      </>
-    )}
-  </div>
-)}
 
+        {/* Section 10: Staff Training Requirements */}
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+          <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+            <Award className="text-emerald-400" size={24} />
+            Section 10 — Staff Training Requirements
+          </h3>
+          <div className="space-y-3">
+            {[
+              'ISP Review and Acknowledgment',
+              'Behavior Support Strategies',
+              'HCBS Rights and Dignity Training',
+              'Medication Administration Training',
+              'Emergency Procedures',
+              'Person-Centered Planning'
+            ].map((training) => (
+              <div key={training} className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id={`training_${training.replace(/\s+/g, '_').toLowerCase()}`}
+                  checked={formData.staff_training_requirements?.includes(training)}
+                  onChange={(e) => {
+                    if (!isEditing || !canEditPlans) return;
+                    setFormData(prev => ({
+                      ...prev,
+                      staff_training_requirements: e.target.checked
+                        ? [...(prev.staff_training_requirements || []), training]
+                        : (prev.staff_training_requirements || []).filter(t => t !== training)
+                    }));
+                  }}
+                  disabled={!isEditing || !canEditPlans}
+                  className="w-5 h-5 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-800 disabled:opacity-50"
+                />
+                <label 
+                  htmlFor={`training_${training.replace(/\s+/g, '_').toLowerCase()}`}
+                  className="text-sm font-medium text-slate-300"
+                >
+                  {training}
+                </label>
+              </div>
+            ))}
+          </div>
+        </div>
 
-{/* Quarterly Reviews Tab */}
-{activeTab === 'quarterly-reviews' && (
-  <div className="space-y-6">
-    {!canViewPlans ? (
-      <div className="text-center py-16">
-        <Lock className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-        <h3 className="text-xl font-bold text-slate-400 mb-2">Access Restricted</h3>
-        <p className="text-slate-500">You do not have permission to view quarterly reviews.</p>
-      </div>
-    ) : (
-      <>
+        {/* Section 11: Quarterly Review Summary */}
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-bold text-white flex items-center gap-2">
-              <Calendar size={20} className="text-cyan-400" />
-              Quarterly Review Summary
+            <h3 className="text-2xl font-bold text-white flex items-center gap-2">
+              <Calendar className="text-cyan-400" size={24} />
+              Section 11 — Quarterly Review Summary
             </h3>
             {isEditing && canEditPlans && (
               <button
@@ -3174,11 +2010,10 @@ className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-wh
                   const newReview = {
                     id: Date.now().toString(),
                     quarter: '',
-                    review_date: new Date().toISOString().split('T')[0],
                     reviewed_by: userProfile.fullname,
+                    review_date: new Date().toISOString().split('T')[0],
                     progress_summary: '',
-                    revisions_needed: '',
-                    created_at: new Date().toISOString()
+                    revisions_needed: ''
                   };
                   setFormData(prev => ({
                     ...prev,
@@ -3188,139 +2023,133 @@ className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-wh
                 className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-semibold transition-all"
               >
                 <Plus size={16} />
-                Add Review
+                Add Quarterly Review
               </button>
             )}
           </div>
 
           {(!formData.quarterly_reviews || formData.quarterly_reviews.length === 0) ? (
-            <div className="text-center py-12 text-slate-400">
-              <Calendar className="w-16 h-16 mx-auto mb-4 text-slate-600" />
-              <p className="text-lg mb-2">No quarterly reviews yet</p>
-              <p className="text-sm text-slate-500">Reviews should be conducted every 3 months</p>
+            <div className="text-center py-8 text-slate-400">
+              <Calendar className="w-12 h-12 mx-auto mb-3 text-slate-600" />
+              <p>No quarterly reviews recorded yet</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {formData.quarterly_reviews.map((review) => (
+              {formData.quarterly_reviews.map((review, index) => (
                 <div key={review.id} className="bg-slate-900/50 border border-slate-700 rounded-lg p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-400 mb-2">Quarter</label>
-                      <select
+                      <input
+                        type="text"
                         value={review.quarter}
                         onChange={(e) => {
+                          if (!isEditing || !canEditPlans) return;
                           setFormData(prev => ({
                             ...prev,
-                            quarterly_reviews: prev.quarterly_reviews.map(r => 
-                              r.id === review.id ? { ...r, quarter: e.target.value } : r
+                            quarterly_reviews: prev.quarterly_reviews.map((r, i) => 
+                              i === index ? { ...r, quarter: e.target.value } : r
                             )
                           }));
                         }}
                         disabled={!isEditing || !canEditPlans}
-                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-500 disabled:opacity-50 transition-all"
-                      >
-                        <option value="">Select Quarter</option>
-                        <option value="Q1 2025">Q1 2025</option>
-                        <option value="Q2 2025">Q2 2025</option>
-                        <option value="Q3 2025">Q3 2025</option>
-                        <option value="Q4 2025">Q4 2025</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-400 mb-2">Review Date</label>
-                      <input
-                        type="date"
-                        value={review.review_date}
-                        onChange={(e) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            quarterly_reviews: prev.quarterly_reviews.map(r => 
-                              r.id === review.id ? { ...r, review_date: e.target.value } : r
-                            )
-                          }));
-                        }}
-                        disabled={!isEditing || !canEditPlans}
+                        placeholder="e.g., Q1 2025"
                         className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-500 disabled:opacity-50 transition-all"
                       />
                     </div>
-
                     <div>
                       <label className="block text-sm font-medium text-slate-400 mb-2">Reviewed By</label>
                       <input
                         type="text"
                         value={review.reviewed_by}
                         onChange={(e) => {
+                          if (!isEditing || !canEditPlans) return;
                           setFormData(prev => ({
                             ...prev,
-                            quarterly_reviews: prev.quarterly_reviews.map(r => 
-                              r.id === review.id ? { ...r, reviewed_by: e.target.value } : r
+                            quarterly_reviews: prev.quarterly_reviews.map((r, i) => 
+                              i === index ? { ...r, reviewed_by: e.target.value } : r
                             )
                           }));
                         }}
                         disabled={!isEditing || !canEditPlans}
-                        placeholder="QDDP Name"
                         className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-500 disabled:opacity-50 transition-all"
                       />
                     </div>
-
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-slate-400 mb-2">Summary of Progress</label>
-                      <textarea
-                        value={review.progress_summary}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-400 mb-2">Review Date</label>
+                      <input
+                        type="date"
+                        value={review.review_date}
                         onChange={(e) => {
+                          if (!isEditing || !canEditPlans) return;
                           setFormData(prev => ({
                             ...prev,
-                            quarterly_reviews: prev.quarterly_reviews.map(r => 
-                              r.id === review.id ? { ...r, progress_summary: e.target.value } : r
+                            quarterly_reviews: prev.quarterly_reviews.map((r, i) => 
+                              i === index ? { ...r, review_date: e.target.value } : r
                             )
                           }));
                         }}
                         disabled={!isEditing || !canEditPlans}
-                        rows="4"
-                        placeholder="Summarize progress on outcomes, goals, and overall ISP implementation"
-                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-500 disabled:opacity-50 transition-all resize-none"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-500 disabled:opacity-50 transition-all"
                       />
                     </div>
-
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-slate-400 mb-2">Revisions Needed</label>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-400 mb-2">Progress Summary</label>
                       <textarea
-                        value={review.revisions_needed}
+                        value={review.progress_summary}
                         onChange={(e) => {
+                          if (!isEditing || !canEditPlans) return;
                           setFormData(prev => ({
                             ...prev,
-                            quarterly_reviews: prev.quarterly_reviews.map(r => 
-                              r.id === review.id ? { ...r, revisions_needed: e.target.value } : r
+                            quarterly_reviews: prev.quarterly_reviews.map((r, i) => 
+                              i === index ? { ...r, progress_summary: e.target.value } : r
                             )
                           }));
                         }}
                         disabled={!isEditing || !canEditPlans}
                         rows="3"
-                        placeholder="Note any needed revisions to the ISP"
+                        placeholder="Summarize progress toward outcomes and goals..."
                         className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-500 disabled:opacity-50 transition-all resize-none"
                       />
                     </div>
-
-                    {isEditing && canEditPlans && (
-                      <div className="md:col-span-2">
-                        <button
-                          onClick={() => {
-                            if (confirm('Are you sure you want to delete this quarterly review?')) {
-                              setFormData(prev => ({
-                                ...prev,
-                                quarterly_reviews: prev.quarterly_reviews.filter(r => r.id !== review.id)
-                              }));
-                            }
-                          }}
-                          className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg font-semibold transition-all flex items-center gap-2"
-                        >
-                          <Trash2 size={16} />
-                          Delete Review
-                        </button>
-                      </div>
-                    )}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-400 mb-2">Revisions Needed</label>
+                      <textarea
+                        value={review.revisions_needed}
+                        onChange={(e) => {
+                          if (!isEditing || !canEditPlans) return;
+                          setFormData(prev => ({
+                            ...prev,
+                            quarterly_reviews: prev.quarterly_reviews.map((r, i) => 
+                              i === index ? { ...r, revisions_needed: e.target.value } : r
+                            )
+                          }));
+                        }}
+                        disabled={!isEditing || !canEditPlans}
+                        rows="2"
+                        placeholder="Document any needed revisions or note 'None at this time'"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-500 disabled:opacity-50 transition-all resize-none"
+                      />
+                    </div>
                   </div>
+                  {isEditing && canEditPlans && (
+                    <button
+                      onClick={() => {
+                        if (confirm('Are you sure you want to delete this quarterly review?')) {
+                          setFormData(prev => ({
+                            ...prev,
+                            quarterly_reviews: prev.quarterly_reviews.filter((_, i) => i !== index)
+                          }));
+                        }
+                      }}
+                      className="mt-4 px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg font-semibold transition-all flex items-center gap-2"
+                    >
+                      <Trash2 size={16} />
+                      Delete Review
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -3330,296 +2159,6 @@ className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-wh
     )}
   </div>
 )}
-
-
-{/* Outcomes & Objectives Tab */}
-{activeTab === 'outcomes' && (
-  <div className="space-y-6">
-    {!canViewPlans ? (
-      <div className="text-center py-16">
-        <Lock className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-        <h3 className="text-xl font-bold text-slate-400 mb-2">Access Restricted</h3>
-        <p className="text-slate-500">You do not have permission to view outcomes.</p>
-      </div>
-    ) : (
-      <>
-        {/* Outcomes Section */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <Award className="text-purple-400" size={24} />
-                Outcomes & Objectives
-              </h3>
-              <p className="text-sm text-slate-400 mt-1">
-                Outcomes are broad, person-centered goals in the individual's own words. Objectives are specific, measurable steps to achieve outcomes.
-              </p>
-            </div>
-            {isEditing && canEditPlans && (
-              <button
-                onClick={addOutcome}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition-all"
-              >
-                <Plus size={16} />
-                Add Outcome
-              </button>
-            )}
-          </div>
-
-          {formData.outcomes?.length === 0 ? (
-            <div className="text-center py-8 text-slate-400">
-              <Award className="w-12 h-12 mx-auto mb-3 text-slate-600" />
-              <p>No outcomes defined yet</p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {formData.outcomes?.map((outcome, outcomeIndex) => (
-                <div key={outcome.id} className="bg-slate-900/50 border-2 border-purple-500/30 rounded-xl p-6">
-                  {/* Outcome Header */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <h4 className="text-lg font-bold text-purple-400 mb-2">
-                        Outcome #{outcomeIndex + 1}
-                      </h4>
-                    </div>
-                    {isEditing && canEditPlans && (
-                      <button
-                        onClick={() => deleteOutcome(outcome.id)}
-                        className="text-red-400 hover:text-red-300 transition-colors"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Outcome Statement */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-slate-400 mb-2">
-                      Outcome Statement (In Individual's Words)
-                    </label>
-                    <textarea
-                      value={outcome.description}
-                      onChange={(e) => updateOutcome(outcome.id, 'description', e.target.value)}
-                      disabled={!isEditing || !canEditPlans}
-                      rows="2"
-                      placeholder='"I want to..."'
-                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 disabled:opacity-50 transition-all resize-none"
-                    />
-                  </div>
-
-                  {/* Why Important & HCBS Alignment */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-400 mb-2">
-                        Why This Outcome Is Important
-                      </label>
-                      <textarea
-                        value={outcome.why_important || ''}
-                        onChange={(e) => updateOutcome(outcome.id, 'why_important', e.target.value)}
-                        disabled={!isEditing || !canEditPlans}
-                        rows="3"
-                        placeholder="Explain why this outcome matters to the individual"
-                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 disabled:opacity-50 transition-all resize-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-400 mb-2">
-                        HCBS Domain
-                      </label>
-                      <select
-                        value={outcome.hcbsdomain}
-                        onChange={(e) => updateOutcome(outcome.id, 'hcbsdomain', e.target.value)}
-                        disabled={!isEditing || !canEditPlans}
-                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 disabled:opacity-50 transition-all mb-3"
-                      >
-                        <option value="">Select Domain</option>
-                        <option value="Autonomy">Autonomy</option>
-                        <option value="Independence">Independence</option>
-                        <option value="Privacy & Dignity">Privacy & Dignity</option>
-                        <option value="Informed Choice">Informed Choice</option>
-                        <option value="Community Integration">Community Integration</option>
-                        <option value="Choice">Choice</option>
-                        <option value="Social Relationships">Social Relationships</option>
-                        <option value="Self-Determination">Self-Determination</option>
-                        <option value="Health & Wellness">Health & Wellness</option>
-                        <option value="Safety">Safety</option>
-                      </select>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-xs font-medium text-slate-400 mb-1">Target Date</label>
-                          <input
-                            type="date"
-                            value={outcome.targetdate}
-onChange={(e) => updateOutcome(outcome.id, 'targetdate', e.target.value)}
-disabled={!isEditing || !canEditPlans}
-className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500 disabled:opacity-50 transition-all"
-/>
-</div>
-<div>
-<label className="block text-xs font-medium text-slate-400 mb-1">Status</label>
-<select
-value={outcome.status}
-onChange={(e) => updateOutcome(outcome.id, 'status', e.target.value)}
-disabled={!isEditing || !canEditPlans}
-className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500 disabled:opacity-50 transition-all"
->
-<option value="In Progress">In Progress</option>
-<option value="Achieved">Achieved</option>
-<option value="On Hold">On Hold</option>
-<option value="Discontinued">Discontinued</option>
-</select>
-</div>
-</div>
-</div>
-</div>
-{/* Objectives Section */}
-              <div className="mt-6 pt-6 border-t border-slate-700">
-                <div className="flex items-center justify-between mb-4">
-                  <h5 className="text-md font-bold text-blue-400">Objectives</h5>
-                  {isEditing && canEditPlans && (
-                    <button
-                      onClick={() => {
-                        const newObjective = {
-                          id: Date.now().toString(),
-                          description: '',
-                          teaching_strategies: '',
-                          data_collection: '',
-                          mastery_criteria: '',
-                          status: 'Active'
-                        };
-                        updateOutcome(outcome.id, 'objectives', [...(outcome.objectives || []), newObjective]);
-                      }}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-all"
-                    >
-                      <Plus size={14} />
-                      Add Objective
-                    </button>
-                  )}
-                </div>
-
-                {(!outcome.objectives || outcome.objectives.length === 0) ? (
-                  <div className="text-center py-6 bg-slate-800/50 rounded-lg">
-                    <Target className="w-10 h-10 mx-auto mb-2 text-slate-600" />
-                    <p className="text-sm text-slate-500">No objectives defined for this outcome</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {outcome.objectives.map((objective, objIndex) => (
-                      <div key={objective.id} className="bg-slate-800/50 border border-blue-500/30 rounded-lg p-4">
-                        <div className="flex items-start justify-between mb-3">
-                          <span className="text-sm font-semibold text-blue-400">Objective {objIndex + 1}</span>
-                          {isEditing && canEditPlans && (
-                            <button
-                              onClick={() => {
-                                updateOutcome(
-                                  outcome.id,
-                                  'objectives',
-                                  outcome.objectives.filter(obj => obj.id !== objective.id)
-                                );
-                              }}
-                              className="text-red-400 hover:text-red-300"
-                            >
-                              <X size={16} />
-                            </button>
-                          )}
-                        </div>
-
-                        <div className="space-y-3">
-                          <div>
-                            <label className="block text-xs font-medium text-slate-400 mb-1">
-                              Objective Description (Measurable)
-                            </label>
-                            <textarea
-                              value={objective.description}
-                              onChange={(e) => {
-                                const updatedObjectives = outcome.objectives.map(obj =>
-                                  obj.id === objective.id ? { ...obj, description: e.target.value } : obj
-                                );
-                                updateOutcome(outcome.id, 'objectives', updatedObjectives);
-                              }}
-                              disabled={!isEditing || !canEditPlans}
-                              rows="2"
-                              placeholder="e.g., 'Will brush teeth with verbal prompts only in 4 out of 5 opportunities over 8 weeks'"
-                              className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all resize-none"
-                            />
-                          </div>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-xs font-medium text-slate-400 mb-1">
-                                Teaching Strategies
-                              </label>
-                              <textarea
-                                value={objective.teaching_strategies}
-                                onChange={(e) => {
-                                  const updatedObjectives = outcome.objectives.map(obj =>
-                                    obj.id === objective.id ? { ...obj, teaching_strategies: e.target.value } : obj
-                                  );
-                                  updateOutcome(outcome.id, 'objectives', updatedObjectives);
-                                }}
-                                disabled={!isEditing || !canEditPlans}
-                                rows="2"
-                                placeholder="e.g., Verbal prompting, modeling, positive reinforcement"
-                                className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all resize-none"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-xs font-medium text-slate-400 mb-1">
-                                Data Collection Method
-                              </label>
-                              <textarea
-                                value={objective.data_collection}
-                                onChange={(e) => {
-                                  const updatedObjectives = outcome.objectives.map(obj =>
-                                    obj.id === objective.id ? { ...obj, data_collection: e.target.value } : obj
-                                  );
-                                  updateOutcome(outcome.id, 'objectives', updatedObjectives);
-                                }}
-                                disabled={!isEditing || !canEditPlans}
-                                rows="2"
-                                placeholder="e.g., Prompt level, completion %, narrative notes"
-                                className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all resize-none"
-                              />
-                            </div>
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-medium text-slate-400 mb-1">
-                              Mastery Criteria
-                            </label>
-                            <input
-                              type="text"
-                              value={objective.mastery_criteria}
-                              onChange={(e) => {
-                                const updatedObjectives = outcome.objectives.map(obj =>
-                                  obj.id === objective.id ? { ...obj, mastery_criteria: e.target.value } : obj
-                                );
-                                updateOutcome(outcome.id, 'objectives', updatedObjectives);
-                              }}
-                              disabled={!isEditing || !canEditPlans}
-                              placeholder="e.g., Met for 4 consecutive weeks"
-                              className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  </>
-)}
-</div>
-)}
-
 
           {/* Person-Centered Plan Tab */}
           {activeTab === 'person-centered-plan' && (

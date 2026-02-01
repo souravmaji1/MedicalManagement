@@ -5,7 +5,7 @@ import {
   MapPin, Clock, CheckCircle, AlertCircle, Download, X,
   Save, FileText, Phone, Mail, Calendar, User, Home as HomeIcon, AlertTriangle,
   Shield, Heart, Activity, ChevronRight, Loader2, CreditCard,
-  Home, FileText as FileTextIcon, Pill, AlertCircle as AlertCircleIcon,
+  Home, FileText as FileTextIcon, Pill, AlertCircle as AlertCircleIcon,User2Icon,
   TrendingUp, Settings, Menu, Bell, ChevronDown, BarChart3, Brain,NetworkIcon,
   Zap, Sparkles, Award, TrendingDown, Target, StickyNote
 } from 'lucide-react';
@@ -38,8 +38,12 @@ const [sortDirection, setSortDirection] = useState('asc'); // 'asc' or 'desc'
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [showFilterMenu, setShowFilterMenu] = useState(false);
+
+
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentPage, setCurrentPage] = useState('individual');
+
+
   const [selectedStatusInfo, setSelectedStatusInfo] = useState(null);
   const [statusReviewNotes, setStatusReviewNotes] = useState('');
 
@@ -124,18 +128,20 @@ const handleSort = (column) => {
   });
 
 
-      const menuItems = [
-     { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
-     { id: 'individual', icon: Users, label: 'Individuals', badge: null },
-     { id: 'medicine', icon: Pill, label: 'Medications', badge: null },
-     { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: '3' },
-     { id: 'privacy', icon: Shield, label: 'Data Privacy', badge: 'NEW' },
-     { id: 'report', icon: FileText, label: 'Report', badge: 'NEW' },
-     { id: 'engine', icon: Pill, label: 'Foresight Engine', badge: 'NEW' },
-     { id: 'intelligence', icon: NetworkIcon, label: 'User Foresight', badge: 'NEW' },
-     { id: 'billing', icon: CreditCard, label: 'Billing', badge: null },
-     { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null }
-   ];
+     const menuItems = [
+         { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
+         { id: 'individual', icon: Users, label: 'Individuals', badge: null },
+         { id: 'medicine', icon: Pill, label: 'Medications', badge: null },
+         { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: '3' },
+          { id: 'bill', icon: Shield, label: 'Billing Report', badge: 'NEW' },
+           { id: 'staff', icon: User2Icon, label: 'Add Staff', badge: 'NEW' },
+         { id: 'privacy', icon: Shield, label: 'Data Privacy', badge: 'NEW' },
+         { id: 'report', icon: FileText, label: 'Report', badge: 'NEW' },
+         { id: 'engine', icon: Pill, label: 'Foresight Engine', badge: 'NEW' },
+         { id: 'intelligence', icon: NetworkIcon, label: 'User Foresight', badge: 'NEW' },
+         { id: 'billing', icon: CreditCard, label: 'Billing', badge: null },
+         { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null }
+       ];
 
   // Fetch individuals from Supabase with role-based filtering
   useEffect(() => {

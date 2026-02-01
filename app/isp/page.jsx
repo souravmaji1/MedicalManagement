@@ -6,16 +6,16 @@ import {
   ArrowLeft, Save, Edit2, Plus, Trash2, Calendar, Target, 
   AlertCircle, Shield, Heart, Activity, FileText, Users,
   Clock, CheckCircle, XCircle, ChevronRight, ChevronDown,
-  Home as HomeIcon, Phone, Mail, MapPin, User, Loader2,
+  Home as HomeIcon, Phone, Mail, MapPin, User, Loader2,Search,
   Award, TrendingUp, AlertTriangle, Info, Lock, Upload,
   Type, X, Download, Move, Eye, Trash
 } from 'lucide-react';
-import { ScrollArea } from "../../../components/ui/scroll-area";
+import { ScrollArea } from "../../components/ui/scroll-area";
 import { useUser } from '@clerk/nextjs';
 import { createClient } from '@supabase/supabase-js';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { useUserProfile } from '../../../contexts/userProfileContext';
-import { PERMISSIONS } from '../../../utils/permissions';
+import { useUserProfile } from '../../contexts/userProfileContext';
+import { PERMISSIONS } from '../../utils/permissions';
 
 const supabase = createClient(
   'https://bbikcxalypttfgrlxstf.supabase.co',
@@ -41,6 +41,11 @@ const IndividualProfilePage = () => {
     risks: false,
     alerts: false
   });
+
+   // CHANGED: Add state for all individuals and selected individual
+  const [individuals, setIndividuals] = useState([]);
+  const [selectedIndividual, setSelectedIndividual] = useState(null);
+  const [searchTerm, setSearchTerm] = useState(''); // ADDED: Search term
 
   // PDF Signature States
   const [pdfFile, setPdfFile] = useState(null);
@@ -225,16 +230,7 @@ staff_training_requirements: [],
     };
   }, []);
 
-  // Fetch individual data
-  useEffect(() => {
-    if (isLoaded && user && individualId && !profileLoading && userProfile) {
-      if (canViewProfile) {
-        fetchIndividual();
-      } else {
-        setLoading(false);
-      }
-    }
-  }, [isLoaded, user, individualId, profileLoading, userProfile]);
+
 
   // Check if edit mode was requested via URL parameter
   useEffect(() => {
@@ -257,6 +253,121 @@ staff_training_requirements: [],
       loadSavedDocuments();
     }
   }, [activeTab, individualId]);
+
+    // Fetch all individuals instead of single individual
+  useEffect(() => {
+    if (isLoaded && user && !profileLoading && userProfile) {
+      if (canViewProfile) {
+        fetchAllIndividuals(); // CHANGED: Fetch all individuals
+      } else {
+        setLoading(false);
+      }
+    }
+  }, [isLoaded, user, profileLoading, userProfile]);
+
+// CHANGED: Fetch all individuals
+  const fetchAllIndividuals = async () => {
+    try {
+      setLoading(true);
+      
+      let query = supabase
+        .from('individuals')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      // Role-based filtering remains the same
+      if (userProfile.role_id === 'HouseManager_DD') {
+        query = query.eq('homeassignment', userProfile.facility);
+      } else if (userProfile.role_id === 'DSP_DD') {
+        query = query.eq('homeassignment', userProfile.facility);
+      } else if (userProfile.division === 'MI' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
+        query = query.eq('division', 'MI');
+      } else if (userProfile.division === 'SUD' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
+        query = query.eq('division', 'SUD');
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      
+      setIndividuals(data || []);
+    } catch (error) {
+      console.error('Error fetching individuals:', error);
+      alert('Error loading individuals data.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+    // ADDED: Handle individual selection
+  const handleSelectIndividual = (individual) => {
+    setSelectedIndividual(individual);
+    fetchIndividualData(individual.id);
+    setActiveTab('overview');
+    setIsEditing(false);
+  };
+
+    // ADDED: Filter individuals based on search
+  const filteredIndividuals = individuals.filter(ind => 
+    ind.firstname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    ind.lastname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    ind.individualid?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // ADDED: Helper function for initials
+  const getInitials = (firstname, lastname) => {
+    return `${firstname?.charAt(0) || ''}${lastname?.charAt(0) || ''}`.toUpperCase();
+  };
+
+    // ADDED: Color classes for avatar backgrounds
+  const getColorClass = (index) => {
+    const colors = [
+      'from-emerald-600 to-teal-500',
+      'from-green-400 to-emerald-500',
+      'from-lime-500 to-green-600',
+      'from-teal-500 to-emerald-600',
+      'from-cyan-500 to-teal-600'
+    ];
+    return colors[index % colors.length];
+  };
+
+  // CHANGED: Fetch individual data when selected
+  const fetchIndividualData = async (individualId) => {
+    try {
+      setLoading(true);
+      
+      const { data, error } = await supabase
+        .from('individuals')
+        .select('*')
+        .eq('id', individualId)
+        .single();
+
+      if (error) throw error;
+      
+      if (data) {
+        setSelectedIndividual(data);
+        setFormData({
+          ...data,
+          outcomes: data.outcomes || [],
+          goals: data.goals || [],
+          riskplans: data.riskplans || [],
+          medicalalerts: data.medicalalerts || [],
+          behavioralalerts: data.behavioralalerts || [],
+          rightsrestrictions: data.rightsrestrictions || [],
+          hcbsdomains: data.hcbsdomains || [],
+          staff_training_requirements: data.staff_training_requirements || [],
+          assigned_staff: data.assigned_staff || []
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching individual:', error);
+      alert('Error loading individual data.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
 
 
   const fetchIndividual = async () => {
@@ -329,11 +440,11 @@ staff_training_requirements: [],
           updated_by_role: userProfile.role_name,
           updated_at: new Date().toISOString()
         })
-        .eq('id', individualId);
+        .eq('id', selectedIndividual.id);
 
       if (error) throw error;
 
-      setIndividual(formData);
+      setSelectedIndividual(formData);
       setIsEditing(false);
       alert('Changes saved successfully!');
     } catch (error) {
@@ -838,6 +949,98 @@ staff_training_requirements: [],
     }
   };
 
+    // ADDED: Show individuals list when no individual is selected
+  if (!selectedIndividual) {
+    return (
+      <div className="min-h-screen bg-slate-950 p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => router.push('/individual')}
+                className="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all"
+              >
+                <ArrowLeft className="text-white" size={20} />
+              </button>
+              <div>
+                <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500">
+                  Individual Profiles
+                </h1>
+                <p className="text-slate-400 mt-1">Select an individual to view their profile</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Search Bar */}
+          <div className="flex items-center gap-3 bg-slate-900/50 rounded-xl px-5 py-3 border border-slate-700/50">
+            <Search size={20} className="text-emerald-400" />
+            <input 
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search individuals by name or ID..."
+              className="flex-1 bg-transparent border-none outline-none text-white placeholder:text-slate-500"
+            />
+            {searchTerm && (
+              <button 
+                onClick={() => setSearchTerm('')}
+                className="p-1 hover:bg-slate-700 rounded"
+              >
+                <X size={18} className="text-slate-400" />
+              </button>
+            )}
+          </div>
+
+          {/* Individuals Grid */}
+          <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6">
+            {filteredIndividuals.length === 0 ? (
+              <div className="text-center py-16">
+                <Users className="w-16 h-16 mx-auto mb-4 text-slate-600" />
+                <h3 className="text-xl font-bold text-slate-400 mb-2">No individuals found</h3>
+                <p className="text-slate-500">
+                  {searchTerm ? 'Try adjusting your search' : 'No individuals available for your role'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredIndividuals.map((individual, idx) => (
+                  <div
+                    key={individual.id}
+                    onClick={() => handleSelectIndividual(individual)}
+                    className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 cursor-pointer hover:border-emerald-500/50 transition-all duration-300 hover:scale-105 group"
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className={`w-12 h-12 bg-gradient-to-br ${getColorClass(idx)} rounded-xl flex items-center justify-center text-white font-bold`}>
+                        {getInitials(individual.firstname, individual.lastname)}
+                      </div>
+                      <div>
+                        <h3 className="text-white font-semibold group-hover:text-emerald-400 transition-colors">
+                          {individual.firstname} {individual.lastname}
+                        </h3>
+                        <p className="text-slate-400 text-sm">ID: {individual.individualid}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-400">{individual.homeassignment}</span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                        individual.status === 'Active' ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'
+                      }`}>
+                        {individual.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+
   // Permission Check - No Access Screen
   if (!profileLoading && !canViewProfile) {
     return (
@@ -875,7 +1078,7 @@ staff_training_requirements: [],
     );
   }
 
-  if (!individual) {
+  if (!selectedIndividual) {
     return (
       <div className="flex items-center justify-center h-screen bg-slate-950">
         <div className="text-center">
@@ -909,14 +1112,20 @@ const tabs = [
   { id: 'quarterly-reviews', label: 'Quarterly Reviews', icon: Calendar, permission: canViewPlans }
 ].filter(tab => tab.permission);
 
+
+
   return (
     <div className="min-h-screen bg-slate-950 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
+
+
         <div className="flex items-center justify-between">
 <div className="flex items-center gap-4">
 <button
-onClick={() => router.push('/individual')}
+onClick={() => {
+  setSelectedIndividual(null)
+}}
 className="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all"
 >
 <ArrowLeft className="text-white" size={20} />
@@ -938,9 +1147,10 @@ className="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all"
 {isEditing ? (
 <>
 <button
+// CHANGE TO:
 onClick={() => {
-setIsEditing(false);
-setFormData({ ...individual });
+  setIsEditing(false);
+  setFormData({ ...selectedIndividual });
 }}
 className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all"
 >

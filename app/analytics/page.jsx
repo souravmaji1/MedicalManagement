@@ -7,7 +7,7 @@ import {
   Clock, Target, Heart, Pill, FileText, MapPin, Brain, CreditCard,
   ChevronRight, ChevronDown, Loader2, Search, X, Menu,
   Home, Settings, Bell, Shield, Zap, Sparkles, Award, NetworkIcon,
-  TrendingDown, ArrowUp, ArrowDown, Minus, Eye, Share2,
+  TrendingDown, ArrowUp, ArrowDown, Minus, Eye, Share2,User2Icon,
   RefreshCcw, Calendar as CalendarIcon, User, Home as HomeIcon,
   Printer, Pill as PillIcon, BookOpen, Utensils, Shirt, Bath, Bed,
   Smile, Frown, Meh, MessageSquare, Target as TargetIcon,
@@ -242,18 +242,20 @@ const AnalyticsPage = () => {
   ]);
 
   // Menu items updated for reports
-  const menuItems = [
-     { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
-     { id: 'individual', icon: Users, label: 'Individuals', badge: null },
-     { id: 'medicine', icon: Pill, label: 'Medications', badge: null },
-     { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: '3' },
-     { id: 'privacy', icon: Shield, label: 'Data Privacy', badge: 'NEW' },
-     { id: 'report', icon: FileText, label: 'Report', badge: 'NEW' },
-     { id: 'engine', icon: Pill, label: 'Foresight Engine', badge: 'NEW' },
-     { id: 'intelligence', icon: NetworkIcon, label: 'User Foresight', badge: 'NEW' },
-     { id: 'billing', icon: CreditCard, label: 'Billing', badge: null },
-     { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null }
-   ];
+    const menuItems = [
+        { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
+        { id: 'individual', icon: Users, label: 'Individuals', badge: null },
+        { id: 'medicine', icon: Pill, label: 'Medications', badge: null },
+        { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: '3' },
+         { id: 'bill', icon: Shield, label: 'Billing Report', badge: 'NEW' },
+          { id: 'staff', icon: User2Icon, label: 'Add Staff', badge: 'NEW' },
+        { id: 'privacy', icon: Shield, label: 'Data Privacy', badge: 'NEW' },
+        { id: 'report', icon: FileText, label: 'Report', badge: 'NEW' },
+        { id: 'engine', icon: Pill, label: 'Foresight Engine', badge: 'NEW' },
+        { id: 'intelligence', icon: NetworkIcon, label: 'User Foresight', badge: 'NEW' },
+        { id: 'billing', icon: CreditCard, label: 'Billing', badge: null },
+        { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null }
+      ];
 
 
   const timeRanges = [

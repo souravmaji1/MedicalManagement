@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { 
   CreditCard, DollarSign, FileText, TrendingUp, Users, Settings, Menu,
-  ChevronRight, Shield, ChevronLeft, Home, Pill, AlertTriangle, NetworkIcon,
+  ChevronRight, Shield, ChevronLeft, Home, Pill, AlertTriangle, NetworkIcon,User2Icon,
   TrendingUp as TrendingUpIcon, Loader2, MapPin, Activity, Bell, 
   Search, ChevronDown, X, ExternalLink, Globe
 } from 'lucide-react';
@@ -87,17 +87,19 @@ const BillingPage = () => {
   const [showStateDropdown, setShowStateDropdown] = useState(false);
 
    const menuItems = [
-      { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
-      { id: 'individual', icon: Users, label: 'Individuals', badge: null },
-      { id: 'medicine', icon: Pill, label: 'Medications', badge: null },
-      { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: '3' },
-      { id: 'privacy', icon: Shield, label: 'Data Privacy', badge: 'NEW' },
-      { id: 'report', icon: FileText, label: 'Report', badge: 'NEW' },
-      { id: 'engine', icon: Pill, label: 'Foresight Engine', badge: 'NEW' },
-      { id: 'intelligence', icon: NetworkIcon, label: 'User Foresight', badge: 'NEW' },
-      { id: 'billing', icon: CreditCard, label: 'Billing', badge: null },
-      { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null }
-    ];
+         { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
+         { id: 'individual', icon: Users, label: 'Individuals', badge: null },
+         { id: 'medicine', icon: Pill, label: 'Medications', badge: null },
+         { id: 'incident', icon: AlertTriangle, label: 'Incidents', badge: '3' },
+          { id: 'bill', icon: Shield, label: 'Billing Report', badge: 'NEW' },
+           { id: 'staff', icon: User2Icon, label: 'Add Staff', badge: 'NEW' },
+         { id: 'privacy', icon: Shield, label: 'Data Privacy', badge: 'NEW' },
+         { id: 'report', icon: FileText, label: 'Report', badge: 'NEW' },
+         { id: 'engine', icon: Pill, label: 'Foresight Engine', badge: 'NEW' },
+         { id: 'intelligence', icon: NetworkIcon, label: 'User Foresight', badge: 'NEW' },
+         { id: 'billing', icon: CreditCard, label: 'Billing', badge: null },
+         { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null }
+       ];
   // Handle billing redirect based on selected state
   const handleBillingRedirect = () => {
     const selectedStateData = stateMedicaidUrls[selectedState];
