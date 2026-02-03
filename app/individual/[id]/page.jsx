@@ -337,6 +337,75 @@ const [choiceAcknowledgments, setChoiceAcknowledgments] = useState([]);
   };
 
   // Fetch Community Activities
+
+
+// Update your useEffect to call these:
+useEffect(() => {
+  if (individual) {
+    fetchCommunityActivities(individual.id);
+    fetchChoiceAcknowledgments(individual.id);
+  }
+}, [individual]);
+
+// Handle Community Activity Entry
+
+
+const resetCommunityActivityForm = () => {
+  setCommunityActivityForm({
+    id: '',
+    date: '',
+    community_location: '',
+    activity_type: 'Social',
+    purpose: '',
+    duration_minutes: '',
+    choice_documented: false,
+    linked_daily_note_id: '',
+    staff_signature: '',
+    staff_name: userProfile?.fullname || '',
+    created_at: '',
+    created_by: ''
+  });
+};
+
+// Handle Choice Acknowledgment Entry
+
+
+const resetChoiceAcknowledgmentForm = () => {
+  setChoiceAcknowledgmentForm({
+    id: '',
+    individual_name: '',
+    rights_explained: false,
+    choice_options_explained: false,
+    right_to_refuse_explained: false,
+    complaint_process_explained: false,
+    individual_acknowledgment: false,
+    signature_type: 'Individual',
+    signature_name: '',
+    signature_date: '',
+    guardian_name: '',
+    witness_staff_name: userProfile?.fullname || '',
+    witness_staff_signature: '',
+    created_at: '',
+    created_by: ''
+  });
+};
+
+// Helper function to safely parse JSON data
+const parseJSONData = (data) => {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (typeof data === 'string') {
+    try {
+      return JSON.parse(data);
+    } catch (e) {
+      console.error('Error parsing JSON:', e);
+      return [];
+    }
+  }
+  return [];
+};
+
+// Fix for fetchCommunityActivities
 const fetchCommunityActivities = async (individualId) => {
   try {
     const { data, error } = await supabase
@@ -350,18 +419,18 @@ const fetchCommunityActivities = async (individualId) => {
     const activities = parseJSONData(data?.community_activity_log) || [];
     setCommunityActivities(activities);
     
-    setIndividuals(prev => prev.map(ind => 
-      ind.id === individualId 
-        ? { ...ind, community_activity_log: activities } 
-        : ind
-    ));
+    // FIX: individual is an object, not an array - update it directly
+    setIndividual(prev => ({
+      ...prev,
+      community_activity_log: activities
+    }));
   } catch (error) {
     console.error('Error fetching community activities:', error);
     setCommunityActivities([]);
   }
 };
 
-// Fetch Choice Acknowledgments
+// Fix for fetchChoiceAcknowledgments
 const fetchChoiceAcknowledgments = async (individualId) => {
   try {
     const { data, error } = await supabase
@@ -375,26 +444,18 @@ const fetchChoiceAcknowledgments = async (individualId) => {
     const acknowledgments = parseJSONData(data?.choice_acknowledgments) || [];
     setChoiceAcknowledgments(acknowledgments);
     
-    setIndividuals(prev => prev.map(ind => 
-      ind.id === individualId 
-        ? { ...ind, choice_acknowledgments: acknowledgments } 
-        : ind
-    ));
+    // FIX: individual is an object, not an array - update it directly
+    setIndividual(prev => ({
+      ...prev,
+      choice_acknowledgments: acknowledgments
+    }));
   } catch (error) {
     console.error('Error fetching choice acknowledgments:', error);
     setChoiceAcknowledgments([]);
   }
 };
 
-// Update your useEffect to call these:
-useEffect(() => {
-  if (individual) {
-    fetchCommunityActivities(individual.id);
-    fetchChoiceAcknowledgments(individual.id);
-  }
-}, [individual]);
-
-// Handle Community Activity Entry
+// Fix for handleCommunityActivityEntry
 const handleCommunityActivityEntry = async (e) => {
   e.preventDefault();
   
@@ -426,11 +487,12 @@ const handleCommunityActivityEntry = async (e) => {
     if (error) throw error;
 
     setCommunityActivities(updatedActivities);
-    setIndividuals(prev => prev.map(ind => 
-      ind.id === individual.id 
-        ? { ...ind, community_activity_log: updatedActivities } 
-        : ind
-    ));
+    
+    // FIX: individual is an object, not an array - update it directly
+    setIndividual(prev => ({
+      ...prev,
+      community_activity_log: updatedActivities
+    }));
     
     setShowCommunityActivityModal(false);
     resetCommunityActivityForm();
@@ -441,24 +503,7 @@ const handleCommunityActivityEntry = async (e) => {
   }
 };
 
-const resetCommunityActivityForm = () => {
-  setCommunityActivityForm({
-    id: '',
-    date: '',
-    community_location: '',
-    activity_type: 'Social',
-    purpose: '',
-    duration_minutes: '',
-    choice_documented: false,
-    linked_daily_note_id: '',
-    staff_signature: '',
-    staff_name: userProfile?.fullname || '',
-    created_at: '',
-    created_by: ''
-  });
-};
-
-// Handle Choice Acknowledgment Entry
+// Fix for handleChoiceAcknowledgmentEntry
 const handleChoiceAcknowledgmentEntry = async (e) => {
   e.preventDefault();
   
@@ -503,11 +548,12 @@ const handleChoiceAcknowledgmentEntry = async (e) => {
     if (error) throw error;
 
     setChoiceAcknowledgments(updatedAcknowledgments);
-    setIndividuals(prev => prev.map(ind => 
-      ind.id === individual.id 
-        ? { ...ind, choice_acknowledgments: updatedAcknowledgments } 
-        : ind
-    ));
+    
+    // FIX: individual is an object, not an array - update it directly
+    setIndividual(prev => ({
+      ...prev,
+      choice_acknowledgments: updatedAcknowledgments
+    }));
     
     setShowChoiceAcknowledgmentModal(false);
     resetChoiceAcknowledgmentForm();
@@ -518,27 +564,7 @@ const handleChoiceAcknowledgmentEntry = async (e) => {
   }
 };
 
-const resetChoiceAcknowledgmentForm = () => {
-  setChoiceAcknowledgmentForm({
-    id: '',
-    individual_name: '',
-    rights_explained: false,
-    choice_options_explained: false,
-    right_to_refuse_explained: false,
-    complaint_process_explained: false,
-    individual_acknowledgment: false,
-    signature_type: 'Individual',
-    signature_name: '',
-    signature_date: '',
-    guardian_name: '',
-    witness_staff_name: userProfile?.fullname || '',
-    witness_staff_signature: '',
-    created_at: '',
-    created_by: ''
-  });
-};
-
-// Delete Community Activity
+// Fix for deleteCommunityActivity
 const deleteCommunityActivity = async (activityId) => {
   if (!canEditPlans) {
     alert('You do not have permission to delete community activities.');
@@ -563,11 +589,12 @@ const deleteCommunityActivity = async (activityId) => {
     if (error) throw error;
 
     setCommunityActivities(updatedActivities);
-    setIndividuals(prev => prev.map(ind => 
-      ind.id === individual.id 
-        ? { ...ind, community_activity_log: updatedActivities } 
-        : ind
-    ));
+    
+    // FIX: individual is an object, not an array - update it directly
+    setIndividual(prev => ({
+      ...prev,
+      community_activity_log: updatedActivities
+    }));
     
     alert('Community activity deleted successfully!');
   } catch (error) {
@@ -576,7 +603,7 @@ const deleteCommunityActivity = async (activityId) => {
   }
 };
 
-// Delete Choice Acknowledgment
+// Fix for deleteChoiceAcknowledgment
 const deleteChoiceAcknowledgment = async (acknowledgmentId) => {
   if (!canEditPlans) {
     alert('You do not have permission to delete choice acknowledgments.');
@@ -601,11 +628,12 @@ const deleteChoiceAcknowledgment = async (acknowledgmentId) => {
     if (error) throw error;
 
     setChoiceAcknowledgments(updatedAcknowledgments);
-    setIndividuals(prev => prev.map(ind => 
-      ind.id === individual.id 
-        ? { ...ind, choice_acknowledgments: updatedAcknowledgments } 
-        : ind
-    ));
+    
+    // FIX: individual is an object, not an array - update it directly
+    setIndividual(prev => ({
+      ...prev,
+      choice_acknowledgments: updatedAcknowledgments
+    }));
     
     alert('Choice acknowledgment deleted successfully!');
   } catch (error) {
@@ -613,8 +641,6 @@ const deleteChoiceAcknowledgment = async (acknowledgmentId) => {
     alert('Error deleting choice acknowledgment. Please try again.');
   }
 };
-
-
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -1215,6 +1241,8 @@ const tabs = [
   { id: 'risks', label: 'Risk Management', icon: Shield, permission: canManageRisks || canViewPlans },
   { id: 'alerts', label: 'Alerts & Restrictions', icon: AlertTriangle, permission: canManageAlerts || canViewPlans }
 ].filter(tab => tab.permission);
+
+
 
   return (
     <div className="min-h-screen bg-slate-950 p-6">
