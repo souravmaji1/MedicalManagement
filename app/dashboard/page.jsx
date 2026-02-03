@@ -15,6 +15,7 @@ import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '../../contexts/userProfileContext';
 import { PERMISSIONS } from '../../utils/permissions';
+import { ScrollBar } from '../../components/ui/scroll-area';
 
 const supabase = createClient(
   'https://bbikcxalypttfgrlxstf.supabase.co',
@@ -1161,31 +1162,32 @@ return (
                   </div>
                 )}
 
-                {/* Dashboard Tabs */}
                 <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
-                  <div className="border-b border-slate-700">
-                    <ScrollArea className="w-full">
-                      <div className="flex p-2 gap-2">
-                        {dashboardTabs.map(tab => {
-                          const Icon = tab.icon;
-                          return (
-                            <button
-                              key={tab.id}
-                              onClick={() => setActiveTab(tab.id)}
-                              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all whitespace-nowrap ${
-                                activeTab === tab.id
-                                  ? `bg-gradient-to-r from-${tab.color}-600 to-${tab.color}-500 text-white shadow-lg`
-                                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                              }`}
-                            >
-                              <Icon size={18} />
-                              {tab.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </ScrollArea>
-                  </div>
+  <div className="border-b border-slate-700">
+    <ScrollArea className="w-full">
+      <div className="flex p-2 gap-2 w-[50vw]">
+        {dashboardTabs.map(tab => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-semibold transition-all whitespace-nowrap text-sm ${
+                activeTab === tab.id
+                  ? `bg-gradient-to-r from-${tab.color}-600 to-${tab.color}-500 text-white shadow-lg`
+                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <Icon size={18} className="flex-shrink-0" />
+              <span className="hidden sm:inline">{tab.label}</span>
+              <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
+            </button>
+          );
+        })}
+      </div>
+      <ScrollBar orientation="horizontal" />
+    </ScrollArea>
+  </div>
 
                   <div className="p-6">
                     {/* Community Integration Tab */}
@@ -1684,6 +1686,9 @@ return (
 )}
 </div>
 </div>
+
+
+
 </>
 )}
 </div>
@@ -1695,3 +1700,5 @@ return (
 );
 };
 export default HCBSDashboard;
+
+

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, Save, Plus, Trash2, Calendar, Clock, 
   Activity, Heart, Target, Users, CheckCircle,
-  AlertCircle, Edit2, Eye, Filter, Search,
+  AlertCircle, Edit2, Eye, Filter, Search,ClipboardCheck,
   Home as HomeIcon, Utensils, Shirt, Bath, Bed,
   Smile, Frown, Meh, MessageSquare, MapPin,
   FileText, User, Loader2, ChevronDown, ChevronRight,
@@ -218,6 +218,35 @@ const DailyNotesPage = () => {
     approved: false,
     approved_by: '',
     approved_date: '',
+
+
+
+
+    // NEW: SECTION C — ISP LINKAGE
+  ispGoalAddressed: false,
+  selectedIspGoalId: '',
+  selectedGoalDomain: '', // Auto-filled from goal
+  
+  // ENHANCED: SECTION D — CHOICE & AUTONOMY
+  choiceOffered: false,
+  choiceHonored: false,
+  choiceExercisedDescription: '', // In addition to choiceAutonomyNarrative
+  
+  // ENHANCED: SECTION E — COMMUNITY ACTIVITY
+  communityChoiceDocumented: false,
+  linkedDailyNoteId: '', // For audit purposes
+  
+  // NEW: SECTION F — STAFF SIGN-OFF
+  staffRole: userProfile?.role_name || '',
+  electronicSignature: '',
+  dateSigned: '',
+  signatureConfirmed: false,
+  
+  // NEW: SYSTEM FIELDS
+  documentationStatus: 'Draft', // Draft → Signed → Billing-Validated
+  recordId: '',
+  auditTimestamp: '',
+  billingValidated: false,
     
     timestamp: new Date().toISOString()
   };
@@ -453,90 +482,121 @@ const DailyNotesPage = () => {
     }));
   };
 
-  const handleSaveNote = async (e) => {
-    e.preventDefault();
+  // UPDATE SAVE FUNCTION to handle new fields (around line 600)
+
+const handleSaveNote = async (e) => {
+  e.preventDefault();
+  
+  // Validate ISP Linkage
+  if (noteForm.ispGoalAddressed && !noteForm.selectedIspGoalId) {
+    alert('Please select an ISP Goal ID when "ISP Goal Addressed" is checked.');
+    return;
+  }
+  
+  // Validate Electronic Signature
+  if (noteForm.electronicSignature !== noteForm.staffname) {
+    alert('Electronic signature must match your staff name exactly.');
+    return;
+  }
+  
+  if (!noteForm.signatureConfirmed) {
+    alert('Please confirm your signature by checking the certification box.');
+    return;
+  }
+  
+  // Validate Choice & Autonomy
+  if (!noteForm.choiceExercisedDescription?.trim()) {
+    alert('Please describe the choices exercised by the individual (HCBS requirement).');
+    return;
+  }
+
+  try {
+    setSaving(true);
     
-    if (!canCreateDailyNotes && !editingNote) {
-      alert('You do not have permission to create daily notes.');
-      return;
-    }
-
-    if (editingNote && !canUserEditNote(dailyNotes.find(n => n.id === editingNote))) {
-      alert('You do not have permission to edit this note.');
-      return;
-    }
-
-    try {
-      setSaving(true);
-      
-      const now = new Date().toISOString();
-      let newNote;
-      
-      if (editingNote) {
-        // Update existing note
-        newNote = {
-          ...noteForm,
-          id: editingNote,
-          last_edited: now,
-          last_edited_by: userProfile.fullname,
-          last_edited_by_role: userProfile.role_name
-        };
-        
-        const updatedNotes = dailyNotes.map(note => 
-          note.id === editingNote ? newNote : note
-        );
-        
-        const { error } = await supabase
-          .from('individuals')
-          .update({ 
-            dailynotes: updatedNotes,
-            last_activity: now
-          })
-          .eq('id', individualId);
-
-        if (error) throw error;
-
-        setDailyNotes(updatedNotes);
-        setEditingNote(null);
-        alert('Daily note updated successfully!');
-      } else {
-        // Create new note
-        newNote = {
-          ...noteForm,
-          id: Date.now().toString(),
-          timestamp: now,
-          created_by: userProfile.fullname,
-          created_by_role: userProfile.role_name,
-          facility: userProfile.facility,
-          division: userProfile.division,
-          approved: canApproveDailyNotes // Auto-approve if user has approval permission
-        };
-
-        const updatedNotes = [newNote, ...dailyNotes];
-
-        const { error } = await supabase
-          .from('individuals')
-          .update({ 
-            dailynotes: updatedNotes,
-            last_activity: now
-          })
-          .eq('id', individualId);
-
-        if (error) throw error;
-
-        setDailyNotes(updatedNotes);
-        alert('Daily note saved successfully!');
+    const now = new Date().toISOString();
+    
+    // Determine documentation status
+    let docStatus = 'Draft';
+    if (noteForm.electronicSignature === noteForm.staffname && noteForm.signatureConfirmed) {
+      docStatus = 'Signed';
+      // Auto-validate if user has approval permission
+      if (canApproveDailyNotes) {
+        docStatus = 'Billing-Validated';
       }
-
-      setShowAddModal(false);
-      resetForm();
-    } catch (error) {
-      console.error('Error saving note:', error);
-      alert(`Error ${editingNote ? 'updating' : 'saving'} note. Please try again.`);
-    } finally {
-      setSaving(false);
     }
-  };
+    
+    let newNote;
+    
+    if (editingNote) {
+      newNote = {
+        ...noteForm,
+        id: editingNote,
+        last_edited: now,
+        last_edited_by: userProfile.fullname,
+        last_edited_by_role: userProfile.role_name,
+        documentationStatus: docStatus,
+        dateSigned: now
+      };
+      
+      const updatedNotes = dailyNotes.map(note => 
+        note.id === editingNote ? newNote : note
+      );
+      
+      const { error } = await supabase
+        .from('individuals')
+        .update({ 
+          dailynotes: updatedNotes,
+          last_activity: now
+        })
+        .eq('id', individualId);
+
+      if (error) throw error;
+
+      setDailyNotes(updatedNotes);
+      setEditingNote(null);
+      alert('Daily note updated successfully!');
+    } else {
+      newNote = {
+        ...noteForm,
+        id: Date.now().toString(),
+        timestamp: now,
+        created_by: userProfile.fullname,
+        created_by_role: userProfile.role_name,
+        facility: userProfile.facility,
+        division: userProfile.division,
+        approved: canApproveDailyNotes,
+        documentationStatus: docStatus,
+        recordId: `DN-${Date.now()}`,
+        auditTimestamp: now,
+        dateSigned: now,
+        billingValidated: docStatus === 'Billing-Validated'
+      };
+
+      const updatedNotes = [newNote, ...dailyNotes];
+
+      const { error } = await supabase
+        .from('individuals')
+        .update({ 
+          dailynotes: updatedNotes,
+          last_activity: now
+        })
+        .eq('id', individualId);
+
+      if (error) throw error;
+
+      setDailyNotes(updatedNotes);
+      alert(`Daily note saved successfully! Status: ${docStatus}`);
+    }
+
+    setShowAddModal(false);
+    resetForm();
+  } catch (error) {
+    console.error('Error saving note:', error);
+    alert(`Error ${editingNote ? 'updating' : 'saving'} note. Please try again.`);
+  } finally {
+    setSaving(false);
+  }
+};
 
   const handleSaveAndAddAnother = async (e) => {
     e.preventDefault();
@@ -1079,6 +1139,98 @@ const DailyNotesPage = () => {
                   </div>
                 </div>
 
+              
+
+{/* SECTION C — ISP LINKAGE */}
+<div>
+  <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
+    <Target size={20} />
+   ISP LINKAGE
+  </h4>
+  
+  <div className="space-y-4">
+    <div className="flex items-center gap-3">
+      <input
+        type="checkbox"
+        name="ispGoalAddressed"
+        checked={noteForm.ispGoalAddressed}
+        onChange={handleInputChange}
+        className="w-5 h-5 bg-slate-800 border-slate-700 rounded focus:ring-emerald-500"
+      />
+      <label className="text-white font-semibold">
+        ISP Goal Addressed? *
+      </label>
+    </div>
+
+    {noteForm.ispGoalAddressed && (
+      <div className="pl-8 space-y-4 animate-in fade-in">
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Select ISP Goal ID * <span className="text-xs text-slate-500">(Must belong to this individual and be Active)</span>
+          </label>
+          <select
+            name="selectedIspGoalId"
+            value={noteForm.selectedIspGoalId}
+            onChange={(e) => {
+              const selectedGoal = individual.goals?.find(g => g.id === e.target.value);
+              setNoteForm(prev => ({
+                ...prev,
+                selectedIspGoalId: e.target.value,
+                selectedGoalDomain: selectedGoal?.hcbsdomain || selectedGoal?.domain || 'Other'
+              }));
+            }}
+            required={noteForm.ispGoalAddressed}
+            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+          >
+            <option value="">-- Select Active ISP Goal --</option>
+            {individual.goals?.filter(g => g.status === 'Active').map(goal => (
+              <option key={goal.id} value={goal.id}>
+                {goal.description} (Domain: {goal.hcbsdomain || goal.domain || 'Other'})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Goal Domain <span className="text-xs text-slate-500">(Auto-filled from selected goal)</span>
+          </label>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+            {['Independence', 'Community', 'Health', 'Behavior', 'Other'].map(domain => (
+              <div 
+                key={domain}
+                className={`px-3 py-2 rounded-lg text-sm font-semibold text-center ${
+                  noteForm.selectedGoalDomain === domain
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-800/50 text-slate-400'
+                }`}
+              >
+                {domain}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3">
+          <p className="text-xs text-blue-400">
+            📊 <strong>Audit Note:</strong> This linkage enables ISP Goal Implementation Reports, 
+            Compliance Alerts, and HCBS Evidence Summaries. Daily notes without ISP linkage will NOT 
+            count toward goal activity metrics.
+          </p>
+        </div>
+      </div>
+    )}
+
+    {!noteForm.ispGoalAddressed && (
+      <div className="pl-8 bg-slate-800/30 border border-slate-700 rounded-lg p-3">
+        <p className="text-sm text-slate-400">
+          ℹ️ No ISP goal was addressed during this service period. Note will be saved but will NOT count toward goal implementation metrics.
+        </p>
+      </div>
+    )}
+  </div>
+</div>
+
                 {/* SECTION 2 — ISP GOALS & SUPPORT PROVIDED */}
                 <div>
                   <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
@@ -1135,24 +1287,74 @@ const DailyNotesPage = () => {
                   />
                 </div>
 
-                {/* SECTION 3 — CHOICE & AUTONOMY */}
-                <div>
-                  <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
-                    <CheckSquare size={20} />
-                    CHOICE & AUTONOMY (HCBS REQUIREMENT)
-                  </h4>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Describe how the individual exercised choice today (activities, meals, clothing, schedule, community, etc.):
-                  </label>
-                  <textarea
-                    name="choiceAutonomyNarrative"
-                    value={noteForm.choiceAutonomyNarrative}
-                    onChange={handleInputChange}
-                    placeholder="Describe choices made by the individual throughout the day..."
-                    rows="3"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 resize-none"
-                  />
-                </div>
+            
+
+{/* SECTION D — CHOICE & AUTONOMY (ENHANCED) */}
+<div>
+  <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
+    <CheckSquare size={20} />
+    CHOICE & AUTONOMY (HCBS REQUIREMENT)
+  </h4>
+  
+  <div className="space-y-4">
+    <div className="grid grid-cols-2 gap-4">
+      <div className="flex items-center gap-3">
+        <input
+          type="checkbox"
+          name="choiceOffered"
+          checked={noteForm.choiceOffered}
+          onChange={handleInputChange}
+          className="w-5 h-5 bg-slate-800 border-slate-700 rounded focus:ring-emerald-500"
+        />
+        <label className="text-white font-semibold">
+          Choice Offered? *
+        </label>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <input
+          type="checkbox"
+          name="choiceHonored"
+          checked={noteForm.choiceHonored}
+          onChange={handleInputChange}
+          className="w-5 h-5 bg-slate-800 border-slate-700 rounded focus:ring-emerald-500"
+        />
+        <label className="text-white font-semibold">
+          Choice Honored? *
+        </label>
+      </div>
+    </div>
+
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Describe choice exercised (activity, meal, schedule, etc.) *
+      </label>
+      <textarea
+        name="choiceExercisedDescription"
+        value={noteForm.choiceExercisedDescription}
+        onChange={handleInputChange}
+        placeholder="Example: 'Individual chose to wear blue shirt instead of red, chose pizza for lunch, decided to skip afternoon walk and read instead.'"
+        rows="2"
+        required
+        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 resize-none"
+      />
+    </div>
+
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Additional Choice & Autonomy Narrative:
+      </label>
+      <textarea
+        name="choiceAutonomyNarrative"
+        value={noteForm.choiceAutonomyNarrative}
+        onChange={handleInputChange}
+        placeholder="Provide additional context about how individual exercised autonomy today..."
+        rows="2"
+        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 resize-none"
+      />
+    </div>
+  </div>
+</div>
 
                 {/* SECTION 4 — DAILY ACTIVITIES & COMMUNITY INCLUSION */}
                 <div>
@@ -1256,6 +1458,21 @@ const DailyNotesPage = () => {
                             className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
                           />
                         </div>
+
+                          <div className="md:col-span-2">
+      <div className="flex items-center gap-3">
+        <input
+          type="checkbox"
+          name="communityChoiceDocumented"
+          checked={noteForm.communityChoiceDocumented}
+          onChange={handleInputChange}
+          className="w-5 h-5 bg-slate-800 border-slate-700 rounded focus:ring-emerald-500"
+        />
+        <label className="text-white font-semibold">
+          Choice Documented? * <span className="text-xs text-slate-400">(HCBS requirement for community activities)</span>
+        </label>
+      </div>
+    </div>
                       </div>
                     )}
                   </div>
@@ -1685,6 +1902,109 @@ const DailyNotesPage = () => {
                   />
                 </div>
 
+                
+
+{/* SECTION F — STAFF SIGN-OFF */}
+<div>
+  <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
+    <ClipboardCheck size={20} />
+    STAFF SIGN-OFF (REQUIRED)
+  </h4>
+  
+  <div className="bg-gradient-to-br from-orange-900/20 to-red-900/20 border border-orange-500/30 rounded-xl p-6 space-y-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          Staff Name * <span className="text-xs text-slate-500">(Auto-filled)</span>
+        </label>
+        <input
+          type="text"
+          name="staffname"
+          value={noteForm.staffname}
+          disabled
+          className="w-full bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none disabled:opacity-70"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          Staff Role * <span className="text-xs text-slate-500">(Auto-filled)</span>
+        </label>
+        <input
+          type="text"
+          name="staffRole"
+          value={noteForm.staffRole}
+          disabled
+          className="w-full bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none disabled:opacity-70"
+        />
+      </div>
+    </div>
+
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Electronic Signature * <span className="text-xs text-slate-500">(Type your full name to confirm)</span>
+      </label>
+      <input
+        type="text"
+        name="electronicSignature"
+        value={noteForm.electronicSignature}
+        onChange={handleInputChange}
+        placeholder="Type your full name exactly as it appears above"
+        required
+        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-orange-500"
+      />
+      {noteForm.electronicSignature && noteForm.electronicSignature !== noteForm.staffname && (
+        <p className="text-red-400 text-xs mt-1">⚠️ Signature must match staff name exactly</p>
+      )}
+    </div>
+
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Date Signed * <span className="text-xs text-slate-500">(Auto-filled with today's date)</span>
+      </label>
+      <input
+        type="date"
+        name="dateSigned"
+        value={noteForm.dateSigned || new Date().toISOString().split('T')[0]}
+        disabled
+        className="w-full bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none disabled:opacity-70"
+      />
+    </div>
+
+    <div className="flex items-start gap-3 pt-4 border-t border-slate-700">
+      <input
+        type="checkbox"
+        name="signatureConfirmed"
+        checked={noteForm.signatureConfirmed}
+        onChange={handleInputChange}
+        required
+        className="w-5 h-5 bg-slate-800 border-slate-700 rounded focus:ring-orange-500 mt-0.5"
+      />
+      <label className="text-white text-sm">
+        <strong>I certify that:</strong> The information documented in this daily service note is accurate and complete to the best of my knowledge. 
+        I provided the services as described and witnessed the activities, behaviors, and events documented above. 
+        My electronic signature confirms my accountability for this record. *
+      </label>
+    </div>
+
+    {noteForm.electronicSignature === noteForm.staffname && noteForm.signatureConfirmed && (
+      <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-3">
+        <p className="text-green-400 text-sm flex items-center gap-2">
+          <CheckCircle size={16} />
+          <strong>Signature Valid</strong> - This note will be marked as "Signed" and eligible for billing validation.
+        </p>
+      </div>
+    )}
+  </div>
+
+  <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3 mt-4">
+    <p className="text-xs text-blue-400">
+      📋 <strong>Audit Rule:</strong> This note will appear in reports ONLY IF status = "Billing-Validated". 
+      Unsigned notes remain in "Draft" status and are excluded from billing and compliance reports.
+    </p>
+  </div>
+</div>
+
                 {/* Form Actions */}
                 <div className="flex items-center justify-end gap-3 pt-6 border-t border-slate-700">
                   <button
@@ -2069,3 +2389,5 @@ const DailyNotesPage = () => {
 };
 
 export default DailyNotesPage;
+
+

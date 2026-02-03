@@ -416,15 +416,41 @@ const [wellnessForm, setWellnessForm] = useState({
 
   // MAR entry form state
   const [marEntry, setMarEntry] = useState({
-    medicationid: '',
-    time: '',
-    status: '',
-    notes: '',
-    givenby: '',
-    refusedreason: '',
-    heldreason: '',
-    lateminutes: ''
-  });
+  medicationid: '',
+  time: '',
+  status: '',
+  notes: '',
+  givenby: '',
+  refusedreason: '',
+  heldreason: '',
+  lateminutes: '',
+  
+  // NEW FIELDS - ADD THESE:
+  administered_date: new Date().toISOString().split('T')[0],
+  administered_time: '',
+  route_used: '',
+  witnessed_by: '',
+  
+  // PRN specific
+  prn_reason_given: '',
+  prn_effectiveness: '',
+  prn_outcome_time: '',
+  
+  // Refusal/Hold specific
+  refusal_documented_in_note: false,
+  hold_physician_notified: false,
+  hold_physician_name: '',
+  
+  // Audit fields
+  mar_validated: false,
+  mar_validator_name: '',
+  mar_validation_date: '',
+  billing_validated: false,
+  
+  // System fields
+  documented_by: userProfile?.fullname || '',
+  documented_by_role: userProfile?.role_name || ''
+});
 
   // Time blocks for MAR
   const timeBlocks = [
@@ -1475,18 +1501,34 @@ const resetWellnessForm = () => {
     });
   };
 
-  const resetMARForm = () => {
-    setMarEntry({
-      medicationid: '',
-      time: '',
-      status: '',
-      notes: '',
-      givenby: '',
-      refusedreason: '',
-      heldreason: '',
-      lateminutes: ''
-    });
-  };
+ const resetMARForm = () => {
+  setMarEntry({
+    medicationid: '',
+    time: '',
+    status: '',
+    notes: '',
+    givenby: '',
+    refusedreason: '',
+    heldreason: '',
+    lateminutes: '',
+    administered_date: new Date().toISOString().split('T')[0],
+    administered_time: '',
+    route_used: '',
+    witnessed_by: '',
+    prn_reason_given: '',
+    prn_effectiveness: '',
+    prn_outcome_time: '',
+    refusal_documented_in_note: false,
+    hold_physician_notified: false,
+    hold_physician_name: '',
+    mar_validated: false,
+    mar_validator_name: '',
+    mar_validation_date: '',
+    billing_validated: false,
+    documented_by: userProfile?.fullname || '',
+    documented_by_role: userProfile?.role_name || ''
+  });
+};
 
   // Helper function to get all medication names from categories
   const getAllMedicationNames = () => {
@@ -3927,167 +3969,452 @@ Page {pageIndex + 1} of {pdfPages.length}
         </div>
       )}
 
-      {/* MAR Entry Modal */}
-      {showMARModal && canCreateMAREntries && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl w-full max-w-2xl p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-xl flex items-center justify-center">
-                  <FileText className="text-white" size={24} />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-bold text-white">MAR Entry</h3>
-                  <p className="text-slate-400 text-sm">Medication Administration Record</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setShowMARModal(false)}
-                className="p-2 hover:bg-slate-700 rounded-lg transition-all"
-              >
-                <X className="text-slate-400" size={24} />
-              </button>
-            </div>
-
-            <form onSubmit={handleMARentry} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Medication</label>
-                  <select
-                    value={marEntry.medicationid}
-                    onChange={(e) => setMarEntry({...marEntry, medicationid: e.target.value})}
-                    required
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
-                  >
-                    <option value="">Select Medication</option>
-                    {medications.map(med => (
-                      <option key={med.id} value={med.id}>{med.medicationname} - {med.dosage}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Time</label>
-                  <select
-                    value={marEntry.time}
-                    onChange={(e) => setMarEntry({...marEntry, time: e.target.value})}
-                    required
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
-                  >
-                    <option value="">Select Time</option>
-                    {timeBlocks.map(time => (
-                      <option key={time} value={time}>{time}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Status</label>
-                  <select
-                    value={marEntry.status}
-                    onChange={(e) => setMarEntry({...marEntry, status: e.target.value})}
-                    required
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
-                  >
-                    <option value="">Select Status</option>
-                    <option value="Given">Given</option>
-                    <option value="Refused">Refused</option>
-                    <option value="Held">Held</option>
-                    <option value="Late">Late</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Given By</label>
-                  <input
-                    type="text"
-                    value={marEntry.givenby}
-                    onChange={(e) => setMarEntry({...marEntry, givenby: e.target.value})}
-                    required
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
-                  />
-                </div>
-                {marEntry.status === 'Refused' && (
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Refusal Reason</label>
-                    <input
-                      type="text"
-                      value={marEntry.refusedreason}
-                      onChange={(e) => setMarEntry({...marEntry, refusedreason: e.target.value})}
-                      required
-                      placeholder="Reason for refusal"
-                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
-                    />
-                  </div>
-                )}
-                {marEntry.status === 'Held' && (
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Hold Reason</label>
-                    <input
-                      type="text"
-                      value={marEntry.heldreason}
-                      onChange={(e) => setMarEntry({...marEntry, heldreason: e.target.value})}
-                      required
-                      placeholder="Reason for holding dose"
-                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
-                    />
-                  </div>
-                )}
-                {marEntry.status === 'Late' && (
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Minutes Late</label>
-                    <input
-                      type="number"
-                      value={marEntry.lateminutes}
-                      onChange={(e) => setMarEntry({...marEntry, lateminutes: e.target.value})}
-                      required
-                      placeholder="e.g., 15"
-                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
-                    />
-                  </div>
-                )}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Notes</label>
-                  <textarea
-                    value={marEntry.notes}
-                    onChange={(e) => setMarEntry({...marEntry, notes: e.target.value})}
-                    rows="3"
-                    placeholder="Additional notes..."
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all resize-none"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (marEntry.status === 'Refused' || marEntry.status === 'Held' || marEntry.status === 'Late') {
-                      alert(`Med error incident created: ${marEntry.status}\nDetails: ${marEntry.notes}`);
-                    }
-                    setShowMARModal(false);
-                  }}
-                  className="px-4 py-2 bg-orange-600/20 hover:bg-orange-600/30 text-orange-400 rounded-lg font-semibold transition-all flex items-center gap-2"
-                >
-                  <AlertTriangle size={16} />
-                  Create Incident
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowMARModal(false)}
-                  className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-blue-500/50 transition-all"
-                >
-                  <Save size={18} />
-                  Record Entry
-                </button>
-              </div>
-            </form>
+     {/* MAR Entry Modal - ENHANCED VERSION */}
+{showMARModal && canCreateMAREntries && selectedIndividual && (
+  <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+      <div className="flex items-center justify-between p-6 border-b border-slate-700">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-xl flex items-center justify-center">
+            <Pill className="text-white" size={24} />
+          </div>
+          <div>
+            <h3 className="text-2xl font-bold text-white">Medication Administration Record (MAR)</h3>
+            <p className="text-slate-400 text-sm">Document medication administration</p>
           </div>
         </div>
-      )}
+        <button 
+          onClick={() => setShowMARModal(false)}
+          className="p-2 hover:bg-slate-700 rounded-lg transition-all"
+        >
+          <X className="text-slate-400" size={24} />
+        </button>
+      </div>
+
+      <ScrollArea className="h-[calc(90vh-180px)]">
+        <form onSubmit={handleMARentry} className="p-6 space-y-6">
+          {/* Basic Information */}
+          <div>
+            <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
+              <Pill size={20} />
+              Basic Information
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Select Medication *</label>
+                <select
+                  value={marEntry.medicationid}
+                  onChange={(e) => {
+                    const selectedMed = medications.find(m => m.id === e.target.value);
+                    setMarEntry({
+                      ...marEntry, 
+                      medicationid: e.target.value,
+                      route_used: selectedMed?.route || ''
+                    });
+                  }}
+                  required
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all"
+                >
+                  <option value="">-- Select Medication --</option>
+                  {medications.filter(med => med.status === 'Active').map(med => (
+                    <option key={med.id} value={med.id}>
+                      {med.medicationname} - {med.dosage} {med.route}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Scheduled Time *</label>
+                <select
+                  value={marEntry.time}
+                  onChange={(e) => setMarEntry({...marEntry, time: e.target.value})}
+                  required
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all"
+                >
+                  <option value="">-- Select Time --</option>
+                  {medications.find(m => m.id === marEntry.medicationid)?.times?.map(time => (
+                    <option key={time} value={time}>{time}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Administered Date *
+                </label>
+                <input
+                  type="date"
+                  value={marEntry.administered_date}
+                  onChange={(e) => setMarEntry({...marEntry, administered_date: e.target.value})}
+                  required
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Actual Time Given * <span className="text-xs text-slate-500">(Actual time medication was administered)</span>
+                </label>
+                <input
+                  type="time"
+                  value={marEntry.administered_time}
+                  onChange={(e) => setMarEntry({...marEntry, administered_time: e.target.value})}
+                  required
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Status *</label>
+                <select
+                  value={marEntry.status}
+                  onChange={(e) => setMarEntry({...marEntry, status: e.target.value})}
+                  required
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all"
+                >
+                  <option value="">-- Select Status --</option>
+                  <option value="Given">Given</option>
+                  <option value="Refused">Refused</option>
+                  <option value="Held">Held</option>
+                  <option value="Late">Late</option>
+                  <option value="Missed">Missed</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Route Used *
+                </label>
+                <select
+                  value={marEntry.route_used}
+                  onChange={(e) => setMarEntry({...marEntry, route_used: e.target.value})}
+                  required
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all"
+                >
+                  <option value="">-- Select Route --</option>
+                  {routes.map(route => (
+                    <option key={route} value={route}>{route}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Administered By *
+                </label>
+                <input
+                  type="text"
+                  value={marEntry.givenby}
+                  onChange={(e) => setMarEntry({...marEntry, givenby: e.target.value})}
+                  placeholder="Staff name"
+                  required
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Witnessed By <span className="text-xs text-slate-500">(Required for controlled substances)</span>
+                </label>
+                <input
+                  type="text"
+                  value={marEntry.witnessed_by}
+                  onChange={(e) => setMarEntry({...marEntry, witnessed_by: e.target.value})}
+                  placeholder="Second staff witness (if required)"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Status-Specific Fields */}
+          {marEntry.status === 'Refused' && (
+            <div className="border-t border-slate-700 pt-6">
+              <h4 className="text-lg font-bold text-red-400 mb-4 flex items-center gap-2">
+                <XCircle size={20} />
+                Refusal Documentation
+              </h4>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Reason for Refusal *
+                  </label>
+                  <textarea
+                    value={marEntry.refusedreason}
+                    onChange={(e) => setMarEntry({...marEntry, refusedreason: e.target.value})}
+                    placeholder="Document why individual refused medication..."
+                    rows="3"
+                    required
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500 transition-all resize-none"
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="refusal_documented_in_note"
+                    checked={marEntry.refusal_documented_in_note}
+                    onChange={(e) => setMarEntry({...marEntry, refusal_documented_in_note: e.target.checked})}
+                    className="w-5 h-5 bg-slate-800 border-slate-700 rounded focus:ring-red-500"
+                  />
+                  <label htmlFor="refusal_documented_in_note" className="text-white">
+                    Refusal documented in Daily Service Note *
+                  </label>
+                </div>
+                {!marEntry.refusal_documented_in_note && (
+                  <p className="text-xs text-red-400">
+                    ⚠️ Audit Requirement: Medication refusals must be documented in the daily note
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {marEntry.status === 'Held' && (
+            <div className="border-t border-slate-700 pt-6">
+              <h4 className="text-lg font-bold text-yellow-400 mb-4 flex items-center gap-2">
+                <AlertCircle size={20} />
+                Hold Documentation
+              </h4>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Reason for Hold *
+                  </label>
+                  <textarea
+                    value={marEntry.heldreason}
+                    onChange={(e) => setMarEntry({...marEntry, heldreason: e.target.value})}
+                    placeholder="Document why medication was held..."
+                    rows="3"
+                    required
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-yellow-500 transition-all resize-none"
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="hold_physician_notified"
+                    checked={marEntry.hold_physician_notified}
+                    onChange={(e) => setMarEntry({...marEntry, hold_physician_notified: e.target.checked})}
+                    className="w-5 h-5 bg-slate-800 border-slate-700 rounded focus:ring-yellow-500"
+                  />
+                  <label htmlFor="hold_physician_notified" className="text-white">
+                    Physician/RN notified of hold
+                  </label>
+                </div>
+                {marEntry.hold_physician_notified && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Physician/RN Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={marEntry.hold_physician_name}
+                      onChange={(e) => setMarEntry({...marEntry, hold_physician_name: e.target.value})}
+                      placeholder="Name of physician or RN notified"
+                      required
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-yellow-500 transition-all"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {marEntry.status === 'Late' && (
+            <div className="border-t border-slate-700 pt-6">
+              <h4 className="text-lg font-bold text-orange-400 mb-4 flex items-center gap-2">
+                <Clock size={20} />
+                Late Administration
+              </h4>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Minutes Late *
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={marEntry.lateminutes}
+                  onChange={(e) => setMarEntry({...marEntry, lateminutes: e.target.value})}
+                  placeholder="How many minutes late?"
+                  required
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-orange-500 transition-all"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* PRN Documentation */}
+          {medications.find(m => m.id === marEntry.medicationid)?.prn && (
+            <div className="border-t border-slate-700 pt-6">
+              <h4 className="text-lg font-bold text-purple-400 mb-4 flex items-center gap-2">
+                <Pill size={20} />
+                PRN Documentation
+              </h4>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Reason PRN Was Given * <span className="text-xs text-slate-500">(Why was this PRN medication needed?)</span>
+                  </label>
+                  <textarea
+                    value={marEntry.prn_reason_given}
+                    onChange={(e) => setMarEntry({...marEntry, prn_reason_given: e.target.value})}
+                    placeholder="e.g., Individual complained of headache, observed anxiety symptoms..."
+                    rows="2"
+                    required
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 transition-all resize-none"
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Effectiveness * <span className="text-xs text-slate-500">(Did the PRN work?)</span>
+                    </label>
+                    <select
+                      value={marEntry.prn_effectiveness}
+                      onChange={(e) => setMarEntry({...marEntry, prn_effectiveness: e.target.value})}
+                      required
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 transition-all"
+                    >
+                      <option value="">-- Select --</option>
+                      <option value="Effective">Effective - Symptoms resolved</option>
+                      <option value="Partially Effective">Partially Effective - Some relief</option>
+                      <option value="Not Effective">Not Effective - No relief</option>
+                      <option value="Too Soon to Tell">Too Soon to Tell</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Outcome Checked At * <span className="text-xs text-slate-500">(When was effectiveness checked?)</span>
+                    </label>
+                    <input
+                      type="time"
+                      value={marEntry.prn_outcome_time}
+                      onChange={(e) => setMarEntry({...marEntry, prn_outcome_time: e.target.value})}
+                      required
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Additional Notes */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Additional Notes
+            </label>
+            <textarea
+              value={marEntry.notes}
+              onChange={(e) => setMarEntry({...marEntry, notes: e.target.value})}
+              placeholder="Any additional observations or notes..."
+              rows="3"
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all resize-none"
+            />
+          </div>
+
+          {/* Validation Section (For RN/Supervisors) */}
+          {canApproveMAREntries && (
+            <div className="border-t border-slate-700 pt-6">
+              <h4 className="text-lg font-bold text-blue-400 mb-4 flex items-center gap-2">
+                <CheckCircle size={20} />
+                RN/Supervisor Validation
+              </h4>
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="mar_validated"
+                    checked={marEntry.mar_validated}
+                    onChange={(e) => setMarEntry({...marEntry, mar_validated: e.target.checked})}
+                    className="w-5 h-5 bg-slate-800 border-slate-700 rounded focus:ring-blue-500"
+                  />
+                  <label htmlFor="mar_validated" className="text-white font-semibold">
+                    I validate this MAR entry as accurate and complete
+                  </label>
+                </div>
+                {marEntry.mar_validated && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Validator Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={marEntry.mar_validator_name}
+                        onChange={(e) => setMarEntry({...marEntry, mar_validator_name: e.target.value})}
+                        placeholder="RN/Supervisor name"
+                        required
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Validation Date *
+                      </label>
+                      <input
+                        type="date"
+                        value={marEntry.mar_validation_date}
+                        onChange={(e) => setMarEntry({...marEntry, mar_validation_date: e.target.value})}
+                        required
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
+                      />
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="billing_validated"
+                    checked={marEntry.billing_validated}
+                    onChange={(e) => setMarEntry({...marEntry, billing_validated: e.target.checked})}
+                    className="w-5 h-5 bg-slate-800 border-slate-700 rounded focus:ring-emerald-500"
+                  />
+                  <label htmlFor="billing_validated" className="text-white font-semibold">
+                    Billing-Validated (Appears in reports)
+                  </label>
+                </div>
+                {marEntry.billing_validated && (
+                  <p className="text-xs text-emerald-400 flex items-center gap-2">
+                    <CheckCircle size={12} />
+                    This entry will appear in billing and compliance reports
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Audit Notice */}
+          <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
+            <p className="text-xs text-blue-400">
+              📋 <strong>Audit Rule:</strong> Only entries with status "Billing-Validated" will appear in billing reports.
+              Missed and late doses are automatically flagged for review.
+            </p>
+          </div>
+
+          {/* Form Actions */}
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">
+            <button
+              type="button"
+              onClick={() => setShowMARModal(false)}
+              className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-blue-500/50 transition-all"
+            >
+              <Save size={18} />
+              Record MAR Entry
+            </button>
+          </div>
+        </form>
+      </ScrollArea>
+    </div>
+  </div>
+)}
 
 
 

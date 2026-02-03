@@ -180,12 +180,57 @@ const IndividualProfilePage = () => {
   
   // Quarterly Reviews
   quarterly_reviews: [],
+
+
+  // ADD these new fields:
+  community_activity_log: [],
+  choice_acknowledgments: [],
+  lease_agreements: [],
   
   // Rights & Risk
   rights_restrictions_notes: '',
   identified_risks: [],
   risk_mitigation_strategies: ''
   });
+
+  // Add these new state variables after your existing formData state
+const [communityActivityForm, setCommunityActivityForm] = useState({
+  id: '',
+  date: '',
+  community_location: '',
+  activity_type: 'Social', // Social/Vocational/Recreational/Medical
+  purpose: '',
+  duration_minutes: '',
+  choice_documented: false,
+  linked_daily_note_id: '',
+  staff_signature: '',
+  staff_name: userProfile?.fullname || '',
+  created_at: '',
+  created_by: ''
+});
+
+const [choiceAcknowledgmentForm, setChoiceAcknowledgmentForm] = useState({
+  id: '',
+  individual_name: '',
+  rights_explained: false,
+  choice_options_explained: false,
+  right_to_refuse_explained: false,
+  complaint_process_explained: false,
+  individual_acknowledgment: false,
+  signature_type: 'Individual', // Individual or Guardian
+  signature_name: '',
+  signature_date: '',
+  guardian_name: '',
+  witness_staff_name: userProfile?.fullname || '',
+  witness_staff_signature: '',
+  created_at: '',
+  created_by: ''
+});
+
+const [showCommunityActivityModal, setShowCommunityActivityModal] = useState(false);
+const [showChoiceAcknowledgmentModal, setShowChoiceAcknowledgmentModal] = useState(false);
+const [communityActivities, setCommunityActivities] = useState([]);
+const [choiceAcknowledgments, setChoiceAcknowledgments] = useState([]);
 
   // Load PDF.js and jsPDF on component mount
   useEffect(() => {
@@ -290,6 +335,286 @@ const IndividualProfilePage = () => {
       setLoading(false);
     }
   };
+
+  // Fetch Community Activities
+const fetchCommunityActivities = async (individualId) => {
+  try {
+    const { data, error } = await supabase
+      .from('individuals')
+      .select('community_activity_log')
+      .eq('id', individualId)
+      .single();
+    
+    if (error) throw error;
+    
+    const activities = parseJSONData(data?.community_activity_log) || [];
+    setCommunityActivities(activities);
+    
+    setIndividuals(prev => prev.map(ind => 
+      ind.id === individualId 
+        ? { ...ind, community_activity_log: activities } 
+        : ind
+    ));
+  } catch (error) {
+    console.error('Error fetching community activities:', error);
+    setCommunityActivities([]);
+  }
+};
+
+// Fetch Choice Acknowledgments
+const fetchChoiceAcknowledgments = async (individualId) => {
+  try {
+    const { data, error } = await supabase
+      .from('individuals')
+      .select('choice_acknowledgments')
+      .eq('id', individualId)
+      .single();
+    
+    if (error) throw error;
+    
+    const acknowledgments = parseJSONData(data?.choice_acknowledgments) || [];
+    setChoiceAcknowledgments(acknowledgments);
+    
+    setIndividuals(prev => prev.map(ind => 
+      ind.id === individualId 
+        ? { ...ind, choice_acknowledgments: acknowledgments } 
+        : ind
+    ));
+  } catch (error) {
+    console.error('Error fetching choice acknowledgments:', error);
+    setChoiceAcknowledgments([]);
+  }
+};
+
+// Update your useEffect to call these:
+useEffect(() => {
+  if (individual) {
+    fetchCommunityActivities(individual.id);
+    fetchChoiceAcknowledgments(individual.id);
+  }
+}, [individual]);
+
+// Handle Community Activity Entry
+const handleCommunityActivityEntry = async (e) => {
+  e.preventDefault();
+  
+  if (!canEditPlans) {
+    alert('You do not have permission to add community activities.');
+    return;
+  }
+  
+  try {
+    const newActivity = {
+      id: Date.now().toString(),
+      ...communityActivityForm,
+      created_date: new Date().toISOString(),
+      created_by: userProfile.fullname,
+      created_by_role: userProfile.role_name
+    };
+
+    const updatedActivities = [...communityActivities, newActivity];
+    
+    // Update in Supabase
+    const { error } = await supabase
+      .from('individuals')
+      .update({ 
+        community_activity_log: updatedActivities,
+        last_activity: new Date().toISOString()
+      })
+      .eq('id', individual.id);
+
+    if (error) throw error;
+
+    setCommunityActivities(updatedActivities);
+    setIndividuals(prev => prev.map(ind => 
+      ind.id === individual.id 
+        ? { ...ind, community_activity_log: updatedActivities } 
+        : ind
+    ));
+    
+    setShowCommunityActivityModal(false);
+    resetCommunityActivityForm();
+    alert('Community activity added successfully!');
+  } catch (error) {
+    console.error('Error adding community activity:', error);
+    alert('Error adding community activity. Please try again.');
+  }
+};
+
+const resetCommunityActivityForm = () => {
+  setCommunityActivityForm({
+    id: '',
+    date: '',
+    community_location: '',
+    activity_type: 'Social',
+    purpose: '',
+    duration_minutes: '',
+    choice_documented: false,
+    linked_daily_note_id: '',
+    staff_signature: '',
+    staff_name: userProfile?.fullname || '',
+    created_at: '',
+    created_by: ''
+  });
+};
+
+// Handle Choice Acknowledgment Entry
+const handleChoiceAcknowledgmentEntry = async (e) => {
+  e.preventDefault();
+  
+  if (!canEditPlans) {
+    alert('You do not have permission to add choice acknowledgments.');
+    return;
+  }
+  
+  // Validation
+  if (!choiceAcknowledgmentForm.signature_name) {
+    alert('Signature is required for HCBS compliance.');
+    return;
+  }
+  
+  if (!choiceAcknowledgmentForm.individual_acknowledgment) {
+    alert('Individual acknowledgment must be confirmed.');
+    return;
+  }
+  
+  try {
+    const newAcknowledgment = {
+      id: Date.now().toString(),
+      ...choiceAcknowledgmentForm,
+      individual_name: `${individual.firstname} ${individual.lastname}`,
+      created_date: new Date().toISOString(),
+      created_by: userProfile.fullname,
+      created_by_role: userProfile.role_name,
+      hcbs_compliant: true
+    };
+
+    const updatedAcknowledgments = [...choiceAcknowledgments, newAcknowledgment];
+    
+    // Update in Supabase
+    const { error } = await supabase
+      .from('individuals')
+      .update({ 
+        choice_acknowledgments: updatedAcknowledgments,
+        last_activity: new Date().toISOString()
+      })
+      .eq('id', individual.id);
+
+    if (error) throw error;
+
+    setChoiceAcknowledgments(updatedAcknowledgments);
+    setIndividuals(prev => prev.map(ind => 
+      ind.id === individual.id 
+        ? { ...ind, choice_acknowledgments: updatedAcknowledgments } 
+        : ind
+    ));
+    
+    setShowChoiceAcknowledgmentModal(false);
+    resetChoiceAcknowledgmentForm();
+    alert('Choice & Autonomy acknowledgment recorded successfully!');
+  } catch (error) {
+    console.error('Error adding choice acknowledgment:', error);
+    alert('Error adding choice acknowledgment. Please try again.');
+  }
+};
+
+const resetChoiceAcknowledgmentForm = () => {
+  setChoiceAcknowledgmentForm({
+    id: '',
+    individual_name: '',
+    rights_explained: false,
+    choice_options_explained: false,
+    right_to_refuse_explained: false,
+    complaint_process_explained: false,
+    individual_acknowledgment: false,
+    signature_type: 'Individual',
+    signature_name: '',
+    signature_date: '',
+    guardian_name: '',
+    witness_staff_name: userProfile?.fullname || '',
+    witness_staff_signature: '',
+    created_at: '',
+    created_by: ''
+  });
+};
+
+// Delete Community Activity
+const deleteCommunityActivity = async (activityId) => {
+  if (!canEditPlans) {
+    alert('You do not have permission to delete community activities.');
+    return;
+  }
+
+  if (!confirm('Are you sure you want to delete this community activity?')) {
+    return;
+  }
+
+  try {
+    const updatedActivities = communityActivities.filter(a => a.id !== activityId);
+    
+    const { error } = await supabase
+      .from('individuals')
+      .update({ 
+        community_activity_log: updatedActivities,
+        last_activity: new Date().toISOString()
+      })
+      .eq('id', individual.id);
+
+    if (error) throw error;
+
+    setCommunityActivities(updatedActivities);
+    setIndividuals(prev => prev.map(ind => 
+      ind.id === individual.id 
+        ? { ...ind, community_activity_log: updatedActivities } 
+        : ind
+    ));
+    
+    alert('Community activity deleted successfully!');
+  } catch (error) {
+    console.error('Error deleting community activity:', error);
+    alert('Error deleting community activity. Please try again.');
+  }
+};
+
+// Delete Choice Acknowledgment
+const deleteChoiceAcknowledgment = async (acknowledgmentId) => {
+  if (!canEditPlans) {
+    alert('You do not have permission to delete choice acknowledgments.');
+    return;
+  }
+
+  if (!confirm('Are you sure you want to delete this acknowledgment?')) {
+    return;
+  }
+
+  try {
+    const updatedAcknowledgments = choiceAcknowledgments.filter(a => a.id !== acknowledgmentId);
+    
+    const { error } = await supabase
+      .from('individuals')
+      .update({ 
+        choice_acknowledgments: updatedAcknowledgments,
+        last_activity: new Date().toISOString()
+      })
+      .eq('id', individual.id);
+
+    if (error) throw error;
+
+    setChoiceAcknowledgments(updatedAcknowledgments);
+    setIndividuals(prev => prev.map(ind => 
+      ind.id === individual.id 
+        ? { ...ind, choice_acknowledgments: updatedAcknowledgments } 
+        : ind
+    ));
+    
+    alert('Choice acknowledgment deleted successfully!');
+  } catch (error) {
+    console.error('Error deleting choice acknowledgment:', error);
+    alert('Error deleting choice acknowledgment. Please try again.');
+  }
+};
+
+
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -877,15 +1202,19 @@ const IndividualProfilePage = () => {
     );
   }
 
-  const tabs = [
-    { id: 'overview', label: 'Overview', icon: User, permission: canViewProfile },
-      { id: 'isp', label: 'Individual Support Plan', icon: FileText, permission: canViewPlans }, // NEW TAB
-    { id: 'person-centered-plan', label: 'Person-Centered Plan', icon: FileText, permission: canViewPlans },
-    { id: 'goals', label: 'Goals & Outcomes', icon: Target, permission: canViewPlans },
-     { id: 'rights-agreements', label: 'Rights & Agreements', icon: FileText, permission: canViewPlans },
-    { id: 'risks', label: 'Risk Management', icon: Shield, permission: canManageRisks || canViewPlans },
-    { id: 'alerts', label: 'Alerts & Restrictions', icon: AlertTriangle, permission: canManageAlerts || canViewPlans }
-  ].filter(tab => tab.permission);
+const tabs = [
+  { id: 'overview', label: 'Overview', icon: User, permission: canViewProfile },
+  { id: 'isp', label: 'Individual Support Plan', icon: FileText, permission: canViewPlans },
+  { id: 'person-centered-plan', label: 'Person-Centered Plan', icon: FileText, permission: canViewPlans },
+  { id: 'goals', label: 'Goals & Outcomes', icon: Target, permission: canViewPlans },
+  
+  // ADD THIS NEW TAB:
+  { id: 'community-activities', label: 'Community Integration', icon: MapPin, permission: canViewPlans },
+  
+  { id: 'rights-agreements', label: 'Rights & Agreements', icon: FileText, permission: canViewPlans },
+  { id: 'risks', label: 'Risk Management', icon: Shield, permission: canManageRisks || canViewPlans },
+  { id: 'alerts', label: 'Alerts & Restrictions', icon: AlertTriangle, permission: canManageAlerts || canViewPlans }
+].filter(tab => tab.permission);
 
   return (
     <div className="min-h-screen bg-slate-950 p-6">
@@ -1270,6 +1599,275 @@ Edit Profile
               </div>
             </div>
           )}
+
+          {/* Community Activities Tab - NEW */}
+{activeTab === 'community-activities' && (
+  <div className="space-y-6">
+    {!canViewPlans ? (
+      <div className="text-center py-16">
+        <Lock className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+        <h3 className="text-xl font-bold text-slate-400 mb-2">Access Restricted</h3>
+        <p className="text-slate-500">You do not have permission to view community integration data.</p>
+      </div>
+    ) : (
+      <>
+        {/* Community Activity Log Section */}
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+              <MapPin className="text-blue-400" size={24} />
+              Community Activity Log
+            </h3>
+            {canEditPlans && (
+              <button
+                onClick={() => setShowCommunityActivityModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-all"
+              >
+                <Plus size={16} />
+                Log Activity
+              </button>
+            )}
+          </div>
+
+          {communityActivities.length === 0 ? (
+            <div className="text-center py-12 text-slate-400">
+              <MapPin className="w-16 h-16 mx-auto mb-4 text-slate-600" />
+              <p className="text-lg mb-2">No community activities logged</p>
+              <p className="text-sm text-slate-500">Start logging community integration activities to track HCBS compliance</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {communityActivities.map((activity) => (
+                <div key={activity.id} className="bg-slate-900/50 border border-slate-700 rounded-lg p-4 hover:border-blue-500/50 transition-all">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h4 className="text-white font-semibold">{activity.community_location}</h4>
+                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                          activity.activity_type === 'Social' ? 'bg-blue-500/20 text-blue-400' :
+                          activity.activity_type === 'Vocational' ? 'bg-green-500/20 text-green-400' :
+                          activity.activity_type === 'Recreational' ? 'bg-purple-500/20 text-purple-400' :
+                          'bg-red-500/20 text-red-400'
+                        }`}>
+                          {activity.activity_type}
+                        </span>
+                        {activity.choice_documented && (
+                          <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-bold border border-emerald-500/30">
+                            ✓ Choice Documented
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-slate-300 mb-2">{activity.purpose}</p>
+                      <div className="flex items-center gap-4 text-xs text-slate-400">
+                        <span className="flex items-center gap-1">
+                          <Calendar size={12} />
+                          {new Date(activity.date).toLocaleDateString()}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock size={12} />
+                          {activity.duration_minutes} minutes
+                        </span>
+                        {activity.linked_daily_note_id && (
+                          <span className="flex items-center gap-1">
+                            <FileText size={12} />
+                            Linked to Daily Note
+                          </span>
+                        )}
+                        <span className="flex items-center gap-1">
+                          <User size={12} />
+                          {activity.staff_name}
+                        </span>
+                      </div>
+                    </div>
+                    {canEditPlans && (
+                      <button
+                        onClick={() => deleteCommunityActivity(activity.id)}
+                        className="p-2 hover:bg-red-500/20 rounded-lg transition-all"
+                      >
+                        <Trash2 size={16} className="text-red-400" />
+                      </button>
+                    )}
+                  </div>
+                  
+                  {!activity.choice_documented && (
+                    <div className="mt-3 p-2 bg-yellow-900/20 border border-yellow-500/30 rounded">
+                      <p className="text-xs text-yellow-400 flex items-center gap-2">
+                        <AlertTriangle size={12} />
+                        HCBS Warning: Choice documentation not recorded for this activity
+                      </p>
+                    </div>
+                  )}
+                  
+                  {!activity.linked_daily_note_id && (
+                    <div className="mt-3 p-2 bg-red-900/20 border border-red-500/30 rounded">
+                      <p className="text-xs text-red-400 flex items-center gap-2">
+                        <AlertCircle size={12} />
+                        Audit Risk: Activity not linked to a Daily Service Note
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Choice & Autonomy Acknowledgment Section */}
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+              <Shield className="text-emerald-400" size={24} />
+              Choice & Autonomy Acknowledgments
+            </h3>
+            {canEditPlans && (
+              <button
+                onClick={() => setShowChoiceAcknowledgmentModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition-all"
+              >
+                <Plus size={16} />
+                New Acknowledgment
+              </button>
+            )}
+          </div>
+
+          <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4 mb-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="text-yellow-400 mt-0.5" size={20} />
+              <div>
+                <h4 className="text-white font-bold mb-1">HCBS Requirement</h4>
+                <p className="text-sm text-slate-300">
+                  Choice & Autonomy acknowledgments must be obtained upon admission and annually thereafter.
+                  Unsigned acknowledgments create an HCBS compliance risk.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {choiceAcknowledgments.length === 0 ? (
+            <div className="text-center py-12 bg-red-900/20 border border-red-500/30 rounded-lg">
+              <Shield className="w-16 h-16 mx-auto mb-4 text-red-400" />
+              <p className="text-lg mb-2 text-red-400 font-bold">⚠️ HCBS Compliance Risk</p>
+              <p className="text-sm text-slate-300">No Choice & Autonomy acknowledgments on file</p>
+              <p className="text-xs text-slate-400 mt-2">This is required for HCBS Settings Rule compliance</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {choiceAcknowledgments.map((ack) => (
+                <div key={ack.id} className="bg-slate-900/50 border border-emerald-500/30 rounded-lg p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h4 className="text-white font-semibold">Acknowledgment Record</h4>
+                        <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-bold border border-emerald-500/30">
+                          ✓ HCBS Compliant
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div className="flex items-center gap-2 text-sm">
+                          <CheckCircle size={14} className={ack.rights_explained ? 'text-green-400' : 'text-slate-600'} />
+                          <span className={ack.rights_explained ? 'text-white' : 'text-slate-500'}>
+                            Rights Explained
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <CheckCircle size={14} className={ack.choice_options_explained ? 'text-green-400' : 'text-slate-600'} />
+                          <span className={ack.choice_options_explained ? 'text-white' : 'text-slate-500'}>
+                            Choice Options Explained
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <CheckCircle size={14} className={ack.right_to_refuse_explained ? 'text-green-400' : 'text-slate-600'} />
+                          <span className={ack.right_to_refuse_explained ? 'text-white' : 'text-slate-500'}>
+                            Right to Refuse Explained
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <CheckCircle size={14} className={ack.complaint_process_explained ? 'text-green-400' : 'text-slate-600'} />
+                          <span className={ack.complaint_process_explained ? 'text-white' : 'text-slate-500'}>
+                            Complaint Process Explained
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-800/50 rounded-lg p-3 mb-2">
+                        <p className="text-xs text-slate-400 mb-1">Signed By:</p>
+                        <p className="text-sm text-white font-semibold">{ack.signature_name}</p>
+                        <p className="text-xs text-slate-400 mt-1">
+                          {ack.signature_type} • {new Date(ack.signature_date).toLocaleDateString()}
+                        </p>
+                        {ack.guardian_name && (
+                          <p className="text-xs text-slate-400 mt-1">Guardian: {ack.guardian_name}</p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-4 text-xs text-slate-400">
+                        <span className="flex items-center gap-1">
+                          <User size={12} />
+                          Witness: {ack.witness_staff_name}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Calendar size={12} />
+                          {new Date(ack.created_date).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                    {canEditPlans && (
+                      <button
+                        onClick={() => deleteChoiceAcknowledgment(ack.id)}
+                        className="p-2 hover:bg-red-500/20 rounded-lg transition-all"
+                      >
+                        <Trash2 size={16} className="text-red-400" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* HCBS Compliance Summary */}
+        <div className="bg-gradient-to-br from-emerald-900/20 to-teal-900/20 border border-emerald-500/30 rounded-xl p-6">
+          <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+            <Award className="text-emerald-400" size={24} />
+            HCBS Community Integration Summary
+          </h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-slate-800/50 rounded-lg p-4">
+              <p className="text-sm text-slate-400 mb-1">Total Community Activities</p>
+              <p className="text-3xl font-bold text-white">{communityActivities.length}</p>
+              <p className="text-xs text-slate-500 mt-1">This Month</p>
+            </div>
+            <div className="bg-slate-800/50 rounded-lg p-4">
+              <p className="text-sm text-slate-400 mb-1">Choice Documented</p>
+              <p className="text-3xl font-bold text-emerald-400">
+                {communityActivities.filter(a => a.choice_documented).length}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                {communityActivities.length > 0 
+                  ? `${Math.round((communityActivities.filter(a => a.choice_documented).length / communityActivities.length) * 100)}% Compliance`
+                  : 'N/A'}
+              </p>
+            </div>
+            <div className="bg-slate-800/50 rounded-lg p-4">
+              <p className="text-sm text-slate-400 mb-1">Audit Compliance</p>
+              <p className="text-3xl font-bold text-blue-400">
+                {communityActivities.filter(a => a.linked_daily_note_id).length}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                Linked to Daily Notes
+              </p>
+            </div>
+          </div>
+        </div>
+      </>
+    )}
+  </div>
+)}
+
+
 
           {/* ISP Tab - NEW */}
 {activeTab === 'isp' && (
@@ -2437,6 +3035,28 @@ Delete
                                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all"
                                 />
                               </div>
+
+                      {/* NEW FIELD - Goal Domain */}
+        <div>
+          <label className="block text-sm font-medium text-slate-400 mb-2">
+            Goal Domain
+            <span className="text-xs text-slate-500 ml-2">(for reporting)</span>
+          </label>
+          <select
+            value={goal.hcbsdomain || ''}
+            onChange={(e) => updateGoal(goal.id, 'hcbsdomain', e.target.value)}
+            disabled={!isEditing || !canEditPlans}
+            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all"
+          >
+            <option value="">Select Domain</option>
+            <option value="Independence">Independence</option>
+            <option value="Community">Community Integration</option>
+            <option value="Health">Health & Wellness</option>
+            <option value="Behavior">Behavior Support</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
                               {isEditing && canEditPlans && (
                                 <div className="flex items-end">
                                   <button
@@ -2461,6 +3081,8 @@ Delete
                                 ></div>
                               </div>
                             </div>
+
+      
                           </div>
                         ))}
                       </div>
@@ -3143,6 +3765,443 @@ Page {pageIndex + 1} of {pdfPages.length}
       </div>
     </div>
   )}
+
+
+
+
+  {/* Community Activity Modal */}
+{showCommunityActivityModal && canEditPlans && (
+  <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
+      <div className="flex items-center justify-between p-6 border-b border-slate-700">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-xl flex items-center justify-center">
+            <MapPin className="text-white" size={24} />
+          </div>
+          <div>
+            <h3 className="text-2xl font-bold text-white">Log Community Activity</h3>
+            <p className="text-slate-400 text-sm">Record community integration activities for HCBS compliance</p>
+          </div>
+        </div>
+        <button 
+          onClick={() => setShowCommunityActivityModal(false)}
+          className="p-2 hover:bg-slate-700 rounded-lg transition-all"
+        >
+          <X className="text-slate-400" size={24} />
+        </button>
+      </div>
+
+      <ScrollArea className="h-[calc(90vh-180px)]">
+        <form onSubmit={handleCommunityActivityEntry} className="p-6 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Date * <span className="text-xs text-slate-500">(Date of activity)</span>
+              </label>
+              <input
+                type="date"
+                value={communityActivityForm.date}
+                onChange={(e) => setCommunityActivityForm({...communityActivityForm, date: e.target.value})}
+                required
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Activity Type *
+              </label>
+              <select
+                value={communityActivityForm.activity_type}
+                onChange={(e) => setCommunityActivityForm({...communityActivityForm, activity_type: e.target.value})}
+                required
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
+              >
+                <option value="Social">Social</option>
+                <option value="Vocational">Vocational</option>
+                <option value="Recreational">Recreational</option>
+                <option value="Medical">Medical</option>
+              </select>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Community Location * <span className="text-xs text-slate-500">(e.g., Local park, grocery store, library)</span>
+              </label>
+              <input
+                type="text"
+                value={communityActivityForm.community_location}
+                onChange={(e) => setCommunityActivityForm({...communityActivityForm, community_location: e.target.value})}
+                placeholder="e.g., Walmart, City Park, Public Library"
+                required
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Purpose * <span className="text-xs text-slate-500">(What was the goal/purpose of this activity?)</span>
+              </label>
+              <textarea
+                value={communityActivityForm.purpose}
+                onChange={(e) => setCommunityActivityForm({...communityActivityForm, purpose: e.target.value})}
+                placeholder="e.g., Shopping for groceries, social outing with peers, attending community event"
+                rows="3"
+                required
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all resize-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Duration (minutes) *
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={communityActivityForm.duration_minutes}
+                onChange={(e) => setCommunityActivityForm({...communityActivityForm, duration_minutes: e.target.value})}
+                placeholder="e.g., 60"
+                required
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Staff Name *
+              </label>
+              <input
+                type="text"
+                value={communityActivityForm.staff_name}
+                onChange={(e) => setCommunityActivityForm({...communityActivityForm, staff_name: e.target.value})}
+                required
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Link to Daily Service Note <span className="text-xs text-slate-500">(Required for audit compliance)</span>
+              </label>
+              <select
+                value={communityActivityForm.linked_daily_note_id}
+                onChange={(e) => setCommunityActivityForm({...communityActivityForm, linked_daily_note_id: e.target.value})}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
+              >
+                <option value="">-- Select Daily Note --</option>
+                {individual?.dailynotes?.map((note) => (
+                  <option key={note.id} value={note.id}>
+                    {new Date(note.date).toLocaleDateString()} - {note.shift} ({note.staffname})
+                  </option>
+                ))}
+              </select>
+              {!communityActivityForm.linked_daily_note_id && (
+                <p className="text-xs text-red-400 mt-1">
+                  ⚠️ Warning: Without a linked daily note, this activity may not pass audit requirements
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="border-t border-slate-700 pt-6">
+            <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <Shield className="text-emerald-400" size={20} />
+              HCBS Choice Documentation
+            </h4>
+            
+            <div className="bg-emerald-900/20 border border-emerald-500/30 rounded-lg p-4 mb-4">
+              <div className="flex items-start gap-3">
+                <CheckCircle className="text-emerald-400 mt-0.5" size={20} />
+                <div>
+                  <h5 className="text-white font-bold mb-1">Required for HCBS Compliance</h5>
+                  <p className="text-sm text-slate-300">
+                    You must document that the individual was offered a choice and that their choice was honored for this community activity.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="choice_documented"
+                checked={communityActivityForm.choice_documented}
+                onChange={(e) => setCommunityActivityForm({...communityActivityForm, choice_documented: e.target.checked})}
+                className="w-5 h-5 bg-slate-800 border-slate-700 rounded focus:ring-emerald-500"
+              />
+              <label htmlFor="choice_documented" className="text-white font-semibold">
+                Choice was offered and honored for this community activity *
+              </label>
+            </div>
+            
+            {!communityActivityForm.choice_documented && (
+              <p className="text-xs text-yellow-400 mt-2">
+                ⚠️ HCBS Warning: This activity will be flagged as non-compliant if choice is not documented
+              </p>
+            )}
+          </div>
+
+          <div className="bg-slate-800/50 rounded-lg p-4">
+            <h5 className="text-white font-semibold mb-2 text-sm">Electronic Signature</h5>
+            <input
+              type="text"
+              value={communityActivityForm.staff_signature}
+              onChange={(e) => setCommunityActivityForm({...communityActivityForm, staff_signature: e.target.value})}
+              placeholder="Type your full name to sign"
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-all"
+            />
+            {communityActivityForm.staff_signature && communityActivityForm.staff_signature !== communityActivityForm.staff_name && (
+              <p className="text-red-400 text-xs mt-1">⚠️ Signature must match staff name exactly</p>
+            )}
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">
+            <button
+              type="button"
+              onClick={() => setShowCommunityActivityModal(false)}
+              className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-blue-500/50 transition-all"
+            >
+              <Save size={18} />
+              Log Activity
+            </button>
+          </div>
+        </form>
+      </ScrollArea>
+    </div>
+  </div>
+)}
+
+{/* Choice & Autonomy Acknowledgment Modal */}
+{showChoiceAcknowledgmentModal && canEditPlans && (
+  <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
+      <div className="flex items-center justify-between p-6 border-b border-slate-700">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center">
+            <Shield className="text-white" size={24} />
+          </div>
+          <div>
+            <h3 className="text-2xl font-bold text-white">Choice & Autonomy Acknowledgment</h3>
+            <p className="text-slate-400 text-sm">HCBS Settings Rule compliance documentation</p>
+          </div>
+        </div>
+        <button 
+          onClick={() => setShowChoiceAcknowledgmentModal(false)}
+          className="p-2 hover:bg-slate-700 rounded-lg transition-all"
+        >
+          <X className="text-slate-400" size={24} />
+        </button>
+      </div>
+
+      <ScrollArea className="h-[calc(90vh-180px)]">
+        <form onSubmit={handleChoiceAcknowledgmentEntry} className="p-6 space-y-6">
+          <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="text-yellow-400 mt-0.5" size={20} />
+              <div>
+                <h4 className="text-white font-bold mb-1">HCBS Requirement</h4>
+                <p className="text-sm text-slate-300">
+                  This form documents that the individual (or guardian) has been informed of their rights under the HCBS Settings Rule.
+                  All items must be explained and acknowledged for compliance.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="text-lg font-bold text-white mb-4">Rights Explained</h4>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="rights_explained"
+                  checked={choiceAcknowledgmentForm.rights_explained}
+                  onChange={(e) => setChoiceAcknowledgmentForm({...choiceAcknowledgmentForm, rights_explained: e.target.checked})}
+                  className="w-5 h-5 bg-slate-800 border-slate-700 rounded focus:ring-emerald-500"
+                />
+                <label htmlFor="rights_explained" className="text-white">
+                  Individual's rights under HCBS Settings Rule have been explained *
+                </label>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="choice_options_explained"
+                  checked={choiceAcknowledgmentForm.choice_options_explained}
+                  onChange={(e) => setChoiceAcknowledgmentForm({...choiceAcknowledgmentForm, choice_options_explained: e.target.checked})}
+                  className="w-5 h-5 bg-slate-800 border-slate-700 rounded focus:ring-emerald-500"
+                />
+                <label htmlFor="choice_options_explained" className="text-white">
+                  Choice options (activities, meals, schedule, etc.) have been explained *
+                </label>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="right_to_refuse_explained"
+                  checked={choiceAcknowledgmentForm.right_to_refuse_explained}
+                  onChange={(e) => setChoiceAcknowledgmentForm({...choiceAcknowledgmentForm, right_to_refuse_explained: e.target.checked})}
+                  className="w-5 h-5 bg-slate-800 border-slate-700 rounded focus:ring-emerald-500"
+                />
+                <label htmlFor="right_to_refuse_explained" className="text-white">
+                  Right to refuse services has been explained *
+                </label>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="complaint_process_explained"
+                  checked={choiceAcknowledgmentForm.complaint_process_explained}
+                  onChange={(e) => setChoiceAcknowledgmentForm({...choiceAcknowledgmentForm, complaint_process_explained: e.target.checked})}
+                  className="w-5 h-5 bg-slate-800 border-slate-700 rounded focus:ring-emerald-500"
+                />
+                <label htmlFor="complaint_process_explained" className="text-white">
+                  Complaint and grievance process has been explained *
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-700 pt-6">
+            <h4 className="text-lg font-bold text-white mb-4">Individual Acknowledgment</h4>
+            
+            <div className="flex items-center gap-3 mb-4">
+              <input
+                type="checkbox"
+                id="individual_acknowledgment"
+                checked={choiceAcknowledgmentForm.individual_acknowledgment}
+                onChange={(e) => setChoiceAcknowledgmentForm({...choiceAcknowledgmentForm, individual_acknowledgment: e.target.checked})}
+                required
+                className="w-5 h-5 bg-slate-800 border-slate-700 rounded focus:ring-emerald-500"
+              />
+              <label htmlFor="individual_acknowledgment" className="text-white font-semibold">
+                Individual (or guardian) acknowledges understanding of their rights *
+              </label>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Signature Type *
+              </label>
+              <select
+                value={choiceAcknowledgmentForm.signature_type}
+                onChange={(e) => setChoiceAcknowledgmentForm({...choiceAcknowledgmentForm, signature_type: e.target.value})}
+                required
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all"
+              >
+                <option value="Individual">Individual</option>
+                <option value="Guardian">Legal Guardian</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Signature Date *
+              </label>
+              <input
+                type="date"
+                value={choiceAcknowledgmentForm.signature_date}
+                onChange={(e) => setChoiceAcknowledgmentForm({...choiceAcknowledgmentForm, signature_date: e.target.value})}
+                required
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Signature Name * <span className="text-xs text-slate-500">(Type full name to sign)</span>
+              </label>
+              <input
+                type="text"
+                value={choiceAcknowledgmentForm.signature_name}
+                onChange={(e) => setChoiceAcknowledgmentForm({...choiceAcknowledgmentForm, signature_name: e.target.value})}
+                placeholder="Full legal name"
+                required
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all"
+              />
+            </div>
+
+            {choiceAcknowledgmentForm.signature_type === 'Guardian' && (
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Guardian Name *
+                </label>
+                <input
+                  type="text"
+                  value={choiceAcknowledgmentForm.guardian_name}
+                  onChange={(e) => setChoiceAcknowledgmentForm({...choiceAcknowledgmentForm, guardian_name: e.target.value})}
+                  placeholder="Legal guardian's full name"
+                  required
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all"
+                />
+              </div>
+            )}
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Witness (Staff Name) *
+              </label>
+              <input
+                type="text"
+                value={choiceAcknowledgmentForm.witness_staff_name}
+                onChange={(e) => setChoiceAcknowledgmentForm({...choiceAcknowledgmentForm, witness_staff_name: e.target.value})}
+                required
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Witness Electronic Signature * <span className="text-xs text-slate-500">(Type full name to confirm)</span>
+              </label>
+              <input
+                type="text"
+                value={choiceAcknowledgmentForm.witness_staff_signature}
+                onChange={(e) => setChoiceAcknowledgmentForm({...choiceAcknowledgmentForm, witness_staff_signature: e.target.value})}
+                placeholder="Type witness name to sign"
+                required
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-all"
+              />
+              {choiceAcknowledgmentForm.witness_staff_signature && 
+               choiceAcknowledgmentForm.witness_staff_signature !== choiceAcknowledgmentForm.witness_staff_name && (
+                <p className="text-red-400 text-xs mt-1">⚠️ Witness signature must match witness name exactly</p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">
+            <button
+              type="button"
+              onClick={() => setShowChoiceAcknowledgmentModal(false)}
+              className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-emerald-500/50 transition-all"
+            >
+              <Save size={18} />
+              Save Acknowledgment
+            </button>
+          </div>
+        </form>
+      </ScrollArea>
+    </div>
+  </div>
+)}
 </div>
 );
 };
