@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -11,7 +10,8 @@ import {
   Zap, Sparkles, Brain, User, RefreshCw, Loader2, Info, Plus,
   Lock, Unlock, Building, Phone, Mail, Calendar as CalendarIcon,
   Stethoscope, Clipboard, BookOpen, UserCheck, Scale, Scissors,
-  AlertOctagon, TrendingDown as TrendDown, CheckCircle2, XOctagon
+  AlertOctagon, TrendingDown as TrendDown, CheckCircle2, XOctagon,
+  DollarSign, FileCheck, UserX, Clock3, ShieldAlert, Users2
 } from 'lucide-react';
 import { ScrollArea } from "../../components/ui/scroll-area";
 import { useUser, UserButton } from '@clerk/nextjs';
@@ -43,7 +43,6 @@ const HCBSDashboard = () => {
     end: new Date().toISOString().split('T')[0],
     period: '90days'
   });
-  const [showDateFilter, setShowDateFilter] = useState(false);
   const [complianceData, setComplianceData] = useState({
     communityIntegration: {},
     choiceAutonomy: {},
@@ -80,7 +79,6 @@ const HCBSDashboard = () => {
     { id: 'staff', label: 'Staff Readiness', icon: Users, color: 'cyan' }
   ];
 
-  // Permission checks
   const canViewHCBS = hasAnyPermission([
     PERMISSIONS.PLANS_VIEW,
     PERMISSIONS.FULL_ACCESS,
@@ -112,7 +110,6 @@ const HCBSDashboard = () => {
         .select('*')
         .order('created_at', { ascending: false });
 
-      // Role-based filtering
       if (userProfile.role_id === 'HouseManager_DD') {
         query = query.eq('homeassignment', userProfile.facility);
       } else if (userProfile.role_id === 'DSP_DD') {
@@ -140,7 +137,6 @@ const HCBSDashboard = () => {
     const startDate = new Date(dateRange.start);
     const endDate = new Date(dateRange.end);
 
-    // Calculate all metrics
     const communityData = calculateCommunityIntegration(startDate, endDate);
     const choiceData = calculateChoiceAutonomy(startDate, endDate);
     const ispData = calculateISPImplementation(startDate, endDate);
@@ -157,7 +153,6 @@ const HCBSDashboard = () => {
       staffReadiness: staffData
     });
 
-    // Generate alerts
     generateAlerts(communityData, choiceData, ispData, rightsData, healthData, staffData);
   };
 
@@ -165,23 +160,19 @@ const HCBSDashboard = () => {
     const dailyNotes = selectedIndividual.dailynotes || [];
     const communityActivityLog = selectedIndividual.community_activity_log || [];
     
-    // Filter notes by date range
     const filteredNotes = dailyNotes.filter(note => {
       const noteDate = new Date(note.date);
-      return noteDate >= startDate && noteDate <= endDate;
+      return noteDate >= startDate && noteDate <= endDate && note.billingValidated === true;
     });
 
-    // Filter community activity log
     const filteredActivities = communityActivityLog.filter(activity => {
       const activityDate = new Date(activity.date);
       return activityDate >= startDate && activityDate <= endDate;
     });
 
-    // Count community outings from both sources
     const communityOutingsFromNotes = filteredNotes.filter(note => note.communityouting === true);
     const totalCommunityActivities = [...communityOutingsFromNotes, ...filteredActivities];
     
-    // Activity types from both sources
     const activityTypes = {};
     
     filteredNotes.forEach(note => {
@@ -197,7 +188,6 @@ const HCBSDashboard = () => {
       activityTypes[type] = (activityTypes[type] || 0) + 1;
     });
 
-    // Transportation methods
     const transportationMethods = {};
     filteredNotes.forEach(note => {
       if (note.transportation) {
@@ -205,12 +195,6 @@ const HCBSDashboard = () => {
       }
     });
 
-    filteredActivities.forEach(activity => {
-      const transport = selectedIndividual.transportation_method || 'Not specified';
-      transportationMethods[transport] = (transportationMethods[transport] || 0) + 1;
-    });
-
-    // Calculate metrics
     const daysInRange = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
     const monthsInRange = Math.max(1, Math.ceil(daysInRange / 30));
     const outingsPerMonth = totalCommunityActivities.length / monthsInRange;
@@ -218,7 +202,6 @@ const HCBSDashboard = () => {
       ? (communityOutingsFromNotes.length / filteredNotes.length) * 100 
       : 0;
 
-    // Time-based breakdowns
     const thirtyDaysAgo = new Date(endDate);
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     
@@ -235,17 +218,15 @@ const HCBSDashboard = () => {
       return itemDate >= sixtyDaysAgo;
     }).length;
 
-    // Community barriers analysis
-    const barriers = selectedIndividual.community_barriers || [];
+    const barriers = selectedIndividual.community_barriers ? selectedIndividual.community_barriers.split(',').map(b => b.trim()).filter(b => b) : [];
 
-    // Recent outings with details
     const recentOutings = [...communityOutingsFromNotes, ...filteredActivities]
       .sort((a, b) => new Date(b.date) - new Date(a.date))
       .slice(0, 10)
       .map(item => ({
         date: item.date,
         location: item.outinglocation || item.community_location || 'Not specified',
-        duration: item.outingduration || item.duration_minutes ? `${item.duration_minutes} minutes` : 'Not specified',
+        duration: item.duration_minutes ? `${item.duration_minutes} minutes` : 'Not specified',
         activities: item.activities || [item.activity_type] || [],
         purpose: item.outingpurpose || item.purpose || 'Not specified',
         transportation: item.transportation || selectedIndividual.transportation_method || 'Not specified',
@@ -266,6 +247,7 @@ const HCBSDashboard = () => {
       transportationMethods: transportationMethods,
       communityBarriers: barriers,
       individualPreferences: selectedIndividual.important_to || 'Not documented',
+      importantFor: selectedIndividual.important_for || 'Not documented',
       communityIntegrationPlan: selectedIndividual.community_integration_plan || 'Not documented',
       choiceDocumentedRate: recentOutings.filter(o => o.choiceDocumented).length / Math.max(recentOutings.length, 1) * 100
     };
@@ -277,18 +259,13 @@ const HCBSDashboard = () => {
     
     const filteredNotes = dailyNotes.filter(note => {
       const noteDate = new Date(note.date);
-      return noteDate >= startDate && noteDate <= endDate;
+      return noteDate >= startDate && noteDate <= endDate && note.billingValidated === true;
     });
 
-    // Count notes with choice documentation
     const notesWithChoiceOffered = filteredNotes.filter(note => 
-      note.choiceoffered && note.choiceoffered.trim() !== ''
+      note.choiceOffered === true
     );
     
-    const notesWithChoiceTaken = filteredNotes.filter(note => 
-      note.choicetaken && note.choicetaken.trim() !== ''
-    );
-
     const notesWithChoiceHonored = filteredNotes.filter(note => 
       note.choiceHonored === true
     );
@@ -301,7 +278,6 @@ const HCBSDashboard = () => {
       ? (notesWithChoiceHonored.length / notesWithChoiceOffered.length) * 100
       : 0;
 
-    // Analyze choice types
     const choiceTypes = {
       meals: 0,
       activities: 0,
@@ -312,17 +288,17 @@ const HCBSDashboard = () => {
     };
 
     filteredNotes.forEach(note => {
-      if (note.choiceoffered) {
-        const choice = note.choiceoffered.toLowerCase();
-        if (choice.includes('meal') || choice.includes('food') || choice.includes('eat') || choice.includes('lunch') || choice.includes('dinner') || choice.includes('breakfast')) {
+      if (note.choiceExercisedDescription) {
+        const choice = note.choiceExercisedDescription.toLowerCase();
+        if (choice.includes('meal') || choice.includes('food') || choice.includes('eat')) {
           choiceTypes.meals++;
-        } else if (choice.includes('activity') || choice.includes('outing') || choice.includes('recreation')) {
+        } else if (choice.includes('activity') || choice.includes('outing')) {
           choiceTypes.activities++;
-        } else if (choice.includes('schedule') || choice.includes('time') || choice.includes('routine')) {
+        } else if (choice.includes('schedule') || choice.includes('time')) {
           choiceTypes.schedules++;
-        } else if (choice.includes('community') || choice.includes('shopping') || choice.includes('visit')) {
+        } else if (choice.includes('community')) {
           choiceTypes.community++;
-        } else if (choice.includes('clothing') || choice.includes('shower') || choice.includes('bath') || choice.includes('personal')) {
+        } else if (choice.includes('personal') || choice.includes('clothing')) {
           choiceTypes.personal++;
         } else {
           choiceTypes.other++;
@@ -330,13 +306,11 @@ const HCBSDashboard = () => {
       }
     });
 
-    // Choice acknowledgments analysis
     const validAcknowledgments = choiceAcknowledgments.filter(ack => {
       const ackDate = new Date(ack.created_date || ack.created_at);
       return ackDate >= startDate && ackDate <= endDate;
     });
 
-    // Rights explained compliance
     const rightsExplainedCount = validAcknowledgments.filter(ack => 
       ack.rights_explained === true
     ).length;
@@ -349,15 +323,13 @@ const HCBSDashboard = () => {
       ack.choice_options_explained === true
     ).length;
 
-    // Recent choices with more detail
     const recentChoices = filteredNotes
-      .filter(note => note.choiceoffered || note.choicetaken)
+      .filter(note => note.choiceOffered || note.choiceHonored)
       .sort((a, b) => new Date(b.date) - new Date(a.date))
       .slice(0, 10)
       .map(note => ({
         date: note.date,
-        offered: note.choiceoffered || 'Not documented',
-        taken: note.choicetaken || 'Not documented',
+        description: note.choiceExercisedDescription || 'Not documented',
         honored: note.choiceHonored || false,
         staffName: note.staffname || 'Not documented',
         narrative: note.choiceAutonomyNarrative || ''
@@ -366,7 +338,6 @@ const HCBSDashboard = () => {
     return {
       totalNotes: filteredNotes.length,
       choiceOfferedCount: notesWithChoiceOffered.length,
-      choiceTakenCount: notesWithChoiceTaken.length,
       choiceHonoredCount: notesWithChoiceHonored.length,
       choiceOfferedRate: Math.round(choiceOfferedRate),
       choiceHonoredRate: Math.round(choiceHonoredRate),
@@ -377,6 +348,7 @@ const HCBSDashboard = () => {
       rightToRefuseExplained: rightToRefuseExplained,
       choiceOptionsExplained: choiceOptionsExplained,
       individualPreferences: selectedIndividual.important_to || 'Not documented',
+      importantFor: selectedIndividual.important_for || 'Not documented',
       strengthsInterests: selectedIndividual.strengths_interests || 'Not documented',
       hcbsCompliantAcknowledgments: validAcknowledgments.filter(ack => ack.hcbs_compliant === true).length
     };
@@ -391,10 +363,9 @@ const HCBSDashboard = () => {
     
     const filteredNotes = dailyNotes.filter(note => {
       const noteDate = new Date(note.date);
-      return noteDate >= startDate && noteDate <= endDate;
+      return noteDate >= startDate && noteDate <= endDate && note.billingValidated === true;
     });
 
-    // Notes linked to ISP goals
     const notesWithGoals = filteredNotes.filter(note => 
       note.goalsworked && Array.isArray(note.goalsworked) && note.goalsworked.length > 0
     );
@@ -403,14 +374,12 @@ const HCBSDashboard = () => {
       ? (notesWithGoals.length / filteredNotes.length) * 100
       : 0;
 
-    // Goal activity breakdown
     const goalActivity = {};
-    const goalProgress = {};
 
     goals.forEach(goal => {
       const goalId = goal.id;
       goalActivity[goalId] = {
-        goalDescription: goal.description?.substring(0, 100) + '...' || 'No description',
+        goalDescription: goal.description || 'No description',
         status: goal.status,
         progress: goal.progress || 0,
         timesWorked: 0,
@@ -434,7 +403,6 @@ const HCBSDashboard = () => {
       }
     });
 
-    // Find goals not addressed recently (14 days)
     const fourteenDaysAgo = new Date(endDate);
     fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
 
@@ -446,7 +414,6 @@ const HCBSDashboard = () => {
       return lastWorkedDate < fourteenDaysAgo;
     });
 
-    // Domain activity analysis
     const domainActivity = {};
     Object.values(goalActivity).forEach(activity => {
       const domain = activity.domain;
@@ -467,12 +434,13 @@ const HCBSDashboard = () => {
     });
 
     Object.keys(domainActivity).forEach(domain => {
-      domainActivity[domain].avgProgress = Math.round(
-        domainActivity[domain].avgProgress / domainActivity[domain].totalGoals
-      );
+      if (domainActivity[domain].totalGoals > 0) {
+        domainActivity[domain].avgProgress = Math.round(
+          domainActivity[domain].avgProgress / domainActivity[domain].totalGoals
+        );
+      }
     });
 
-    // ISP dates and compliance
     const ispEffectiveStart = selectedIndividual.isp_effective_start;
     const ispEffectiveEnd = selectedIndividual.isp_effective_end;
     const ispNextReview = selectedIndividual.isp_next_review;
@@ -483,26 +451,9 @@ const HCBSDashboard = () => {
 
     const ispReviewDue = ispNextReview && new Date(ispNextReview) <= endDate;
 
-    // Quarterly reviews analysis
     const validQuarterlyReviews = quarterlyReviews.filter(review => {
       const reviewDate = new Date(review.review_date);
       return reviewDate >= startDate && reviewDate <= endDate;
-    });
-
-    // Outcomes tracking
-    const outcomeActivity = {};
-    outcomes.forEach(outcome => {
-      if (outcome.status === 'Active' || outcome.status === 'In Progress') {
-        outcomeActivity[outcome.id] = {
-          description: outcome.description || 'No description',
-          status: outcome.status,
-          hcbsDomain: outcome.hcbsdomain || 'Not specified',
-          whyImportant: outcome.why_important || 'Not documented',
-          objectives: outcome.objectives || [],
-          targetDate: outcome.targetdate,
-          progress: 0
-        };
-      }
     });
 
     return {
@@ -516,7 +467,7 @@ const HCBSDashboard = () => {
       domainActivity: domainActivity,
       goalsNotAddressedList: goalsNotAddressed.map(goal => ({
         id: goal.id,
-        description: goal.description?.substring(0, 100) + '...' || 'No description',
+        description: goal.description || 'No description',
         status: goal.status,
         domain: goal.hcbsdomain || 'Not specified',
         lastWorked: goalActivity[goal.id]?.lastWorked || 'Never',
@@ -530,27 +481,47 @@ const HCBSDashboard = () => {
       quarterlyReviews: validQuarterlyReviews.length,
       quarterlyReviewsCompleted: validQuarterlyReviews.filter(r => r.reviewed_by).length,
       totalOutcomes: outcomes.length,
-      activeOutcomes: Object.keys(outcomeActivity).length,
-      outcomeActivity: outcomeActivity,
+      activeOutcomes: outcomes.filter(o => o.status === 'Active' || o.status === 'In Progress').length,
       qidpNotes: selectedIndividual.qidpnotes || 'No notes',
-      reviionsNeeded: validQuarterlyReviews.filter(r => r.revisions_needed && r.revisions_needed.trim() !== '').length
+      revisionsNeeded: validQuarterlyReviews.filter(r => r.revisions_needed && r.revisions_needed.trim() !== '').length
     };
   };
 
   const calculateRightsRestrictions = (startDate, endDate) => {
     const restrictions = selectedIndividual.rightsrestrictions || [];
     const rightsRestrictionsNotes = selectedIndividual.rights_restrictions_notes || '';
+    const complaints = selectedIndividual.complaints || [];
+    const correctiveActionPlans = selectedIndividual.corrective_action_plans || [];
     
     const activeRestrictions = restrictions.filter(r => r.status === 'Active');
     
-    // Count by type
-    const restrictionTypes = {};
+    // Categorize restrictions by type as per PDF requirements
+    const restrictionTypeBreakdown = {
+      visitors: 0,
+      food: 0,
+      community: 0,
+      finances: 0,
+      communication: 0,
+      other: 0
+    };
+
     activeRestrictions.forEach(restriction => {
-      const type = restriction.restrictiontype || 'Other';
-      restrictionTypes[type] = (restrictionTypes[type] || 0) + 1;
+      const type = (restriction.restrictiontype || '').toLowerCase();
+      if (type.includes('visitor') || type.includes('guest')) {
+        restrictionTypeBreakdown.visitors++;
+      } else if (type.includes('food') || type.includes('meal') || type.includes('diet')) {
+        restrictionTypeBreakdown.food++;
+      } else if (type.includes('community') || type.includes('access') || type.includes('outing')) {
+        restrictionTypeBreakdown.community++;
+      } else if (type.includes('financ') || type.includes('money') || type.includes('fund')) {
+        restrictionTypeBreakdown.finances++;
+      } else if (type.includes('communication') || type.includes('phone') || type.includes('contact')) {
+        restrictionTypeBreakdown.communication++;
+      } else {
+        restrictionTypeBreakdown.other++;
+      }
     });
 
-    // Check review dates
     const now = new Date();
     const overdueReviews = activeRestrictions.filter(restriction => {
       if (!restriction.reviewdate) return true;
@@ -566,17 +537,22 @@ const HCBSDashboard = () => {
       return reviewDate >= now && reviewDate <= thirtyDaysFromNow;
     });
 
-    // HRC approval status
     const hrcApproved = activeRestrictions.filter(r => r.hrcapproved === true).length;
     const hrcPending = activeRestrictions.filter(r => !r.hrcapproved).length;
 
-    // Rights explained status from individual profile
     const rightsExplained = selectedIndividual.rights_explained || false;
     const leaseSignatureDate = selectedIndividual.lease_signature_date;
     const signedByIndividual = selectedIndividual.signed_by_individual || false;
 
-    // Complaints related to rights
-    const complaints = selectedIndividual.complaints || [];
+    // Lease information
+    const leaseStartDate = selectedIndividual.lease_start_date;
+    const leaseEndDate = selectedIndividual.lease_end_date;
+    const rentAmount = selectedIndividual.rent_amount;
+
+    // Complaints analysis
+    const openComplaints = complaints.filter(c => c.resolution_status === 'Open');
+    const resolvedComplaints = complaints.filter(c => c.resolution_status === 'Resolved');
+    
     const rightsRelatedComplaints = complaints.filter(complaint => {
       const complaintLower = (complaint.description || '').toLowerCase();
       return complaintLower.includes('right') || 
@@ -585,10 +561,14 @@ const HCBSDashboard = () => {
              complaintLower.includes('choice');
     });
 
+    // Corrective Action Plans
+    const openCAPs = correctiveActionPlans.filter(cap => cap.status === 'Open');
+    const completedCAPs = correctiveActionPlans.filter(cap => cap.status === 'Completed');
+
     return {
       totalRestrictions: restrictions.length,
       activeRestrictions: activeRestrictions.length,
-      restrictionTypes: restrictionTypes,
+      restrictionTypeBreakdown: restrictionTypeBreakdown,
       overdueReviews: overdueReviews.length,
       upcomingReviews: upcomingReviews.length,
       hrcApproved: hrcApproved,
@@ -597,7 +577,7 @@ const HCBSDashboard = () => {
       restrictionsList: activeRestrictions.map(r => ({
         id: r.id,
         type: r.restrictiontype || 'Not specified',
-        description: r.description?.substring(0, 100) + '...' || 'No description',
+        description: r.description || 'No description',
         reviewDate: r.reviewdate || 'Not set',
         status: r.status,
         approved: r.hrcapproved || false
@@ -621,12 +601,34 @@ const HCBSDashboard = () => {
       rightsExplained: rightsExplained,
       leaseSignatureDate: leaseSignatureDate,
       signedByIndividual: signedByIndividual,
+      leaseStartDate: leaseStartDate,
+      leaseEndDate: leaseEndDate,
+      rentAmount: rentAmount,
+      totalComplaints: complaints.length,
+      openComplaints: openComplaints.length,
+      resolvedComplaints: resolvedComplaints.length,
       rightsRelatedComplaints: rightsRelatedComplaints.length,
       rightsRestrictionsNotes: rightsRestrictionsNotes,
-      minimizationPlan: activeRestrictions.filter(r => {
-        const desc = (r.description || '').toLowerCase();
-        return desc.includes('reduction') || desc.includes('minimize') || desc.includes('decrease');
-      }).length
+      openCAPs: openCAPs.length,
+      completedCAPs: completedCAPs.length,
+      totalCAPs: correctiveActionPlans.length,
+      complaintsList: complaints.map(c => ({
+        id: c.complaint_id,
+        type: c.complaint_type,
+        description: c.description,
+        dateFiled: c.date_filed,
+        status: c.resolution_status,
+        filedBy: c.filed_by
+      })),
+      capsList: correctiveActionPlans.map(cap => ({
+        id: cap.cap_id,
+        status: cap.status,
+        triggerType: cap.trigger_type,
+        rootCause: cap.root_cause,
+        correctiveActions: cap.corrective_actions,
+        dueDate: cap.due_date,
+        responsibleStaff: cap.responsible_staff
+      }))
     };
   };
 
@@ -635,16 +637,13 @@ const HCBSDashboard = () => {
     const medications = selectedIndividual.medications || [];
     const marHistory = selectedIndividual.marhistory || [];
     const wellnessData = selectedIndividual.wellness_data || [];
-    const medErrors = selectedIndividual.mederrors || [];
-    const missedDoses = selectedIndividual.misseddoses || [];
+    const riskPlans = selectedIndividual.riskplans || [];
 
-    // Filter incidents by date
     const filteredIncidents = incidents.filter(incident => {
       const incidentDate = new Date(incident.dateoccurred);
       return incidentDate >= startDate && incidentDate <= endDate;
     });
 
-    // Count by severity
     const incidentsBySeverity = {
       critical: 0,
       major: 0,
@@ -667,32 +666,23 @@ const HCBSDashboard = () => {
       incidentsByType[type] = (incidentsByType[type] || 0) + 1;
     });
 
-    // Medication errors
-    const medErrorsFiltered = medErrors.filter(error => {
-      const errorDate = new Date(error.date || error.dateoccurred);
-      return errorDate >= startDate && errorDate <= endDate;
-    });
-
     const medicationErrorIncidents = filteredIncidents.filter(inc => 
       inc.incidenttype === 'Medication Error'
     );
 
-    const totalMedErrors = medErrorsFiltered.length + medicationErrorIncidents.length;
+    const totalMedErrors = medicationErrorIncidents.length;
 
-    // Filter MAR history by date
     const filteredMAR = marHistory.filter(record => {
       const recordDate = new Date(record.date);
       return recordDate >= startDate && recordDate <= endDate;
     });
 
-    // PRN usage
-    const prnMedications = medications.filter(med => med.prn === true);
+    const prnMedications = medications.filter(med => med.prn === true && med.status === 'Active');
     const prnUsage = filteredMAR.filter(record => {
       const medication = medications.find(med => med.id === record.medicationid);
       return medication && medication.prn === true;
     });
 
-    // Medication compliance
     const scheduledDoses = filteredMAR.filter(record => {
       const medication = medications.find(med => med.id === record.medicationid);
       return medication && !medication.prn;
@@ -706,13 +696,11 @@ const HCBSDashboard = () => {
       ? Math.round((givenDoses.length / scheduledDoses.length) * 100)
       : 100;
 
-    // Emergency interventions (behavioral incidents)
     const emergencyInterventions = filteredIncidents.filter(inc =>
       inc.incidenttype === 'Behavioral Emergency' || 
       inc.incidenttype === 'Medical Emergency'
     );
 
-    // Recent vital signs
     const recentVitals = wellnessData
       .filter(data => data.type === 'vital_signs')
       .filter(data => {
@@ -722,7 +710,6 @@ const HCBSDashboard = () => {
       .sort((a, b) => new Date(b.date) - new Date(a.date))
       .slice(0, 10);
 
-    // Medical appointments
     const medicalAppointments = wellnessData
       .filter(data => data.type === 'appointment')
       .filter(data => {
@@ -730,21 +717,27 @@ const HCBSDashboard = () => {
         return dataDate >= startDate && dataDate <= endDate;
       });
 
-    // Health summary
     const healthSummary = selectedIndividual.health_summary || 'Not documented';
+    const healthWellnessSummary = selectedIndividual.health_wellness_summary || 'Not documented';
+    const behaviorSupportSummary = selectedIndividual.behavior_support_summary || 'Not documented';
     const seizureHistory = selectedIndividual.seizure_history || 'No seizure history';
     const medicationMonitoringNotes = selectedIndividual.medication_monitoring_notes || 'No monitoring notes';
+    const behaviorSummary = selectedIndividual.behavior_summary || 'No behavior summary';
+    const behaviorStrategies = selectedIndividual.behavior_strategies || 'No behavior strategies';
+    const abcDataRequired = selectedIndividual.abc_data_required || false;
 
-    // Allergies
     const allergies = selectedIndividual.allergies || 'None';
 
-    // Medical alerts
     const medicalAlerts = selectedIndividual.medicalalerts || [];
     const activeMedicalAlerts = medicalAlerts.filter(alert => alert.status === 'Active');
 
-    // Behavioral alerts
     const behavioralAlerts = selectedIndividual.behavioralalerts || [];
     const activeBehavioralAlerts = behavioralAlerts.filter(alert => alert.status === 'Active');
+
+    // Risk plans
+    const activeRiskPlans = riskPlans.filter(rp => rp.status === 'Active');
+    const identifiedRisks = selectedIndividual.identified_risks || 'Not documented';
+    const riskMitigationStrategies = selectedIndividual.risk_mitigation_strategies || 'Not documented';
 
     return {
       totalIncidents: filteredIncidents.length,
@@ -754,7 +747,7 @@ const HCBSDashboard = () => {
       medicationErrors: totalMedErrors,
       prnMedicationCount: prnMedications.length,
       prnUsageCount: prnUsage.length,
-      prnUsageRate: prnMedications.length > 0 ? Math.round((prnUsage.length / filteredMAR.length) * 100) : 0,
+      prnUsageRate: filteredMAR.length > 0 ? Math.round((prnUsage.length / filteredMAR.length) * 100) : 0,
       emergencyInterventions: emergencyInterventions.length,
       medicationComplianceRate: medicationComplianceRate,
       totalScheduledDoses: scheduledDoses.length,
@@ -772,7 +765,7 @@ const HCBSDashboard = () => {
           severity: inc.severity,
           date: inc.dateoccurred,
           status: inc.status,
-          description: inc.description?.substring(0, 100) + '...' || 'No description',
+          description: inc.description || 'No description',
           followupRequired: inc.followuprequired || false
         })),
       recentVitals: recentVitals.map(vital => ({
@@ -790,13 +783,29 @@ const HCBSDashboard = () => {
         new Date(apt.date) > new Date()
       ).length,
       healthSummary: healthSummary,
+      healthWellnessSummary: healthWellnessSummary,
+      behaviorSupportSummary: behaviorSupportSummary,
       seizureHistory: seizureHistory,
       medicationMonitoringNotes: medicationMonitoringNotes,
+      behaviorSummary: behaviorSummary,
+      behaviorStrategies: behaviorStrategies,
+      abcDataRequired: abcDataRequired,
       allergies: allergies,
       activeMedicalAlerts: activeMedicalAlerts.length,
       activeBehavioralAlerts: activeBehavioralAlerts.length,
       medicalAlertsList: activeMedicalAlerts,
-      behavioralAlertsList: activeBehavioralAlerts
+      behavioralAlertsList: activeBehavioralAlerts,
+      activeRiskPlans: activeRiskPlans.length,
+      identifiedRisks: identifiedRisks,
+      riskMitigationStrategies: riskMitigationStrategies,
+      riskPlansList: activeRiskPlans.map(rp => ({
+        id: rp.id,
+        riskType: rp.risktype,
+        description: rp.description,
+        interventions: rp.interventions,
+        responsibleStaff: rp.responsiblestaff,
+        reviewDate: rp.reviewdate
+      }))
     };
   };
 
@@ -807,10 +816,9 @@ const HCBSDashboard = () => {
     
     const filteredNotes = dailyNotes.filter(note => {
       const noteDate = new Date(note.date);
-      return noteDate >= startDate && noteDate <= endDate;
+      return noteDate >= startDate && noteDate <= endDate && note.billingValidated === true;
     });
 
-    // Count unique staff
     const staffSet = new Set();
     const staffActivity = {};
 
@@ -839,7 +847,6 @@ const HCBSDashboard = () => {
       }
     });
 
-    // Check for approved notes (quality indicator)
     const approvedNotes = filteredNotes.filter(note => note.approved === true);
     const billingValidatedNotes = filteredNotes.filter(note => note.billingValidated === true);
     
@@ -851,19 +858,14 @@ const HCBSDashboard = () => {
       ? (billingValidatedNotes.length / filteredNotes.length) * 100
       : 0;
 
-    // Assigned staff analysis
     const activeStaff = assignedStaff.filter(staff => staff.status === 'Active');
     const trainedStaff = activeStaff.filter(staff => staff.training_completed === true);
     const primaryContacts = activeStaff.filter(staff => staff.primary_contact === true);
 
-    // Training requirements
     const requiredTrainings = Array.isArray(staffTrainingRequirements) 
       ? staffTrainingRequirements.filter(t => typeof t === 'object' && t.required === true).length
       : 0;
 
-    const completedTrainings = trainedStaff.length;
-
-    // Shift coverage analysis
     const shiftCoverage = {
       '1st Shift': 0,
       '2nd Shift': 0,
@@ -876,8 +878,8 @@ const HCBSDashboard = () => {
       shiftCoverage[shift] = (shiftCoverage[shift] || 0) + 1;
     });
 
-    // QDDP/Case Manager info
     const qddpCaseManager = selectedIndividual.qddp_case_manager || 'Not assigned';
+    const fundingSource = selectedIndividual.funding_source || 'Not specified';
 
     return {
       uniqueStaff: staffSet.size,
@@ -903,6 +905,7 @@ const HCBSDashboard = () => {
       requiredTrainings: requiredTrainings,
       shiftCoverage: shiftCoverage,
       qddpCaseManager: qddpCaseManager,
+      fundingSource: fundingSource,
       assignedStaffDetails: activeStaff.map(staff => ({
         id: staff.id,
         name: staff.staff_name,
@@ -920,7 +923,6 @@ const HCBSDashboard = () => {
   const generateAlerts = (community, choice, isp, rights, health, staff) => {
     const newAlerts = [];
 
-    // Community Integration Alerts
     if (community.outings30Days === 0) {
       newAlerts.push({
         id: 'comm-1',
@@ -952,7 +954,6 @@ const HCBSDashboard = () => {
       });
     }
 
-    // Choice & Autonomy Alerts
     if (choice.choiceOfferedRate < 50) {
       newAlerts.push({
         id: 'choice-1',
@@ -984,18 +985,6 @@ const HCBSDashboard = () => {
       });
     }
 
-    if (choice.rightsExplainedCount === 0 && choice.choiceAcknowledgments > 0) {
-      newAlerts.push({
-        id: 'choice-4',
-        severity: 'warning',
-        category: 'Choice & Autonomy',
-        message: 'Rights not documented as explained in choice acknowledgments',
-        action: 'Ensure rights are explained and documented',
-        hcbsRequirement: 'Individual rights must be explained'
-      });
-    }
-
-    // ISP Implementation Alerts
     if (isp.goalsNotAddressed > 0) {
       newAlerts.push({
         id: 'isp-1',
@@ -1040,18 +1029,6 @@ const HCBSDashboard = () => {
       });
     }
 
-    if (isp.quarterlyReviews === 0) {
-      newAlerts.push({
-        id: 'isp-5',
-        severity: 'warning',
-        category: 'ISP Implementation',
-        message: 'No quarterly reviews documented in date range',
-        action: 'Complete quarterly ISP review',
-        hcbsRequirement: 'Quarterly reviews required'
-      });
-    }
-
-    // Rights & Restrictions Alerts
     if (rights.overdueReviews > 0) {
       newAlerts.push({
         id: 'rights-1',
@@ -1060,17 +1037,6 @@ const HCBSDashboard = () => {
         message: `${rights.overdueReviews} rights restrictions have overdue reviews`,
         action: 'Complete overdue HRC reviews immediately',
         hcbsRequirement: 'Rights restrictions must be reviewed on schedule'
-      });
-    }
-
-    if (rights.upcomingReviews > 0) {
-      newAlerts.push({
-        id: 'rights-2',
-        severity: 'info',
-        category: 'Rights & Restrictions',
-        message: `${rights.upcomingReviews} rights restrictions reviews due within 30 days`,
-        action: 'Schedule HRC reviews',
-        hcbsRequirement: 'Proactive review scheduling required'
       });
     }
 
@@ -1085,29 +1051,28 @@ const HCBSDashboard = () => {
       });
     }
 
-    if (!rights.rightsExplained) {
+    if (rights.openComplaints > 0) {
       newAlerts.push({
-        id: 'rights-4',
+        id: 'rights-6',
         severity: 'warning',
         category: 'Rights & Restrictions',
-        message: 'Rights not documented as explained to individual',
-        action: 'Document rights explanation',
-        hcbsRequirement: 'Individual rights must be explained'
+        message: `${rights.openComplaints} open complaints requiring resolution`,
+        action: 'Address and resolve pending complaints',
+        hcbsRequirement: 'Complaints must be investigated and resolved'
       });
     }
 
-    if (rights.minimizationPlan === 0 && rights.activeRestrictions > 0) {
+    if (rights.openCAPs > 0) {
       newAlerts.push({
-        id: 'rights-5',
+        id: 'rights-7',
         severity: 'warning',
         category: 'Rights & Restrictions',
-        message: 'No minimization plans for active restrictions',
-        action: 'Develop restriction reduction plans',
-        hcbsRequirement: 'Restrictions must be minimized over time'
+        message: `${rights.openCAPs} open corrective action plans`,
+        action: 'Complete pending corrective actions',
+        hcbsRequirement: 'CAPs must be implemented and evaluated'
       });
     }
 
-    // Health & Safety Alerts
     if (health.openIncidents > 0) {
       newAlerts.push({
         id: 'health-1',
@@ -1130,17 +1095,6 @@ const HCBSDashboard = () => {
       });
     }
 
-    if (health.prnUsageCount > 15) {
-      newAlerts.push({
-        id: 'health-3',
-        severity: 'warning',
-        category: 'Health & Safety',
-        message: `High PRN utilization detected (${health.prnUsageCount} administrations)`,
-        action: 'Review PRN usage patterns with medical team',
-        hcbsRequirement: 'PRN usage must be monitored and justified'
-      });
-    }
-
     if (health.medicationComplianceRate < 90) {
       newAlerts.push({
         id: 'health-4',
@@ -1149,51 +1103,6 @@ const HCBSDashboard = () => {
         message: `Medication compliance at ${health.medicationComplianceRate}% (below 90% target)`,
         action: 'Address medication refusals and missed doses',
         hcbsRequirement: 'Medication compliance must be maintained'
-      });
-    }
-
-    if (health.emergencyInterventions > 3) {
-      newAlerts.push({
-        id: 'health-5',
-        severity: 'warning',
-        category: 'Health & Safety',
-        message: `${health.emergencyInterventions} emergency interventions in date range`,
-        action: 'Review behavior support plan and prevention strategies',
-        hcbsRequirement: 'Emergency interventions should be minimized'
-      });
-    }
-
-    if (health.activeMedicalAlerts > 0) {
-      newAlerts.push({
-        id: 'health-6',
-        severity: 'info',
-        category: 'Health & Safety',
-        message: `${health.activeMedicalAlerts} active medical alerts`,
-        action: 'Ensure all staff are aware of medical alerts',
-        hcbsRequirement: 'Medical alerts must be communicated to all staff'
-      });
-    }
-
-    if (health.activeBehavioralAlerts > 0) {
-      newAlerts.push({
-        id: 'health-7',
-        severity: 'info',
-        category: 'Health & Safety',
-        message: `${health.activeBehavioralAlerts} active behavioral alerts`,
-        action: 'Ensure behavior support strategies are being implemented',
-        hcbsRequirement: 'Behavioral supports must be in place'
-      });
-    }
-
-    // Staff Readiness Alerts
-    if (staff.approvalRate < 80) {
-      newAlerts.push({
-        id: 'staff-1',
-        severity: 'warning',
-        category: 'Staff Readiness',
-        message: `Daily note approval rate at ${staff.approvalRate}% (below 80% target)`,
-        action: 'Review and approve pending documentation',
-        hcbsRequirement: 'Documentation must be reviewed and approved'
       });
     }
 
@@ -1216,17 +1125,6 @@ const HCBSDashboard = () => {
         message: `Training compliance at ${staff.trainingComplianceRate}% (${staff.activeStaffCount - staff.trainedStaffCount} staff need training)`,
         action: 'Complete required staff training immediately',
         hcbsRequirement: 'All staff must complete required training'
-      });
-    }
-
-    if (staff.primaryContactsCount === 0) {
-      newAlerts.push({
-        id: 'staff-4',
-        severity: 'warning',
-        category: 'Staff Readiness',
-        message: 'No primary contact staff assigned',
-        action: 'Designate primary contact staff member',
-        hcbsRequirement: 'Primary contact required for continuity of care'
       });
     }
 
@@ -1277,7 +1175,6 @@ const HCBSDashboard = () => {
     let totalScore = 0;
     let categoryCount = 0;
 
-    // Community Integration Score (0-100)
     if (compData.communityIntegration) {
       const comm = compData.communityIntegration;
       let commScore = 0;
@@ -1293,7 +1190,6 @@ const HCBSDashboard = () => {
       categoryCount++;
     }
 
-    // Choice & Autonomy Score (0-100)
     if (compData.choiceAutonomy) {
       const choice = compData.choiceAutonomy;
       let choiceScore = 0;
@@ -1309,7 +1205,6 @@ const HCBSDashboard = () => {
       categoryCount++;
     }
 
-    // ISP Implementation Score (0-100)
     if (compData.ispImplementation) {
       const isp = compData.ispImplementation;
       let ispScore = 0;
@@ -1326,20 +1221,18 @@ const HCBSDashboard = () => {
       categoryCount++;
     }
 
-    // Rights & Restrictions Score (0-100)
     if (compData.rightsRestrictions) {
       const rights = compData.rightsRestrictions;
       let rightsScore = 100;
       if (rights.overdueReviews > 0) rightsScore -= 40;
       if (rights.hrcPending > 0) rightsScore -= 30;
       if (!rights.rightsExplained) rightsScore -= 20;
-      if (rights.minimizationPlan === 0 && rights.activeRestrictions > 0) rightsScore -= 10;
+      if (rights.openComplaints > 0) rightsScore -= 10;
       
       totalScore += Math.max(0, rightsScore);
       categoryCount++;
     }
 
-    // Health & Safety Score (0-100)
     if (compData.healthSafety) {
       const health = compData.healthSafety;
       let healthScore = 100;
@@ -1353,7 +1246,6 @@ const HCBSDashboard = () => {
       categoryCount++;
     }
 
-    // Staff Readiness Score (0-100)
     if (compData.staffReadiness) {
       const staff = compData.staffReadiness;
       let staffScore = 0;
@@ -1432,7 +1324,6 @@ const HCBSDashboard = () => {
     setAuditModeData(null);
   };
 
-  // NavBar Component
   const NavBar = () => (
     <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-900/20 backdrop-blur-xl border-b border-slate-800/50 px-6 py-4 flex items-center justify-between sticky top-0 z-40 shadow-2xl">
       <div className="flex items-center gap-4">
@@ -1500,7 +1391,6 @@ const HCBSDashboard = () => {
     </div>
   );
 
-  // Sidebar Component
   const Sidebar = () => (
     <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-50 w-72 bg-gradient-to-b from-slate-900 via-slate-900 to-emerald-900/10 border-r border-slate-800/50 transition-all duration-300 flex flex-col backdrop-blur-xl h-screen`}>
       <div className="p-6 border-b border-slate-800/50 flex-shrink-0">
@@ -1595,7 +1485,6 @@ const HCBSDashboard = () => {
     </div>
   );
 
-  // Permission Check
   if (!profileLoading && !canViewHCBS) {
     return (
       <div className="h-screen flex flex-col bg-slate-950 text-white">
@@ -1624,6 +1513,7 @@ const HCBSDashboard = () => {
     );
   }
 
+ 
   return (
     <div className="h-screen flex flex-col bg-slate-950 text-white overflow-hidden">
       <NavBar />
