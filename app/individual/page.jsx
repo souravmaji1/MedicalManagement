@@ -876,6 +876,7 @@ const TableRow = ({ individual, idx }) => (
         </DialogTitle>
       </DialogHeader>
       
+       <ScrollArea className="max-h-[calc(90vh-180px)]">
       <div className="space-y-6 py-4">
         <div className="bg-slate-800/50 rounded-xl p-4">
           <h4 className="text-lg font-semibold text-white mb-2">
@@ -921,7 +922,7 @@ const TableRow = ({ individual, idx }) => (
             </select>
           </div>
 
-          {statusUpdateData.status && statusUpdateData.status !== 'Active' && (
+          {statusUpdateData.status && (
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
                 Status Reason *
@@ -1035,6 +1036,7 @@ const TableRow = ({ individual, idx }) => (
           </button>
         </div>
       </div>
+      </ScrollArea>
     </DialogContent>
   </Dialog>
 )}
@@ -1474,6 +1476,7 @@ const TableRow = ({ individual, idx }) => (
   </button>
 </div>
             
+               <ScrollArea className="max-h-[calc(90vh-180px)]">
             <div className="space-y-6 py-4">
               <div className="bg-slate-800/50 rounded-xl p-4">
                 <h4 className="text-lg font-semibold text-white mb-2">
@@ -1584,6 +1587,7 @@ const TableRow = ({ individual, idx }) => (
                 </button>
               </div>
             </div>
+            </ScrollArea>
           </DialogContent>
         </Dialog>
       )}

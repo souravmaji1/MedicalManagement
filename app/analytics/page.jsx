@@ -347,7 +347,7 @@ const AnalyticsPage = () => {
     { id: 'goals', label: 'Goals & Outcomes', icon: Target },
     { id: 'documents', label: 'Documents', icon: File },
     { id: 'history', label: 'History', icon: Clock },
-    { id: 'reports', label: 'Reports', icon: FileBarChart }
+    
   ];
 
   useEffect(() => {
