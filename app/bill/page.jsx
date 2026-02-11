@@ -134,6 +134,174 @@ const [staffMembers, setStaffMembers] = useState([]); // ADD THIS LINE
     status: 'Active'
   });
 
+  const [editingServiceCode, setEditingServiceCode] = useState(null);
+const [showEditServiceCodeModal, setShowEditServiceCodeModal] = useState(false);
+
+
+const [editingAuthorization, setEditingAuthorization] = useState(null);
+const [showEditAuthorizationModal, setShowEditAuthorizationModal] = useState(false);
+
+const handleEditAuthorization = (auth) => {
+  setEditingAuthorization(auth);
+  setAuthorizationForm({
+    individual_id: auth.individual_id,
+    payer: auth.payer,
+    state: auth.state,
+    waiver_type: auth.waiver_type,
+    program_type: auth.program_type,
+    auth_number: auth.auth_number,
+    start_date: auth.start_date,
+    end_date: auth.end_date,
+    authorized_codes: auth.authorized_codes || [],
+    units_authorized_total: auth.units_authorized_total,
+    status: auth.status
+  });
+  setShowEditAuthorizationModal(true);
+};
+
+const handleUpdateAuthorization = async (e) => {
+  e.preventDefault();
+  
+  try {
+    setSaving(true);
+
+    const { error } = await supabase
+      .from('billing_authorizations')
+      .update({
+        individual_id: authorizationForm.individual_id,
+        payer: authorizationForm.payer,
+        state: authorizationForm.state,
+        waiver_type: authorizationForm.waiver_type,
+        program_type: authorizationForm.program_type,
+        auth_number: authorizationForm.auth_number,
+        start_date: authorizationForm.start_date,
+        end_date: authorizationForm.end_date,
+        authorized_codes: authorizationForm.authorized_codes,
+        units_authorized_total: authorizationForm.units_authorized_total,
+        status: authorizationForm.status,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', editingAuthorization.id);
+
+    if (error) throw error;
+
+    await loadBillingData();
+    setShowEditAuthorizationModal(false);
+    setEditingAuthorization(null);
+    alert('Authorization updated successfully!');
+  } catch (error) {
+    console.error('Error updating authorization:', error);
+    alert('Error updating authorization: ' + error.message);
+  } finally {
+    setSaving(false);
+  }
+};
+
+const handleDeleteAuthorization = async (authId) => {
+  if (!confirm('Are you sure you want to delete this authorization?')) return;
+  
+  try {
+    const { error } = await supabase
+      .from('billing_authorizations')
+      .delete()
+      .eq('id', authId);
+
+    if (error) throw error;
+
+    await loadBillingData();
+    alert('Authorization deleted successfully!');
+  } catch (error) {
+    console.error('Error deleting authorization:', error);
+    alert('Error deleting authorization: ' + error.message);
+  }
+};
+
+const handleEditServiceCode = (code) => {
+  setEditingServiceCode(code);
+  setServiceCodeForm({
+    service_code: code.service_code,
+    description: code.description,
+    state: code.state,
+    waiver_type: code.waiver_type,
+    program_type: code.program_type,
+    unit_type: code.unit_type,
+    unit_rounding_rule: code.unit_rounding_rule,
+    requires_isp_link: code.requires_isp_link,
+    requires_choice_doc: code.requires_choice_doc,
+    requires_location_type: code.requires_location_type,
+    allowed_location_types: code.allowed_location_types || [],
+    requires_staff_role: code.requires_staff_role,
+    allowed_staff_roles: code.allowed_staff_roles || [],
+    requires_auth: code.requires_auth,
+    max_units_per_day: code.max_units_per_day,
+    max_units_per_week: code.max_units_per_week,
+    is_active: code.is_active
+  });
+  setShowEditServiceCodeModal(true);
+};
+
+const handleUpdateServiceCode = async (e) => {
+  e.preventDefault();
+  
+  try {
+    setSaving(true);
+
+    const { error } = await supabase
+      .from('billing_service_codes')
+      .update({
+        description: serviceCodeForm.description,
+        state: serviceCodeForm.state,
+        waiver_type: serviceCodeForm.waiver_type,
+        program_type: serviceCodeForm.program_type,
+        unit_type: serviceCodeForm.unit_type,
+        unit_rounding_rule: serviceCodeForm.unit_rounding_rule,
+        requires_isp_link: serviceCodeForm.requires_isp_link,
+        requires_choice_doc: serviceCodeForm.requires_choice_doc,
+        requires_location_type: serviceCodeForm.requires_location_type,
+        allowed_location_types: serviceCodeForm.allowed_location_types,
+        requires_staff_role: serviceCodeForm.requires_staff_role,
+        allowed_staff_roles: serviceCodeForm.allowed_staff_roles,
+        requires_auth: serviceCodeForm.requires_auth,
+        max_units_per_day: serviceCodeForm.max_units_per_day,
+        max_units_per_week: serviceCodeForm.max_units_per_week,
+        is_active: serviceCodeForm.is_active,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', editingServiceCode.id);
+
+    if (error) throw error;
+
+    await loadBillingData();
+    setShowEditServiceCodeModal(false);
+    setEditingServiceCode(null);
+    alert('Service code updated successfully!');
+  } catch (error) {
+    console.error('Error updating service code:', error);
+    alert('Error updating service code: ' + error.message);
+  } finally {
+    setSaving(false);
+  }
+};
+
+const handleDeleteServiceCode = async (codeId) => {
+  if (!confirm('Are you sure you want to delete this service code?')) return;
+  
+  try {
+    const { error } = await supabase
+      .from('billing_service_codes')
+      .delete()
+      .eq('id', codeId);
+
+    if (error) throw error;
+
+    await loadBillingData();
+    alert('Service code deleted successfully!');
+  } catch (error) {
+    console.error('Error deleting service code:', error);
+    alert('Error deleting service code: ' + error.message);
+  }
+};
+
   // Load data on mount
   useEffect(() => {
     if (isLoaded && user && !profileLoading && userProfile) {
@@ -992,19 +1160,19 @@ const handleCreateClaimFromBatch = async (batch) => {
     if (claimError) throw claimError;
 
     // Create claim lines
-    const claimLines = batchEncounterDetails.map(enc => ({
-      claim_line_id: `CL-${enc.encounter_id}`,
-      claim_id: claimData.claim_id,
-      encounter_id: enc.encounter_id,
-      service_code: enc.service_code,
-      units: enc.units_calculated,
-      amount: (parseFloat(enc.units_calculated) || 0) * 12,
-      modifiers: [],
-      place_of_service: enc.location_type,
-      rendering_provider_npi: enc.staff_id,
-      billing_provider_npi: 'PROVIDER_NPI',
-      status: 'Included'
-    }));
+  const claimLines = batchEncounterDetails.map((enc, index) => ({
+  claim_line_id: `CL-${claimData.claim_id}-${Date.now()}-${index}`,
+  claim_id: claimData.claim_id,
+  encounter_id: enc.encounter_id,
+  service_code: enc.service_code,
+  units: enc.units_calculated,
+  amount: (parseFloat(enc.units_calculated) || 0) * 12,
+  modifiers: [],
+  place_of_service: enc.location_type,
+  rendering_provider_npi: enc.staff_id,
+  billing_provider_npi: 'PROVIDER_NPI',
+  status: 'Included'
+}));
 
     const { error: claimLinesError } = await supabase
       .from('billing_claim_lines')
@@ -1750,6 +1918,8 @@ const handleCreateClaimFromBatch = async (batch) => {
                               </span>
                             </div>
 
+
+
                             <div className="grid grid-cols-4 gap-4 mb-4">
                               <div className="bg-slate-900/50 rounded-lg p-3">
                                 <p className="text-xs text-slate-400 mb-1">Start Date</p>
@@ -1795,6 +1965,23 @@ const handleCreateClaimFromBatch = async (batch) => {
                                 ></div>
                               </div>
                             </div>
+
+                            <div className="flex items-center gap-3 mt-4">
+  <button
+    onClick={() => handleEditAuthorization(auth)}
+    className="flex items-center gap-2 px-4 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 rounded-lg font-semibold transition-all"
+  >
+    <Edit2 size={16} />
+    Edit
+  </button>
+  <button
+    onClick={() => handleDeleteAuthorization(auth.id)}
+    className="flex items-center gap-2 px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg font-semibold transition-all"
+  >
+    <Trash2 size={16} />
+    Delete
+  </button>
+</div>
                           </div>
                         );
                       })}
@@ -1831,19 +2018,35 @@ const handleCreateClaimFromBatch = async (batch) => {
 
                       {serviceCodes.length > 0 && (
                         <div className="mt-4 space-y-2 max-h-96 overflow-y-auto">
-                          {serviceCodes.map(code => (
-                            <div key={code.id} className="bg-slate-900/50 rounded-lg p-3">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="text-white font-semibold font-mono">{code.service_code}</p>
-                                  <p className="text-xs text-slate-400">{code.description}</p>
-                                </div>
-                                <span className="text-xs px-2 py-1 bg-slate-700 text-slate-300 rounded">
-                                  {code.unit_type}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
+                         {serviceCodes.map(code => (
+  <div key={code.id} className="bg-slate-900/50 rounded-lg p-3">
+    <div className="flex items-center justify-between">
+      <div className="flex-1">
+        <p className="text-white font-semibold font-mono">{code.service_code}</p>
+        <p className="text-xs text-slate-400">{code.description}</p>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-xs px-2 py-1 bg-slate-700 text-slate-300 rounded">
+          {code.unit_type}
+        </span>
+        <button
+          onClick={() => handleEditServiceCode(code)}
+          className="p-1.5 hover:bg-slate-700 rounded transition-all"
+          title="Edit"
+        >
+          <Edit2 size={14} className="text-emerald-400" />
+        </button>
+        <button
+          onClick={() => handleDeleteServiceCode(code.id)}
+          className="p-1.5 hover:bg-slate-700 rounded transition-all"
+          title="Delete"
+        >
+          <Trash2 size={14} className="text-red-400" />
+        </button>
+      </div>
+    </div>
+  </div>
+))}
                         </div>
                       )}
                     </div>
@@ -2955,6 +3158,351 @@ const handleCreateClaimFromBatch = async (batch) => {
     </div>
   )}
 
+  {/* EDIT SERVICE CODE MODAL */}
+{showEditServiceCodeModal && (
+  <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
+      <div className="flex items-center justify-between p-6 border-b border-slate-700">
+        <div>
+          <h3 className="text-2xl font-bold text-white">Edit Service Code</h3>
+          <p className="text-slate-400 text-sm">Update service code configuration</p>
+        </div>
+        <button
+          onClick={() => {
+            setShowEditServiceCodeModal(false);
+            setEditingServiceCode(null);
+          }}
+          className="p-2 hover:bg-slate-700 rounded-lg transition-all"
+        >
+          <X className="text-slate-400" size={24} />
+        </button>
+      </div>
+
+      <ScrollArea className="h-[calc(90vh-160px)]">
+        <form onSubmit={handleUpdateServiceCode} className="p-6 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Service Code *</label>
+              <input
+                type="text"
+                value={serviceCodeForm.service_code}
+                disabled
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-slate-400 cursor-not-allowed font-mono"
+              />
+              <p className="text-xs text-slate-500 mt-1">Service code cannot be changed</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Unit Type *</label>
+              <select
+                value={serviceCodeForm.unit_type}
+                onChange={(e) => setServiceCodeForm(prev => ({ ...prev, unit_type: e.target.value }))}
+                required
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+              >
+                <option value="MIN_15">15-Minute Units</option>
+                <option value="HOUR">Hourly</option>
+                <option value="PER_DIEM">Per Diem</option>
+                <option value="PER_VISIT">Per Visit</option>
+              </select>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-slate-300 mb-2">Description *</label>
+              <input
+                type="text"
+                value={serviceCodeForm.description}
+                onChange={(e) => setServiceCodeForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="e.g., Peer Support Services"
+                required
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">State</label>
+              <select
+                value={serviceCodeForm.state}
+                onChange={(e) => setServiceCodeForm(prev => ({ ...prev, state: e.target.value }))}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+              >
+                <option value="AL">Alabama</option>
+                <option value="NC">North Carolina</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Waiver Type</label>
+              <select
+                value={serviceCodeForm.waiver_type}
+                onChange={(e) => setServiceCodeForm(prev => ({ ...prev, waiver_type: e.target.value }))}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+              >
+                <option value="DD">DD</option>
+                <option value="ID/DD">ID/DD</option>
+                <option value="MH">MH</option>
+                <option value="SUD">SUD</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Max Units Per Day</label>
+              <input
+                type="number"
+                value={serviceCodeForm.max_units_per_day || ''}
+                onChange={(e) => setServiceCodeForm(prev => ({ ...prev, max_units_per_day: e.target.value ? parseInt(e.target.value) : null }))}
+                placeholder="Optional"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Max Units Per Week</label>
+              <input
+                type="number"
+                value={serviceCodeForm.max_units_per_week || ''}
+                onChange={(e) => setServiceCodeForm(prev => ({ ...prev, max_units_per_week: e.target.value ? parseInt(e.target.value) : null }))}
+                placeholder="Optional"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={serviceCodeForm.requires_isp_link}
+                onChange={(e) => setServiceCodeForm(prev => ({ ...prev, requires_isp_link: e.target.checked }))}
+                className="w-5 h-5 bg-slate-800 border-slate-700 rounded"
+              />
+              <label className="text-white font-semibold">Requires ISP Goal Link</label>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={serviceCodeForm.requires_choice_doc}
+                onChange={(e) => setServiceCodeForm(prev => ({ ...prev, requires_choice_doc: e.target.checked }))}
+                className="w-5 h-5 bg-slate-800 border-slate-700 rounded"
+              />
+              <label className="text-white font-semibold">Requires Choice Documentation</label>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={serviceCodeForm.requires_auth}
+                onChange={(e) => setServiceCodeForm(prev => ({ ...prev, requires_auth: e.target.checked }))}
+                className="w-5 h-5 bg-slate-800 border-slate-700 rounded"
+              />
+              <label className="text-white font-semibold">Requires Authorization</label>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={serviceCodeForm.is_active}
+                onChange={(e) => setServiceCodeForm(prev => ({ ...prev, is_active: e.target.checked }))}
+                className="w-5 h-5 bg-slate-800 border-slate-700 rounded"
+              />
+              <label className="text-white font-semibold">Active</label>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-6 border-t border-slate-700">
+            <button
+              type="button"
+              onClick={() => {
+                setShowEditServiceCodeModal(false);
+                setEditingServiceCode(null);
+              }}
+              className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-emerald-500/50 transition-all disabled:opacity-50"
+            >
+              {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+              {saving ? 'Updating...' : 'Update Service Code'}
+            </button>
+          </div>
+        </form>
+      </ScrollArea>
+    </div>
+  </div>
+)}
+
+{/* EDIT AUTHORIZATION MODAL */}
+{showEditAuthorizationModal && (
+  <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
+      <div className="flex items-center justify-between p-6 border-b border-slate-700">
+        <div>
+          <h3 className="text-2xl font-bold text-white">Edit Authorization</h3>
+          <p className="text-slate-400 text-sm">Update service authorization details</p>
+        </div>
+        <button
+          onClick={() => {
+            setShowEditAuthorizationModal(false);
+            setEditingAuthorization(null);
+          }}
+          className="p-2 hover:bg-slate-700 rounded-lg transition-all"
+        >
+          <X className="text-slate-400" size={24} />
+        </button>
+      </div>
+
+      <ScrollArea className="h-[calc(90vh-160px)]">
+        <form onSubmit={handleUpdateAuthorization} className="p-6 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Individual *</label>
+              <select
+                value={authorizationForm.individual_id}
+                onChange={(e) => setAuthorizationForm(prev => ({ ...prev, individual_id: e.target.value }))}
+                required
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+              >
+                <option value="">Select Individual</option>
+                {individuals.map(ind => (
+                  <option key={ind.id} value={ind.id}>
+                    {ind.firstname} {ind.lastname} ({ind.individualid})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Authorization Number *</label>
+              <input
+                type="text"
+                value={authorizationForm.auth_number}
+                onChange={(e) => setAuthorizationForm(prev => ({ ...prev, auth_number: e.target.value }))}
+                placeholder="e.g., AUTH-2024-001"
+                required
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Start Date *</label>
+              <input
+                type="date"
+                value={authorizationForm.start_date}
+                onChange={(e) => setAuthorizationForm(prev => ({ ...prev, start_date: e.target.value }))}
+                required
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">End Date *</label>
+              <input
+                type="date"
+                value={authorizationForm.end_date}
+                onChange={(e) => setAuthorizationForm(prev => ({ ...prev, end_date: e.target.value }))}
+                required
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Total Units Authorized *</label>
+              <input
+                type="number"
+                value={authorizationForm.units_authorized_total}
+                onChange={(e) => setAuthorizationForm(prev => ({ ...prev, units_authorized_total: parseInt(e.target.value) || 0 }))}
+                required
+                min="0"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Status</label>
+              <select
+                value={authorizationForm.status}
+                onChange={(e) => setAuthorizationForm(prev => ({ ...prev, status: e.target.value }))}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+              >
+                <option value="Active">Active</option>
+                <option value="Expired">Expired</option>
+                <option value="Exhausted">Exhausted</option>
+                <option value="Suspended">Suspended</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Payer</label>
+              <select
+                value={authorizationForm.payer}
+                onChange={(e) => setAuthorizationForm(prev => ({ ...prev, payer: e.target.value }))}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+              >
+                <option value="Medicaid">Medicaid</option>
+                <option value="MCO">MCO</option>
+                <option value="Private">Private Insurance</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">State</label>
+              <select
+                value={authorizationForm.state}
+                onChange={(e) => setAuthorizationForm(prev => ({ ...prev, state: e.target.value }))}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+              >
+                <option value="AL">Alabama</option>
+                <option value="NC">North Carolina</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Waiver Type</label>
+              <select
+                value={authorizationForm.waiver_type}
+                onChange={(e) => setAuthorizationForm(prev => ({ ...prev, waiver_type: e.target.value }))}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+              >
+                <option value="DD">DD</option>
+                <option value="ID/DD">ID/DD</option>
+                <option value="MH">MH</option>
+                <option value="SUD">SUD</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-6 border-t border-slate-700">
+            <button
+              type="button"
+              onClick={() => {
+                setShowEditAuthorizationModal(false);
+                setEditingAuthorization(null);
+              }}
+              className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-emerald-500/50 transition-all disabled:opacity-50"
+            >
+              {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+              {saving ? 'Updating...' : 'Update Authorization'}
+            </button>
+          </div>
+        </form>
+      </ScrollArea>
+    </div>
+  </div>
+)}
+
+
   {/* SERVICE CODE MODAL */}
   {showServiceCodeModal && (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -2973,8 +3521,14 @@ const handleCreateClaimFromBatch = async (batch) => {
         </div>
 
         <ScrollArea className="h-[calc(90vh-160px)]">
-          <form onSubmit={handleSaveServiceCode} className="p-6 space-y-6">
+          <form onSubmit={showEditServiceCodeModal ? handleUpdateServiceCode : handleSaveServiceCode} className="p-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <h3 className="text-2xl font-bold text-white">
+  {showEditServiceCodeModal ? 'Edit Service Code' : 'Add Service Code'}
+</h3>
+<p className="text-slate-400 text-sm">
+  {showEditServiceCodeModal ? 'Update service code configuration' : 'Configure a new billable service code'}
+</p>
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">Service Code *</label>
                 <input
@@ -3136,7 +3690,7 @@ const handleCreateClaimFromBatch = async (batch) => {
         </div>
 
         <ScrollArea className="h-[calc(90vh-160px)]">
-          <form onSubmit={handleSaveAuthorization} className="p-6 space-y-6">
+          <form onSubmit={showEditAuthorizationModal ? handleUpdateAuthorization : handleSaveAuthorization} className="p-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">Individual *</label>
