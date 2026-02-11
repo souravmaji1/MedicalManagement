@@ -14,6 +14,7 @@ import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '../../contexts/userProfileContext';
 import { PERMISSIONS } from '../../utils/permissions';
+import { Upload, Download} from 'lucide-react';
 
 const supabase = createClient(
   'https://bbikcxalypttfgrlxstf.supabase.co',
@@ -161,6 +162,301 @@ const StaffTrainingPage = () => {
   const [currentPage, setCurrentPage] = useState('staff');
 
 
+// Add these state variables with your other useState declarations
+const [uploadingFiles, setUploadingFiles] = useState({});
+const [fileInputRefs, setFileInputRefs] = useState({});
+
+// Add this helper function for file uploads
+const uploadFileToSupabase = async (file, path) => {
+  try {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const filePath = `${path}/${fileName}`;
+
+    const { data, error } = await supabase.storage
+      .from('staff-documents') // Make sure this bucket exists in your Supabase storage
+      .upload(filePath, file);
+
+    if (error) throw error;
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('staff-documents')
+      .getPublicUrl(filePath);
+
+    return {
+      name: file.name,
+      path: filePath,
+      url: urlData.publicUrl,
+      uploaded_at: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    throw error;
+  }
+};
+
+// Add this helper function to delete files from storage
+const deleteFileFromSupabase = async (filePath) => {
+  try {
+    const { error } = await supabase.storage
+      .from('staff-documents')
+      .remove([filePath]);
+
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error deleting file:', error);
+    return false;
+  }
+};
+
+// Update the addCertification function to include files array
+const addCertification = () => {
+  const newCert = {
+    id: Date.now().toString(),
+    name: '',
+    issue_date: '',
+    expiry_date: '',
+    issuing_org: '',
+    status: 'Active',
+    files: [] // Add files array
+  };
+  setFormData(prev => ({
+    ...prev,
+    certifications: [...(prev.certifications || []), newCert]
+  }));
+};
+
+// Update the addTrainingCompleted function to include files array
+const addTrainingCompleted = () => {
+  const newTraining = {
+    id: Date.now().toString(),
+    training_name: '',
+    completion_date: '',
+    trainer: '',
+    hours: '',
+    notes: '',
+    files: [] // Add files array
+  };
+  setFormData(prev => ({
+    ...prev,
+    training_completed: [...(prev.training_completed || []), newTraining]
+  }));
+};
+
+// Update the addTrainingRequired function to include files array
+const addTrainingRequired = () => {
+  const newReq = {
+    id: Date.now().toString(),
+    training_name: '',
+    due_date: '',
+    frequency: 'Annually',
+    priority: 'Medium',
+    status: 'Pending',
+    files: [] // Add files array
+  };
+  setFormData(prev => ({
+    ...prev,
+    training_required: [...(prev.training_required || []), newReq]
+  }));
+};
+
+// Add file upload handler for certifications
+const handleCertificationFileUpload = async (certId, event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  // Validate file type
+  if (file.type !== 'application/pdf') {
+    alert('Please upload only PDF files');
+    return;
+  }
+
+  // Validate file size (max 10MB)
+  if (file.size > 10 * 1024 * 1024) {
+    alert('File size must be less than 10MB');
+    return;
+  }
+
+  try {
+    setUploadingFiles(prev => ({ ...prev, [`cert_${certId}`]: true }));
+
+    const uploadedFile = await uploadFileToSupabase(
+      file,
+      `certifications/${selectedStaff?.id || 'new'}/${certId}`
+    );
+
+    setFormData(prev => ({
+      ...prev,
+      certifications: prev.certifications.map(cert =>
+        cert.id === certId
+          ? { ...cert, files: [...(cert.files || []), uploadedFile] }
+          : cert
+      )
+    }));
+
+    alert('File uploaded successfully!');
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    alert('Error uploading file. Please try again.');
+  } finally {
+    setUploadingFiles(prev => ({ ...prev, [`cert_${certId}`]: false }));
+    // Reset input
+    event.target.value = '';
+  }
+};
+
+// Add file upload handler for training completed
+const handleTrainingCompletedFileUpload = async (trainingId, event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  if (file.type !== 'application/pdf') {
+    alert('Please upload only PDF files');
+    return;
+  }
+
+  if (file.size > 10 * 1024 * 1024) {
+    alert('File size must be less than 10MB');
+    return;
+  }
+
+  try {
+    setUploadingFiles(prev => ({ ...prev, [`training_${trainingId}`]: true }));
+
+    const uploadedFile = await uploadFileToSupabase(
+      file,
+      `training-completed/${selectedStaff?.id || 'new'}/${trainingId}`
+    );
+
+    setFormData(prev => ({
+      ...prev,
+      training_completed: prev.training_completed.map(training =>
+        training.id === trainingId
+          ? { ...training, files: [...(training.files || []), uploadedFile] }
+          : training
+      )
+    }));
+
+    alert('File uploaded successfully!');
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    alert('Error uploading file. Please try again.');
+  } finally {
+    setUploadingFiles(prev => ({ ...prev, [`training_${trainingId}`]: false }));
+    event.target.value = '';
+  }
+};
+
+// Add file upload handler for training required
+const handleTrainingRequiredFileUpload = async (reqId, event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  if (file.type !== 'application/pdf') {
+    alert('Please upload only PDF files');
+    return;
+  }
+
+  if (file.size > 10 * 1024 * 1024) {
+    alert('File size must be less than 10MB');
+    return;
+  }
+
+  try {
+    setUploadingFiles(prev => ({ ...prev, [`req_${reqId}`]: true }));
+
+    const uploadedFile = await uploadFileToSupabase(
+      file,
+      `training-required/${selectedStaff?.id || 'new'}/${reqId}`
+    );
+
+    setFormData(prev => ({
+      ...prev,
+      training_required: prev.training_required.map(req =>
+        req.id === reqId
+          ? { ...req, files: [...(req.files || []), uploadedFile] }
+          : req
+      )
+    }));
+
+    alert('File uploaded successfully!');
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    alert('Error uploading file. Please try again.');
+  } finally {
+    setUploadingFiles(prev => ({ ...prev, [`req_${reqId}`]: false }));
+    event.target.value = '';
+  }
+};
+
+// Add file deletion handlers
+const handleDeleteCertificationFile = async (certId, fileIndex, filePath) => {
+  if (!confirm('Are you sure you want to delete this file?')) return;
+
+  try {
+    await deleteFileFromSupabase(filePath);
+
+    setFormData(prev => ({
+      ...prev,
+      certifications: prev.certifications.map(cert =>
+        cert.id === certId
+          ? { ...cert, files: cert.files.filter((_, idx) => idx !== fileIndex) }
+          : cert
+      )
+    }));
+
+    alert('File deleted successfully!');
+  } catch (error) {
+    console.error('Error deleting file:', error);
+    alert('Error deleting file. Please try again.');
+  }
+};
+
+const handleDeleteTrainingCompletedFile = async (trainingId, fileIndex, filePath) => {
+  if (!confirm('Are you sure you want to delete this file?')) return;
+
+  try {
+    await deleteFileFromSupabase(filePath);
+
+    setFormData(prev => ({
+      ...prev,
+      training_completed: prev.training_completed.map(training =>
+        training.id === trainingId
+          ? { ...training, files: training.files.filter((_, idx) => idx !== fileIndex) }
+          : training
+      )
+    }));
+
+    alert('File deleted successfully!');
+  } catch (error) {
+    console.error('Error deleting file:', error);
+    alert('Error deleting file. Please try again.');
+  }
+};
+
+const handleDeleteTrainingRequiredFile = async (reqId, fileIndex, filePath) => {
+  if (!confirm('Are you sure you want to delete this file?')) return;
+
+  try {
+    await deleteFileFromSupabase(filePath);
+
+    setFormData(prev => ({
+      ...prev,
+      training_required: prev.training_required.map(req =>
+        req.id === reqId
+          ? { ...req, files: req.files.filter((_, idx) => idx !== fileIndex) }
+          : req
+      )
+    }));
+
+    alert('File deleted successfully!');
+  } catch (error) {
+    console.error('Error deleting file:', error);
+    alert('Error deleting file. Please try again.');
+  }
+};
   
        const menuItems = [
            { id: 'dashboard', icon: Home, label: 'Dashboard', badge: null },
@@ -415,20 +711,7 @@ const StaffTrainingPage = () => {
     setIsEditing(false);
   };
 
-  const addCertification = () => {
-    const newCert = {
-      id: Date.now().toString(),
-      name: '',
-      issue_date: '',
-      expiry_date: '',
-      issuing_org: '',
-      status: 'Active'
-    };
-    setFormData(prev => ({
-      ...prev,
-      certifications: [...(prev.certifications || []), newCert]
-    }));
-  };
+  
 
   const updateCertification = (id, field, value) => {
     setFormData(prev => ({
@@ -446,20 +729,7 @@ const StaffTrainingPage = () => {
     }));
   };
 
-  const addTrainingCompleted = () => {
-    const newTraining = {
-      id: Date.now().toString(),
-      training_name: '',
-      completion_date: '',
-      trainer: '',
-      hours: '',
-      notes: ''
-    };
-    setFormData(prev => ({
-      ...prev,
-      training_completed: [...(prev.training_completed || []), newTraining]
-    }));
-  };
+  
 
   const updateTrainingCompleted = (id, field, value) => {
     setFormData(prev => ({
@@ -477,20 +747,7 @@ const StaffTrainingPage = () => {
     }));
   };
 
-  const addTrainingRequired = () => {
-    const newReq = {
-      id: Date.now().toString(),
-      training_name: '',
-      due_date: '',
-      frequency: 'Annually',
-      priority: 'Medium',
-      status: 'Pending'
-    };
-    setFormData(prev => ({
-      ...prev,
-      training_required: [...(prev.training_required || []), newReq]
-    }));
-  };
+ 
 
   const updateTrainingRequired = (id, field, value) => {
     setFormData(prev => ({
@@ -1260,338 +1517,584 @@ const StaffTrainingPage = () => {
             </div>
 
             {/* Certifications */}
+      
             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                  <Award size={20} className="text-purple-400" />
-                  Certifications
-                </h3>
-                {isEditing && (
-                  <button
-                    onClick={addCertification}
-                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition-all"
-                  >
-                    <Plus size={16} />
-                    Add Certification
-                  </button>
-                )}
-              </div>
+  <div className="flex items-center justify-between mb-4">
+    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+      <Award size={20} className="text-purple-400" />
+      Certifications
+    </h3>
+    {isEditing && (
+      <button
+        onClick={addCertification}
+        className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition-all"
+      >
+        <Plus size={16} />
+        Add Certification
+      </button>
+    )}
+  </div>
 
-              {(!formData.certifications || formData.certifications.length === 0) ? (
-                <div className="text-center py-12 bg-slate-900/50 rounded-lg">
-                  <Award className="w-12 h-12 mx-auto mb-3 text-slate-600" />
-                  <p className="text-sm text-slate-400">No certifications added yet</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {formData.certifications.map((cert) => (
-                    <div key={cert.id} className="bg-slate-900/50 border border-slate-700 rounded-lg p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="md:col-span-2">
-                          <label className="block text-xs font-medium text-slate-400 mb-1">
-                            Certification Name
-                          </label>
-                          <input
-                            type="text"
-                            value={cert.name}
-                            onChange={(e) => updateCertification(cert.id, 'name', e.target.value)}
-                            disabled={!isEditing}
-                            placeholder="e.g., CPR/First Aid, Medication Administration"
-                            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500 disabled:opacity-50 transition-all"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-400 mb-1">Issue Date</label>
-                          <input
-                            type="date"
-                            value={cert.issue_date}
-                            onChange={(e) => updateCertification(cert.id, 'issue_date', e.target.value)}
-                            disabled={!isEditing}
-                            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500 disabled:opacity-50 transition-all"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-400 mb-1">Expiry Date</label>
-                          <input
-                            type="date"
-                            value={cert.expiry_date}
-                            onChange={(e) => updateCertification(cert.id, 'expiry_date', e.target.value)}
-                            disabled={!isEditing}
-                            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500 disabled:opacity-50 transition-all"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-400 mb-1">Issuing Organization</label>
-                          <input
-                            type="text"
-                            value={cert.issuing_org}
-                            onChange={(e) => updateCertification(cert.id, 'issuing_org', e.target.value)}
-                            disabled={!isEditing}
-                            placeholder="e.g., American Red Cross"
-                            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500 disabled:opacity-50 transition-all"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-400 mb-1">Status</label>
-                          <select
-                            value={cert.status}
-                            onChange={(e) => updateCertification(cert.id, 'status', e.target.value)}
-                            disabled={!isEditing}
-                            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500 disabled:opacity-50 transition-all"
-                          >
-                            <option value="Active">Active</option>
-                            <option value="Expired">Expired</option>
-                            <option value="Pending Renewal">Pending Renewal</option>
-                          </select>
-                        </div>
+        
+
+  {(!formData.certifications || formData.certifications.length === 0) ? (
+    <div className="text-center py-12 bg-slate-900/50 rounded-lg">
+      <Award className="w-12 h-12 mx-auto mb-3 text-slate-600" />
+      <p className="text-sm text-slate-400">No certifications added yet</p>
+    </div>
+  ) : (
+    <div className="space-y-3">
+      {formData.certifications.map((cert) => (
+        <div key={cert.id} className="bg-slate-900/50 border border-slate-700 rounded-lg p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-xs font-medium text-slate-400 mb-1">
+                Certification Name
+              </label>
+              <input
+                type="text"
+                value={cert.name}
+                onChange={(e) => updateCertification(cert.id, 'name', e.target.value)}
+                disabled={!isEditing}
+                placeholder="e.g., CPR/First Aid, Medication Administration"
+                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500 disabled:opacity-50 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">Issue Date</label>
+              <input
+                type="date"
+                value={cert.issue_date}
+                onChange={(e) => updateCertification(cert.id, 'issue_date', e.target.value)}
+                disabled={!isEditing}
+                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500 disabled:opacity-50 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">Expiry Date</label>
+              <input
+                type="date"
+                value={cert.expiry_date}
+                onChange={(e) => updateCertification(cert.id, 'expiry_date', e.target.value)}
+                disabled={!isEditing}
+                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500 disabled:opacity-50 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">Issuing Organization</label>
+              <input
+                type="text"
+                value={cert.issuing_org}
+                onChange={(e) => updateCertification(cert.id, 'issuing_org', e.target.value)}
+                disabled={!isEditing}
+                placeholder="e.g., American Red Cross"
+                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500 disabled:opacity-50 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">Status</label>
+              <select
+                value={cert.status}
+                onChange={(e) => updateCertification(cert.id, 'status', e.target.value)}
+                disabled={!isEditing}
+                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500 disabled:opacity-50 transition-all"
+              >
+                <option value="Active">Active</option>
+                <option value="Expired">Expired</option>
+                <option value="Pending Renewal">Pending Renewal</option>
+              </select>
+            </div>
+
+            {/* File Upload Section */}
+            <div className="md:col-span-2">
+              <label className="block text-xs font-medium text-slate-400 mb-2">
+                Attached Documents (PDF only)
+              </label>
+              
+              {/* Display uploaded files */}
+              {cert.files && cert.files.length > 0 && (
+                <div className="space-y-2 mb-3">
+                  {cert.files.map((file, fileIdx) => (
+                    <div 
+                      key={fileIdx}
+                      className="flex items-center justify-between bg-slate-800/50 border border-slate-600 rounded px-3 py-2"
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <FileText size={16} className="text-purple-400 flex-shrink-0" />
+                        <span className="text-sm text-white truncate">{file.name}</span>
+                        <span className="text-xs text-slate-500 flex-shrink-0">
+                          {new Date(file.uploaded_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={file.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 hover:bg-slate-700 rounded transition-colors"
+                          title="Download/View"
+                        >
+                          <Download size={14} className="text-emerald-400" />
+                        </a>
                         {isEditing && (
-                          <div className="md:col-span-2">
-                            <button
-                              onClick={() => deleteCertification(cert.id)}
-                              className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg font-semibold transition-all flex items-center gap-2 text-sm"
-                            >
-                              <Trash2 size={14} />
-                              Delete Certification
-                            </button>
-                          </div>
+                          <button
+                            onClick={() => handleDeleteCertificationFile(cert.id, fileIdx, file.path)}
+                            className="p-1.5 hover:bg-slate-700 rounded transition-colors"
+                            title="Delete file"
+                          >
+                            <Trash2 size={14} className="text-red-400" />
+                          </button>
                         )}
                       </div>
                     </div>
                   ))}
                 </div>
               )}
+
+              {/* Upload button */}
+              {isEditing && (
+                <div>
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    onChange={(e) => handleCertificationFileUpload(cert.id, e)}
+                    className="hidden"
+                    id={`cert-file-${cert.id}`}
+                  />
+                  <label
+                    htmlFor={`cert-file-${cert.id}`}
+                    className={`flex items-center justify-center gap-2 px-4 py-2 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-400 rounded-lg font-semibold transition-all cursor-pointer ${
+                      uploadingFiles[`cert_${cert.id}`] ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    {uploadingFiles[`cert_${cert.id}`] ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload size={16} />
+                        Upload PDF Document
+                      </>
+                    )}
+                  </label>
+                </div>
+              )}
+            </div>
+
+            {isEditing && (
+              <div className="md:col-span-2">
+                <button
+                  onClick={() => deleteCertification(cert.id)}
+                  className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg font-semibold transition-all flex items-center gap-2 text-sm"
+                >
+                  <Trash2 size={14} />
+                  Delete Certification
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  )}
+
             </div>
 
             {/* Training Completed */}
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                  <CheckCircle size={20} className="text-emerald-400" />
-                  Training Completed
-                </h3>
-                {isEditing && (
-                  <button
-                    onClick={addTrainingCompleted}
-                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition-all"
-                  >
-                    <Plus size={16} />
-                    Add Training
-                  </button>
-                )}
-              </div>
+           {/* Training Completed - Updated with File Upload */}
+<div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+  <div className="flex items-center justify-between mb-4">
+    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+      <CheckCircle size={20} className="text-emerald-400" />
+      Training Completed
+    </h3>
+    {isEditing && (
+      <button
+        onClick={addTrainingCompleted}
+        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition-all"
+      >
+        <Plus size={16} />
+        Add Training
+      </button>
+    )}
+  </div>
 
-              {(!formData.training_completed || formData.training_completed.length === 0) ? (
-                <div className="text-center py-12 bg-slate-900/50 rounded-lg">
-                  <CheckCircle className="w-12 h-12 mx-auto mb-3 text-slate-600" />
-                  <p className="text-sm text-slate-400">No training completed yet</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {formData.training_completed.map((training) => (
-                    <div key={training.id} className="bg-slate-900/50 border border-slate-700 rounded-lg p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="md:col-span-2">
-                          <label className="block text-xs font-medium text-slate-400 mb-1">Training Name</label>
-                          <input
-                            type="text"
-                            value={training.training_name}
-                            onChange={(e) => updateTrainingCompleted(training.id, 'training_name', e.target.value)}
-                            disabled={!isEditing}
-                            placeholder="e.g., HCBS Rights Training, Behavior Management"
-                            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500 disabled:opacity-50 transition-all"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-400 mb-1">Completion Date</label>
-                          <input
-                            type="date"
-                            value={training.completion_date}
-                            onChange={(e) => updateTrainingCompleted(training.id, 'completion_date', e.target.value)}
-                            disabled={!isEditing}
-                            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500 disabled:opacity-50 transition-all"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-400 mb-1">Trainer</label>
-                          <input
-                            type="text"
-                            value={training.trainer}
-                            onChange={(e) => updateTrainingCompleted(training.id, 'trainer', e.target.value)}
-                            disabled={!isEditing}
-                            placeholder="Trainer name"
-                            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500 disabled:opacity-50 transition-all"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-400 mb-1">Hours</label>
-                          <input
-                            type="number"
-                            value={training.hours}
-                            onChange={(e) => updateTrainingCompleted(training.id, 'hours', e.target.value)}
-                            disabled={!isEditing}
-                            placeholder="Hours"
-                            step="0.5"
-                            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500 disabled:opacity-50 transition-all"
-                          />
-                        </div>
-                        <div className="md:col-span-2">
-                          <label className="block text-xs font-medium text-slate-400 mb-1">Notes</label>
-                          <textarea
-                            value={training.notes}
-                            onChange={(e) => updateTrainingCompleted(training.id, 'notes', e.target.value)}
-                            disabled={!isEditing}
-                            rows="2"
-                            placeholder="Additional notes about this training..."
-                            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500 disabled:opacity-50 transition-all resize-none"
-                          />
-                        </div>
+  {(!formData.training_completed || formData.training_completed.length === 0) ? (
+    <div className="text-center py-12 bg-slate-900/50 rounded-lg">
+      <CheckCircle className="w-12 h-12 mx-auto mb-3 text-slate-600" />
+      <p className="text-sm text-slate-400">No training completed yet</p>
+    </div>
+  ) : (
+    <div className="space-y-3">
+      {formData.training_completed.map((training) => (
+        <div key={training.id} className="bg-slate-900/50 border border-slate-700 rounded-lg p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-xs font-medium text-slate-400 mb-1">Training Name</label>
+              <input
+                type="text"
+                value={training.training_name}
+                onChange={(e) => updateTrainingCompleted(training.id, 'training_name', e.target.value)}
+                disabled={!isEditing}
+                placeholder="e.g., HCBS Rights Training, Behavior Management"
+                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500 disabled:opacity-50 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">Completion Date</label>
+              <input
+                type="date"
+                value={training.completion_date}
+                onChange={(e) => updateTrainingCompleted(training.id, 'completion_date', e.target.value)}
+                disabled={!isEditing}
+                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500 disabled:opacity-50 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">Trainer</label>
+              <input
+                type="text"
+                value={training.trainer}
+                onChange={(e) => updateTrainingCompleted(training.id, 'trainer', e.target.value)}
+                disabled={!isEditing}
+                placeholder="Trainer name"
+                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500 disabled:opacity-50 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">Hours</label>
+              <input
+                type="number"
+                value={training.hours}
+                onChange={(e) => updateTrainingCompleted(training.id, 'hours', e.target.value)}
+                disabled={!isEditing}
+                placeholder="Hours"
+                step="0.5"
+                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500 disabled:opacity-50 transition-all"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-medium text-slate-400 mb-1">Notes</label>
+              <textarea
+                value={training.notes}
+                onChange={(e) => updateTrainingCompleted(training.id, 'notes', e.target.value)}
+                disabled={!isEditing}
+                rows="2"
+                placeholder="Additional notes about this training..."
+                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500 disabled:opacity-50 transition-all resize-none"
+              />
+            </div>
+
+            {/* File Upload Section */}
+            <div className="md:col-span-2">
+              <label className="block text-xs font-medium text-slate-400 mb-2">
+                Attached Documents (PDF only)
+              </label>
+              
+              {/* Display uploaded files */}
+              {training.files && training.files.length > 0 && (
+                <div className="space-y-2 mb-3">
+                  {training.files.map((file, fileIdx) => (
+                    <div 
+                      key={fileIdx}
+                      className="flex items-center justify-between bg-slate-800/50 border border-slate-600 rounded px-3 py-2"
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <FileText size={16} className="text-emerald-400 flex-shrink-0" />
+                        <span className="text-sm text-white truncate">{file.name}</span>
+                        <span className="text-xs text-slate-500 flex-shrink-0">
+                          {new Date(file.uploaded_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={file.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 hover:bg-slate-700 rounded transition-colors"
+                          title="Download/View"
+                        >
+                          <Download size={14} className="text-emerald-400" />
+                        </a>
                         {isEditing && (
-                          <div className="md:col-span-2">
-                            <button
-                              onClick={() => deleteTrainingCompleted(training.id)}
-                              className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg font-semibold transition-all flex items-center gap-2 text-sm"
-                            >
-                              <Trash2 size={14} />
-                              Delete Training
-                            </button>
-                          </div>
+                          <button
+                            onClick={() => handleDeleteTrainingCompletedFile(training.id, fileIdx, file.path)}
+                            className="p-1.5 hover:bg-slate-700 rounded transition-colors"
+                            title="Delete file"
+                          >
+                            <Trash2 size={14} className="text-red-400" />
+                          </button>
                         )}
                       </div>
                     </div>
                   ))}
                 </div>
               )}
+
+              {/* Upload button */}
+              {isEditing && (
+                <div>
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    onChange={(e) => handleTrainingCompletedFileUpload(training.id, e)}
+                    className="hidden"
+                    id={`training-file-${training.id}`}
+                  />
+                  <label
+                    htmlFor={`training-file-${training.id}`}
+                    className={`flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-400 rounded-lg font-semibold transition-all cursor-pointer ${
+                      uploadingFiles[`training_${training.id}`] ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    {uploadingFiles[`training_${training.id}`] ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload size={16} />
+                        Upload PDF Document
+                      </>
+                    )}
+                  </label>
+                </div>
+              )}
             </div>
+
+            {isEditing && (
+              <div className="md:col-span-2">
+                <button
+                  onClick={() => deleteTrainingCompleted(training.id)}
+                  className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg font-semibold transition-all flex items-center gap-2 text-sm"
+                >
+                  <Trash2 size={14} />
+                  Delete Training
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  )}
+</div>
 
             {/* Training Required */}
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                  <Clock size={20} className="text-yellow-400" />
-                  Training Required
-                </h3>
-                {isEditing && (
-                  <button
-                    onClick={addTrainingRequired}
-                    className="flex items-center gap-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-semibold transition-all"
-                  >
-                    <Plus size={16} />
-                    Add Requirement
-                  </button>
-                )}
-              </div>
+           
+{/* Training Required - Updated with File Upload */}
+<div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+  <div className="flex items-center justify-between mb-4">
+    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+      <Clock size={20} className="text-yellow-400" />
+      Training Required
+    </h3>
+    {isEditing && (
+      <button
+        onClick={addTrainingRequired}
+        className="flex items-center gap-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-semibold transition-all"
+      >
+        <Plus size={16} />
+        Add Requirement
+      </button>
+    )}
+  </div>
 
-              {(!formData.training_required || formData.training_required.length === 0) ? (
-                <div className="text-center py-12 bg-slate-900/50 rounded-lg">
-                  <Clock className="w-12 h-12 mx-auto mb-3 text-slate-600" />
-                  <p className="text-sm text-slate-400">No training requirements</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {formData.training_required.map((req) => (
+  {(!formData.training_required || formData.training_required.length === 0) ? (
+    <div className="text-center py-12 bg-slate-900/50 rounded-lg">
+      <Clock className="w-12 h-12 mx-auto mb-3 text-slate-600" />
+      <p className="text-sm text-slate-400">No training requirements</p>
+    </div>
+  ) : (
+    <div className="space-y-3">
+      {formData.training_required.map((req) => (
+        <div 
+          key={req.id} 
+          className={`bg-slate-900/50 border rounded-lg p-4 ${
+            req.status === 'Pending' && new Date(req.due_date) < new Date()
+              ? 'border-red-500/50'
+              : 'border-slate-700'
+          }`}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-xs font-medium text-slate-400 mb-1">Training Name</label>
+              <input
+                type="text"
+                value={req.training_name}
+                onChange={(e) => updateTrainingRequired(req.id, 'training_name', e.target.value)}
+                disabled={!isEditing}
+                placeholder="e.g., Annual Compliance Training"
+                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-yellow-500 disabled:opacity-50 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">Due Date</label>
+              <input
+                type="date"
+                value={req.due_date}
+                onChange={(e) => updateTrainingRequired(req.id, 'due_date', e.target.value)}
+                disabled={!isEditing}
+                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-yellow-500 disabled:opacity-50 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">Frequency</label>
+              <select
+                value={req.frequency}
+                onChange={(e) => updateTrainingRequired(req.id, 'frequency', e.target.value)}
+                disabled={!isEditing}
+                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-yellow-500 disabled:opacity-50 transition-all"
+              >
+                <option value="One-Time">One-Time</option>
+                <option value="Annually">Annually</option>
+                <option value="Quarterly">Quarterly</option>
+                <option value="Monthly">Monthly</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">Priority</label>
+              <select
+                value={req.priority}
+                onChange={(e) => updateTrainingRequired(req.id, 'priority', e.target.value)}
+                disabled={!isEditing}
+                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-yellow-500 disabled:opacity-50 transition-all"
+              >
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+                <option value="Critical">Critical</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">Status</label>
+              <select
+                value={req.status}
+                onChange={(e) => updateTrainingRequired(req.id, 'status', e.target.value)}
+                disabled={!isEditing}
+                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-yellow-500 disabled:opacity-50 transition-all"
+              >
+                <option value="Pending">Pending</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Completed">Completed</option>
+              </select>
+            </div>
+
+            {/* File Upload Section */}
+            <div className="md:col-span-2">
+              <label className="block text-xs font-medium text-slate-400 mb-2">
+                Attached Documents (PDF only)
+              </label>
+              
+              {/* Display uploaded files */}
+              {req.files && req.files.length > 0 && (
+                <div className="space-y-2 mb-3">
+                  {req.files.map((file, fileIdx) => (
                     <div 
-                      key={req.id} 
-                      className={`bg-slate-900/50 border rounded-lg p-4 ${
-                        req.status === 'Pending' && new Date(req.due_date) < new Date()
-                          ? 'border-red-500/50'
-                          : 'border-slate-700'
-                      }`}
+                      key={fileIdx}
+                      className="flex items-center justify-between bg-slate-800/50 border border-slate-600 rounded px-3 py-2"
                     >
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="md:col-span-2">
-                          <label className="block text-xs font-medium text-slate-400 mb-1">Training Name</label>
-                          <input
-                            type="text"
-                            value={req.training_name}
-                            onChange={(e) => updateTrainingRequired(req.id, 'training_name', e.target.value)}
-                            disabled={!isEditing}
-                            placeholder="e.g., Annual Compliance Training"
-                            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-yellow-500 disabled:opacity-50 transition-all"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-400 mb-1">Due Date</label>
-                          <input
-                            type="date"
-                            value={req.due_date}
-                            onChange={(e) => updateTrainingRequired(req.id, 'due_date', e.target.value)}
-                            disabled={!isEditing}
-                            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-yellow-500 disabled:opacity-50 transition-all"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-400 mb-1">Frequency</label>
-                          <select
-                            value={req.frequency}
-                            onChange={(e) => updateTrainingRequired(req.id, 'frequency', e.target.value)}
-                            disabled={!isEditing}
-                            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-yellow-500 disabled:opacity-50 transition-all"
-                          >
-                            <option value="One-Time">One-Time</option>
-                            <option value="Annually">Annually</option>
-                            <option value="Quarterly">Quarterly</option>
-                            <option value="Monthly">Monthly</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-400 mb-1">Priority</label>
-                          <select
-                            value={req.priority}
-                            onChange={(e) => updateTrainingRequired(req.id, 'priority', e.target.value)}
-                            disabled={!isEditing}
-                            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-yellow-500 disabled:opacity-50 transition-all"
-                          >
-                            <option value="Low">Low</option>
-                            <option value="Medium">Medium</option>
-                            <option value="High">High</option>
-                            <option value="Critical">Critical</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-400 mb-1">Status</label>
-                          <select
-                            value={req.status}
-                            onChange={(e) => updateTrainingRequired(req.id, 'status', e.target.value)}
-                            disabled={!isEditing}
-                            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-yellow-500 disabled:opacity-50 transition-all"
-                          >
-                            <option value="Pending">Pending</option>
-                            <option value="In Progress">In Progress</option>
-                            <option value="Completed">Completed</option>
-                          </select>
-                        </div>
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <FileText size={16} className="text-yellow-400 flex-shrink-0" />
+                        <span className="text-sm text-white truncate">{file.name}</span>
+                        <span className="text-xs text-slate-500 flex-shrink-0">
+                          {new Date(file.uploaded_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={file.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 hover:bg-slate-700 rounded transition-colors"
+                          title="Download/View"
+                        >
+                          <Download size={14} className="text-emerald-400" />
+                        </a>
                         {isEditing && (
-                          <div className="md:col-span-2">
-                            <button
-                              onClick={() => deleteTrainingRequired(req.id)}
-                              className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg font-semibold transition-all flex items-center gap-2 text-sm"
-                            >
-                              <Trash2 size={14} />
-                              Delete Requirement
-                            </button>
-                          </div>
+                          <button
+                            onClick={() => handleDeleteTrainingRequiredFile(req.id, fileIdx, file.path)}
+                            className="p-1.5 hover:bg-slate-700 rounded transition-colors"
+                            title="Delete file"
+                          >
+                            <Trash2 size={14} className="text-red-400" />
+                          </button>
                         )}
                       </div>
-                      
-                      {/* Overdue warning */}
-                      {req.status === 'Pending' && new Date(req.due_date) < new Date() && (
-                        <div className="mt-3 bg-red-600/10 border border-red-500/30 rounded-lg p-3">
-                          <div className="flex items-start gap-2">
-                            <AlertTriangle size={16} className="text-red-400 mt-0.5 flex-shrink-0" />
-                            <div>
-                              <p className="text-sm font-semibold text-red-400">Training Overdue</p>
-                              <p className="text-xs text-slate-300 mt-1">
-                                This training was due on {new Date(req.due_date).toLocaleDateString()}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>
               )}
+
+              {/* Upload button */}
+              {isEditing && (
+                <div>
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    onChange={(e) => handleTrainingRequiredFileUpload(req.id, e)}
+                    className="hidden"
+                    id={`req-file-${req.id}`}
+                  />
+                  <label
+                    htmlFor={`req-file-${req.id}`}
+                    className={`flex items-center justify-center gap-2 px-4 py-2 bg-yellow-600/20 hover:bg-yellow-600/30 border border-yellow-500/30 text-yellow-400 rounded-lg font-semibold transition-all cursor-pointer ${
+                      uploadingFiles[`req_${req.id}`] ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    {uploadingFiles[`req_${req.id}`] ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload size={16} />
+                        Upload PDF Document
+                      </>
+                    )}
+                  </label>
+                </div>
+              )}
             </div>
+
+            {isEditing && (
+              <div className="md:col-span-2">
+                <button
+                  onClick={() => deleteTrainingRequired(req.id)}
+                  className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg font-semibold transition-all flex items-center gap-2 text-sm"
+                >
+                  <Trash2 size={14} />
+                  Delete Requirement
+                </button>
+              </div>
+            )}
+          </div>
+          
+          {/* Overdue warning */}
+          {req.status === 'Pending' && new Date(req.due_date) < new Date() && (
+            <div className="mt-3 bg-red-600/10 border border-red-500/30 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <AlertTriangle size={16} className="text-red-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-red-400">Training Overdue</p>
+                  <p className="text-xs text-slate-300 mt-1">
+                    This training was due on {new Date(req.due_date).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )}
+</div>
+
+
           </div>
         </ScrollArea>
       </div>
