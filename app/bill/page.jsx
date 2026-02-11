@@ -502,7 +502,7 @@ const handleCreateDenial = async (claim) => {
   }
 };
 
-const handleResolveDenial = async (denialId) => {
+const handleResoDenial = async (denialId) => {
   try {
     const { error } = await supabase
       .from('billing_denials')
@@ -520,6 +520,534 @@ const handleResolveDenial = async (denialId) => {
     console.error('Error resolving denial:', error);
     alert('Error resolving denial: ' + error.message);
   }
+};
+
+const handleResolveDenial = async (denialId) => {
+  try {
+    // First, get the denial to find the associated claim
+    const denial = denials.find(d => d.denial_id === denialId);
+    if (!denial) {
+      alert('Denial not found');
+      return;
+    }
+
+    // Update the denial status to Resolved
+    const { error: denialError } = await supabase
+      .from('billing_denials')
+      .update({
+        status: 'Resolved',
+        updated_at: new Date().toISOString()
+      })
+      .eq('denial_id', denialId);
+
+    if (denialError) throw denialError;
+
+    // Update the associated claim status back to Submitted
+    const { error: claimError } = await supabase
+      .from('billing_claims')
+      .update({
+        status: 'Submitted',
+        updated_at: new Date().toISOString()
+      })
+      .eq('claim_id', denial.claim_id);
+
+    if (claimError) throw claimError;
+
+    await loadBillingData();
+    alert('Denial resolved and claim status updated to Submitted!');
+  } catch (error) {
+    console.error('Error resolving denial:', error);
+    alert('Error resolving denial: ' + error.message);
+  }
+};
+
+const handlePrintClaimsRegister = () => {
+  const printWindow = window.open('', '_blank');
+  
+  const claimsTableRows = claims.map(claim => `
+    <tr>
+      <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${claim.claim_id}</td>
+      <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${claim.payer}</td>
+      <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
+        ${new Date(claim.billing_period_start).toLocaleDateString()} - ${new Date(claim.billing_period_end).toLocaleDateString()}
+      </td>
+      <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${claim.total_units}</td>
+      <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">$${parseFloat(claim.total_amount).toLocaleString()}</td>
+      <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
+        <span style="padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; 
+          background-color: ${
+            claim.status === 'Paid' ? '#dcfce7' : 
+            claim.status === 'Submitted' ? '#dbeafe' : 
+            claim.status === 'Denied' ? '#fee2e2' : '#f3f4f6'
+          }; 
+          color: ${
+            claim.status === 'Paid' ? '#166534' : 
+            claim.status === 'Submitted' ? '#1e40af' : 
+            claim.status === 'Denied' ? '#991b1b' : '#374151'
+          };">
+          ${claim.status}
+        </span>
+      </td>
+      <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
+        ${claim.submitted_at ? new Date(claim.submitted_at).toLocaleDateString() : 'Not submitted'}
+      </td>
+    </tr>
+  `).join('');
+
+  const totalAmount = claims.reduce((sum, claim) => sum + parseFloat(claim.total_amount), 0);
+  const totalUnits = claims.reduce((sum, claim) => sum + claim.total_units, 0);
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Claims Register - CareBridge Pro</title>
+      <style>
+        @media print {
+          @page {
+            size: landscape;
+            margin: 0.5in;
+          }
+          body {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+        }
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          padding: 40px;
+          background: #ffffff;
+        }
+        .header {
+          text-align: center;
+          margin-bottom: 30px;
+          padding-bottom: 20px;
+          border-bottom: 3px solid #10b981;
+        }
+        .header h1 {
+          font-size: 28px;
+          color: #1f2937;
+          margin-bottom: 5px;
+        }
+        .header h2 {
+          font-size: 20px;
+          color: #10b981;
+          font-weight: 600;
+          margin-bottom: 10px;
+        }
+        .header p {
+          font-size: 14px;
+          color: #6b7280;
+        }
+        .meta-info {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 25px;
+          padding: 15px;
+          background: #f9fafb;
+          border-radius: 8px;
+        }
+        .meta-info div {
+          font-size: 14px;
+          color: #374151;
+        }
+        .meta-info strong {
+          color: #1f2937;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 30px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        thead {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          color: white;
+        }
+        thead th {
+          padding: 14px 12px;
+          text-align: left;
+          font-size: 13px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        tbody tr {
+          background: white;
+        }
+        tbody tr:nth-child(even) {
+          background: #f9fafb;
+        }
+        tbody tr:hover {
+          background: #f3f4f6;
+        }
+        tbody td {
+          font-size: 13px;
+          color: #374151;
+        }
+        .summary {
+          display: flex;
+          justify-content: flex-end;
+          gap: 30px;
+          margin-top: 20px;
+          padding: 20px;
+          background: #f0fdf4;
+          border-radius: 8px;
+          border: 2px solid #10b981;
+        }
+        .summary-item {
+          text-align: right;
+        }
+        .summary-item label {
+          display: block;
+          font-size: 12px;
+          color: #6b7280;
+          margin-bottom: 5px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .summary-item value {
+          display: block;
+          font-size: 20px;
+          font-weight: bold;
+          color: #059669;
+        }
+        .footer {
+          margin-top: 40px;
+          padding-top: 20px;
+          border-top: 2px solid #e5e7eb;
+          text-align: center;
+          font-size: 12px;
+          color: #6b7280;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>CareBridge Pro</h1>
+        <h2>Claims Register Report</h2>
+        <p>IPMS Aligned Electronic Medical Records System</p>
+      </div>
+
+      <div class="meta-info">
+        <div><strong>Generated By:</strong> ${userProfile?.fullname || 'System User'}</div>
+        <div><strong>Report Date:</strong> ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</div>
+        <div><strong>Total Claims:</strong> ${claims.length}</div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Claim ID</th>
+            <th>Payer</th>
+            <th>Billing Period</th>
+            <th>Units</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Submitted Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${claims.length === 0 ? `
+            <tr>
+              <td colspan="7" style="text-align: center; padding: 40px; color: #9ca3af;">
+                No claims to display
+              </td>
+            </tr>
+          ` : claimsTableRows}
+        </tbody>
+      </table>
+
+      <div class="summary">
+        <div class="summary-item">
+          <label>Total Units</label>
+          <value>${totalUnits.toLocaleString()}</value>
+        </div>
+        <div class="summary-item">
+          <label>Total Amount</label>
+          <value>$${totalAmount.toLocaleString()}</value>
+        </div>
+      </div>
+
+      <div class="footer">
+        <p>This is a computer-generated document. No signature is required.</p>
+        <p>© ${new Date().getFullYear()} CareBridge Pro - All Rights Reserved</p>
+      </div>
+
+      <script>
+        window.onload = function() {
+          window.print();
+        }
+      </script>
+    </body>
+    </html>
+  `;
+
+  printWindow.document.write(htmlContent);
+  printWindow.document.close();
+};
+
+const handlePrintDenials = () => {
+  const printWindow = window.open('', '_blank');
+  
+  const denialsTableRows = denials.map(denial => {
+    const claim = claims.find(c => c.claim_id === denial.claim_id);
+    return `
+      <tr>
+        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${denial.denial_id}</td>
+        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${denial.claim_id}</td>
+        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: bold; color: #dc2626;">
+          ${denial.denial_code}
+        </td>
+        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; max-width: 300px;">
+          ${denial.denial_reason_text}
+        </td>
+        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
+          ${new Date(denial.received_date).toLocaleDateString()}
+        </td>
+        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
+          ${claim ? '$' + parseFloat(claim.total_amount).toLocaleString() : 'N/A'}
+        </td>
+        <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
+          <span style="padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; 
+            background-color: ${denial.status === 'Resolved' ? '#dcfce7' : '#fee2e2'}; 
+            color: ${denial.status === 'Resolved' ? '#166534' : '#991b1b'};">
+            ${denial.status}
+          </span>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  const openDenials = denials.filter(d => d.status === 'Open').length;
+  const resolvedDenials = denials.filter(d => d.status === 'Resolved').length;
+  const totalDeniedAmount = denials.reduce((sum, denial) => {
+    const claim = claims.find(c => c.claim_id === denial.claim_id);
+    return sum + (claim ? parseFloat(claim.total_amount) : 0);
+  }, 0);
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Denials & Corrections - CareBridge Pro</title>
+      <style>
+        @media print {
+          @page {
+            size: landscape;
+            margin: 0.5in;
+          }
+          body {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+        }
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          padding: 40px;
+          background: #ffffff;
+        }
+        .header {
+          text-align: center;
+          margin-bottom: 30px;
+          padding-bottom: 20px;
+          border-bottom: 3px solid #ef4444;
+        }
+        .header h1 {
+          font-size: 28px;
+          color: #1f2937;
+          margin-bottom: 5px;
+        }
+        .header h2 {
+          font-size: 20px;
+          color: #ef4444;
+          font-weight: 600;
+          margin-bottom: 10px;
+        }
+        .header p {
+          font-size: 14px;
+          color: #6b7280;
+        }
+        .meta-info {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 25px;
+          padding: 15px;
+          background: #fef2f2;
+          border-radius: 8px;
+          border: 1px solid #fecaca;
+        }
+        .meta-info div {
+          font-size: 14px;
+          color: #374151;
+        }
+        .meta-info strong {
+          color: #1f2937;
+        }
+        .stats-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 20px;
+          margin-bottom: 30px;
+        }
+        .stat-card {
+          padding: 20px;
+          border-radius: 8px;
+          text-align: center;
+          border: 2px solid;
+        }
+        .stat-card.open {
+          background: #fef2f2;
+          border-color: #ef4444;
+        }
+        .stat-card.resolved {
+          background: #f0fdf4;
+          border-color: #10b981;
+        }
+        .stat-card.total {
+          background: #fef3c7;
+          border-color: #f59e0b;
+        }
+        .stat-card label {
+          display: block;
+          font-size: 12px;
+          color: #6b7280;
+          margin-bottom: 8px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .stat-card value {
+          display: block;
+          font-size: 24px;
+          font-weight: bold;
+        }
+        .stat-card.open value {
+          color: #dc2626;
+        }
+        .stat-card.resolved value {
+          color: #059669;
+        }
+        .stat-card.total value {
+          color: #d97706;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 30px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        thead {
+          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+          color: white;
+        }
+        thead th {
+          padding: 14px 12px;
+          text-align: left;
+          font-size: 13px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        tbody tr {
+          background: white;
+        }
+        tbody tr:nth-child(even) {
+          background: #fef2f2;
+        }
+        tbody tr:hover {
+          background: #fee2e2;
+        }
+        tbody td {
+          font-size: 13px;
+          color: #374151;
+        }
+        .footer {
+          margin-top: 40px;
+          padding-top: 20px;
+          border-top: 2px solid #e5e7eb;
+          text-align: center;
+          font-size: 12px;
+          color: #6b7280;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>CareBridge Pro</h1>
+        <h2>Denials & Corrections Report</h2>
+        <p>IPMS Aligned Electronic Medical Records System</p>
+      </div>
+
+      <div class="meta-info">
+        <div><strong>Generated By:</strong> ${userProfile?.fullname || 'System User'}</div>
+        <div><strong>Report Date:</strong> ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</div>
+        <div><strong>Total Denials:</strong> ${denials.length}</div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card open">
+          <label>Open Denials</label>
+          <value>${openDenials}</value>
+        </div>
+        <div class="stat-card resolved">
+          <label>Resolved Denials</label>
+          <value>${resolvedDenials}</value>
+        </div>
+        <div class="stat-card total">
+          <label>Total Denied Amount</label>
+          <value>$${totalDeniedAmount.toLocaleString()}</value>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Denial ID</th>
+            <th>Claim ID</th>
+            <th>Denial Code</th>
+            <th>Reason</th>
+            <th>Received Date</th>
+            <th>Amount</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${denials.length === 0 ? `
+            <tr>
+              <td colspan="7" style="text-align: center; padding: 40px; color: #9ca3af;">
+                No denials to display
+              </td>
+            </tr>
+          ` : denialsTableRows}
+        </tbody>
+      </table>
+
+      <div class="footer">
+        <p>This is a computer-generated document. No signature is required.</p>
+        <p>© ${new Date().getFullYear()} CareBridge Pro - All Rights Reserved</p>
+      </div>
+
+      <script>
+        window.onload = function() {
+          window.print();
+        }
+      </script>
+    </body>
+    </html>
+  `;
+
+  printWindow.document.write(htmlContent);
+  printWindow.document.close();
 };
 
   const handleViewBatchDetails = async (batch) => {
@@ -2089,11 +2617,18 @@ const handleCreateClaimFromBatch = async (batch) => {
 
      {activeTab === 'claims' && (
   <div className="space-y-6">
-    <div className="flex items-center justify-between">
+     <div className="flex items-center justify-between">
       <div>
         <h3 className="text-2xl font-bold text-white mb-2">Claims Register</h3>
         <p className="text-slate-400">Track submitted claims and their status</p>
       </div>
+      <button
+        onClick={handlePrintClaimsRegister}
+        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-all"
+      >
+        <Download size={16} />
+        Print Report
+      </button>
     </div>
 
     {claims.length === 0 ? (
@@ -2185,11 +2720,18 @@ const handleCreateClaimFromBatch = async (batch) => {
 
 {activeTab === 'denials' && (
   <div className="space-y-6">
-    <div className="flex items-center justify-between">
+     <div className="flex items-center justify-between">
       <div>
         <h3 className="text-2xl font-bold text-white mb-2">Denials & Corrections</h3>
         <p className="text-slate-400">Manage denied claims and submit corrections</p>
       </div>
+      <button
+        onClick={handlePrintDenials}
+        className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-all"
+      >
+        <Download size={16} />
+        Print Report
+      </button>
     </div>
 
     {denials.length === 0 ? (
