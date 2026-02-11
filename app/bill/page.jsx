@@ -1457,9 +1457,9 @@ const handleCreateClaimFromBatch = async (batch) => {
         </div>
 
         {/* Content Area */}
-        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6">
-          <ScrollArea className="h-[calc(100vh-450px)]">
-            <div className="pr-4">
+       {/* Content Area */}
+<div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6">
+  <div>
               
               {/* DASHBOARD TAB */}
               {activeTab === 'dashboard' && (
@@ -2267,7 +2267,7 @@ const handleCreateClaimFromBatch = async (batch) => {
   </div>
 )}
             </div>
-          </ScrollArea>
+      
         </div>
       
 
