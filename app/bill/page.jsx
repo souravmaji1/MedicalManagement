@@ -30,7 +30,11 @@ const BillingModulePage = () => {
   const { userProfile, loading: profileLoading } = useUserProfile();
 const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentPage, setCurrentPage] = useState('bill');
-
+// Add these state variables at the top with other states
+const [showClaimDetailModal, setShowClaimDetailModal] = useState(false);
+const [selectedClaim, setSelectedClaim] = useState(null);
+const [showDenialDetailModal, setShowDenialDetailModal] = useState(false);
+const [selectedDenial, setSelectedDenial] = useState(null);
   // State Management
   const [loading, setLoading] = useState(true);
   const [individuals, setIndividuals] = useState([]);
@@ -1050,7 +1054,7 @@ const handlePrintDenials = () => {
   printWindow.document.close();
 };
 
-  const handleViewBatchDetails = async (batch) => {
+  const handleViewBDetails = async (batch) => {
   try {
     // Get encounters in this batch
     const { data: batchEncounters, error } = await supabase
@@ -1095,6 +1099,47 @@ const handlePrintDenials = () => {
     console.error('Error viewing batch details:', error);
     alert('Error loading batch details: ' + error.message);
   }
+};
+
+// Replace the handleViewBatchDetails function
+const handleViewBatchDetails = async (batch) => {
+  try {
+    const { data: batchEncounters, error } = await supabase
+      .from('billing_batch_encounters')
+      .select('encounter_id')
+      .eq('batch_id', batch.batch_id);
+
+    if (error) throw error;
+
+    const encounterIds = batchEncounters.map(be => be.encounter_id);
+    const batchEncounterDetails = serviceEncounters.filter(e => 
+      encounterIds.includes(e.encounter_id)
+    );
+
+    // Store batch details and show modal
+    setSelectedClaim({
+      ...batch,
+      encounters: batchEncounterDetails,
+      type: 'batch'
+    });
+    setShowClaimDetailModal(true);
+  } catch (error) {
+    console.error('Error viewing batch details:', error);
+    alert('Error loading batch details: ' + error.message);
+  }
+};
+
+// Add handler for viewing claim details
+const handleViewClaimDetails = (claim) => {
+  setSelectedClaim({...claim, type: 'claim'});
+  setShowClaimDetailModal(true);
+};
+
+// Add handler for viewing denial details
+const handleViewDenialDetails = (denial) => {
+  const claim = claims.find(c => c.claim_id === denial.claim_id);
+  setSelectedDenial({...denial, claim});
+  setShowDenialDetailModal(true);
 };
 
 
@@ -2788,19 +2833,13 @@ const handleCreateClaimFromBatch = async (batch) => {
       ✓ Resolved
     </span>
   )}
-  <button 
-    onClick={() => {
-      const claim = claims.find(c => c.claim_id === denial.claim_id);
-      if (claim) {
-        alert(`Claim Details:\n\nClaim ID: ${claim.claim_id}\nPayer: ${claim.payer}\nAmount: $${claim.total_amount}\nStatus: ${claim.status}\n\nDenial Code: ${denial.denial_code}\nReason: ${denial.denial_reason_text}`);
-      } else {
-        alert('Claim not found');
-      }
-    }}
-    className="px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg font-semibold transition-all"
-  >
-    View Details
-  </button>
+ {/* In the denials section, replace the "View Details" button */}
+<button 
+  onClick={() => handleViewDenialDetails(denial)}
+  className="px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg font-semibold transition-all"
+>
+  View Details
+</button>
 </div>
           </div>
         ))}
@@ -2811,6 +2850,323 @@ const handleCreateClaimFromBatch = async (batch) => {
             </div>
       
         </div>
+
+    
+
+
+
+
+{/* CLAIM/BATCH DETAIL MODAL */}
+{showClaimDetailModal && selectedClaim && (
+  <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+      <div className="flex items-center justify-between p-6 border-b border-slate-700">
+        <div>
+          <h3 className="text-2xl font-bold text-white">
+            {selectedClaim.type === 'batch' ? 'Batch Details' : 'Claim Details'}
+          </h3>
+          <p className="text-slate-400 text-sm">
+            {selectedClaim.batch_id || selectedClaim.claim_id}
+          </p>
+        </div>
+        <button
+          onClick={() => {
+            setShowClaimDetailModal(false);
+            setSelectedClaim(null);
+          }}
+          className="p-2 hover:bg-slate-700 rounded-lg transition-all"
+        >
+          <X className="text-slate-400" size={24} />
+        </button>
+      </div>
+
+      <ScrollArea className="h-[calc(90vh-160px)]">
+        <div className="p-6 space-y-6">
+          {/* Summary Section */}
+          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+            <h4 className="text-lg font-bold text-white mb-4">Summary</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <p className="text-sm text-slate-400 mb-1">
+                  {selectedClaim.type === 'batch' ? 'Batch ID' : 'Claim ID'}
+                </p>
+                <p className="text-white font-semibold font-mono">
+                  {selectedClaim.batch_id || selectedClaim.claim_id}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-400 mb-1">Status</p>
+                <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
+                  selectedClaim.status === 'Paid' ? 'bg-green-600/20 text-green-400' :
+                  selectedClaim.status === 'Submitted' ? 'bg-blue-600/20 text-blue-400' :
+                  selectedClaim.status === 'Denied' ? 'bg-red-600/20 text-red-400' :
+                  selectedClaim.status === 'Generated' ? 'bg-purple-600/20 text-purple-400' :
+                  'bg-slate-700 text-slate-300'
+                }`}>
+                  {selectedClaim.status}
+                </span>
+              </div>
+              <div>
+                <p className="text-sm text-slate-400 mb-1">Payer</p>
+                <p className="text-white font-semibold">{selectedClaim.payer}</p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-400 mb-1">State</p>
+                <p className="text-white font-semibold">{selectedClaim.state}</p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-400 mb-1">Waiver Type</p>
+                <p className="text-white font-semibold">{selectedClaim.waiver_type}</p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-400 mb-1">Encounters</p>
+                <p className="text-white font-semibold">{selectedClaim.encounter_count}</p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-400 mb-1">Total Units</p>
+                <p className="text-white font-semibold">{selectedClaim.total_units}</p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-400 mb-1">Total Amount</p>
+                <p className="text-emerald-400 font-bold text-lg">
+                  ${parseFloat(selectedClaim.total_amount).toLocaleString()}
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-700">
+              <div>
+                <p className="text-sm text-slate-400 mb-1">Billing Period</p>
+                <p className="text-white font-semibold">
+                  {new Date(selectedClaim.billing_period_start).toLocaleDateString()} - {new Date(selectedClaim.billing_period_end).toLocaleDateString()}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-400 mb-1">Created By</p>
+                <p className="text-white font-semibold">{selectedClaim.created_by}</p>
+              </div>
+              {selectedClaim.submitted_at && (
+                <div>
+                  <p className="text-sm text-slate-400 mb-1">Submitted Date</p>
+                  <p className="text-white font-semibold">
+                    {new Date(selectedClaim.submitted_at).toLocaleString()}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Encounters List */}
+          {selectedClaim.encounters && selectedClaim.encounters.length > 0 && (
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+              <h4 className="text-lg font-bold text-white mb-4">
+                Encounters in {selectedClaim.type === 'batch' ? 'Batch' : 'Claim'} ({selectedClaim.encounters.length})
+              </h4>
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {selectedClaim.encounters.map((enc, idx) => {
+                  const ind = individuals.find(i => i.id === enc.individual_id);
+                  const amount = (parseFloat(enc.units_calculated) || 0) * 12;
+                  return (
+                    <div key={enc.id} className="bg-slate-900/50 rounded-lg p-4 border border-slate-700">
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <p className="text-white font-semibold">
+                            {idx + 1}. {ind ? `${ind.firstname} ${ind.lastname}` : 'Unknown Individual'}
+                          </p>
+                          <p className="text-xs text-slate-400 font-mono">{enc.encounter_id}</p>
+                        </div>
+                        <span className="px-3 py-1 bg-emerald-600/20 text-emerald-400 rounded-full text-xs font-bold">
+                          ${amount.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                        <div>
+                          <p className="text-slate-500 text-xs">Date</p>
+                          <p className="text-white">{new Date(enc.service_date).toLocaleDateString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500 text-xs">Service Code</p>
+                          <p className="text-white font-mono">{enc.service_code}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500 text-xs">Units</p>
+                          <p className="text-white">{enc.units_calculated}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500 text-xs">Staff</p>
+                          <p className="text-white">{enc.staff_name}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+
+      <div className="p-6 border-t border-slate-700 flex justify-end">
+        <button
+          onClick={() => {
+            setShowClaimDetailModal(false);
+            setSelectedClaim(null);
+          }}
+          className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+{/* DENIAL DETAIL MODAL */}
+{showDenialDetailModal && selectedDenial && (
+  <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-red-500/30 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
+      <div className="flex items-center justify-between p-6 border-b border-slate-700">
+        <div>
+          <h3 className="text-2xl font-bold text-white">Denial Details</h3>
+          <p className="text-slate-400 text-sm">{selectedDenial.denial_id}</p>
+        </div>
+        <button
+          onClick={() => {
+            setShowDenialDetailModal(false);
+            setSelectedDenial(null);
+          }}
+          className="p-2 hover:bg-slate-700 rounded-lg transition-all"
+        >
+          <X className="text-slate-400" size={24} />
+        </button>
+      </div>
+
+      <ScrollArea className="h-[calc(90vh-160px)]">
+        <div className="p-6 space-y-6">
+          {/* Status Banner */}
+          <div className={`rounded-xl p-6 border-2 ${
+            selectedDenial.status === 'Resolved' 
+              ? 'bg-green-900/20 border-green-500' 
+              : 'bg-red-900/20 border-red-500'
+          }`}>
+            <div className="flex items-center gap-3">
+              {selectedDenial.status === 'Resolved' ? (
+                <CheckCircle className="text-green-400" size={32} />
+              ) : (
+                <AlertTriangle className="text-red-400" size={32} />
+              )}
+              <div>
+                <h4 className={`text-2xl font-bold ${
+                  selectedDenial.status === 'Resolved' ? 'text-green-400' : 'text-red-400'
+                }`}>
+                  {selectedDenial.status}
+                </h4>
+                <p className="text-white text-sm">
+                  {selectedDenial.status === 'Resolved' 
+                    ? 'This denial has been resolved' 
+                    : 'This denial requires attention'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Denial Information */}
+          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+            <h4 className="text-lg font-bold text-white mb-4">Denial Information</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-slate-400 mb-1">Denial ID</p>
+                <p className="text-white font-semibold font-mono">{selectedDenial.denial_id}</p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-400 mb-1">Claim ID</p>
+                <p className="text-white font-semibold font-mono">{selectedDenial.claim_id}</p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-400 mb-1">Denial Code</p>
+                <p className="text-red-400 font-bold text-lg">{selectedDenial.denial_code}</p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-400 mb-1">Received Date</p>
+                <p className="text-white font-semibold">
+                  {new Date(selectedDenial.received_date).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Denial Reason */}
+          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+            <h4 className="text-lg font-bold text-white mb-3">Denial Reason</h4>
+            <p className="text-white leading-relaxed">{selectedDenial.denial_reason_text}</p>
+          </div>
+
+          {/* Associated Claim Details */}
+          {selectedDenial.claim && (
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+              <h4 className="text-lg font-bold text-white mb-4">Associated Claim</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-slate-400 mb-1">Payer</p>
+                  <p className="text-white font-semibold">{selectedDenial.claim.payer}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-400 mb-1">Claim Status</p>
+                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
+                    selectedDenial.claim.status === 'Denied' ? 'bg-red-600/20 text-red-400' :
+                    selectedDenial.claim.status === 'Submitted' ? 'bg-blue-600/20 text-blue-400' :
+                    'bg-slate-700 text-slate-300'
+                  }`}>
+                    {selectedDenial.claim.status}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-400 mb-1">Total Amount</p>
+                  <p className="text-emerald-400 font-bold text-lg">
+                    ${parseFloat(selectedDenial.claim.total_amount).toLocaleString()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-400 mb-1">Total Units</p>
+                  <p className="text-white font-semibold">{selectedDenial.claim.total_units}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-sm text-slate-400 mb-1">Billing Period</p>
+                  <p className="text-white font-semibold">
+                    {new Date(selectedDenial.claim.billing_period_start).toLocaleDateString()} - {new Date(selectedDenial.claim.billing_period_end).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+
+      <div className="p-6 border-t border-slate-700 flex justify-end gap-3">
+        {selectedDenial.status === 'Open' && (
+          <button
+            onClick={() => {
+              handleResolveDenial(selectedDenial.denial_id);
+              setShowDenialDetailModal(false);
+              setSelectedDenial(null);
+            }}
+            className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold transition-all"
+          >
+            Mark as Resolved
+          </button>
+        )}
+        <button
+          onClick={() => {
+            setShowDenialDetailModal(false);
+            setSelectedDenial(null);
+          }}
+          className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+)}
       
 
       
