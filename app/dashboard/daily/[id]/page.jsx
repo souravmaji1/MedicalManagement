@@ -1,9 +1,5 @@
 'use client'
 
-//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
-
-'use client'
-
 import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, Save, Plus, Trash2, Calendar, Clock, 
@@ -15,7 +11,7 @@ import {
   TrendingUp, Award, Brain, Sparkles, Coffee, Book,
   Music, Palette, Dumbbell, X, Copy, Shield,
   ClipboardList, CheckSquare, Stethoscope, Bell, Zap,
-  RefreshCw, Wand2
+  RefreshCw, Wand2, ToggleLeft, ToggleRight
 } from 'lucide-react';
 import { ScrollArea, ScrollBar } from "../../../../components/ui/scroll-area";
 import { useUser } from '@clerk/nextjs';
@@ -49,6 +45,9 @@ const DailyNotesPage = () => {
   const [generatingNote, setGeneratingNote] = useState(false);
   const [aiGeneratedText, setAiGeneratedText] = useState('');
   const [qaScore, setQaScore] = useState(null);
+  
+  // NEW: Entry mode toggle - 'ai' or 'manual'
+  const [entryMode, setEntryMode] = useState('manual');
 
   // Permission checks
   const canViewDailyNotes = hasAnyPermission([
@@ -80,7 +79,6 @@ const DailyNotesPage = () => {
     PERMISSIONS.FULL_ACCESS
   ]);
 
-  // Helper function to add entry to update history
   const addToUpdateHistory = (currentHistory, updateType, updatedFields, userProfile, additionalInfo = {}) => {
     const historyEntry = {
       timestamp: new Date().toISOString(),
@@ -96,54 +94,40 @@ const DailyNotesPage = () => {
     return [historyEntry, ...history];
   };
 
-  // Role-based access control
   const canAccessIndividual = () => {
     if (!userProfile || !individual) return false;
-    
     if (hasPermission(PERMISSIONS.FULL_ACCESS)) return true;
-    
     if (userProfile.role_id === 'HouseManager_DD') {
       return individual.homeassignment === userProfile.facility;
     }
-    
     if (userProfile.role_id === 'DSP_DD') {
       return individual.homeassignment === userProfile.facility;
     }
-    
     if (userProfile.division === 'MI' && userProfile.role_id !== 'Residential_MI_Staff') {
       return individual.division === 'MI';
     }
-    
     if (userProfile.division === 'SUD') {
       return individual.division === 'SUD';
     }
-    
     if (userProfile.role_id === 'Residential_MI_Staff') {
       return true;
     }
-    
     return false;
   };
 
-  // Check if user can edit a specific note
   const canUserEditNote = (note) => {
     if (!note || !userProfile) return false;
-    
     if (hasPermission(PERMISSIONS.FULL_ACCESS)) return true;
-    
     if (hasPermission(PERMISSIONS.DAILY_NOTES_APPROVE)) return true;
-    
     if (note.created_by === userProfile.fullname) {
       const noteDate = new Date(note.timestamp);
       const now = new Date();
       const hoursDiff = (now - noteDate) / (1000 * 60 * 60);
       return hoursDiff <= 24;
     }
-    
     return false;
   };
 
-  // Default form state for new note
   const defaultNoteForm = {
     date: new Date().toISOString().split('T')[0],
     shift: '1st Shift',
@@ -154,12 +138,12 @@ const DailyNotesPage = () => {
     staffname: user?.fullName || '',
     staffid: user?.id || '',
     
-    // ScribeAssist fields
+    // AI Mode specific fields
     activityType: 'SKILL_BUILDING',
     description: '',
     billingCode: 'H2023',
     
-    // ADLs
+    // Manual Mode fields
     bathing: 'Independent',
     dressing: 'Independent',
     grooming: 'Independent',
@@ -209,7 +193,6 @@ const DailyNotesPage = () => {
     goalprogress: '',
     
     transportation: '',
-    
     narrative: '',
     
     incidentreported: false,
@@ -221,7 +204,6 @@ const DailyNotesPage = () => {
     approved_by: '',
     approved_date: '',
 
-    // ScribeAssist metadata
     aiGenerated: false,
     aiGeneratedText: '',
     qaScore: null,
@@ -250,6 +232,8 @@ const DailyNotesPage = () => {
     recordId: '',
     auditTimestamp: '',
     billingValidated: false,
+    
+    entryMode: 'manual', // Track which mode was used
     
     timestamp: new Date().toISOString()
   };
@@ -322,7 +306,7 @@ const DailyNotesPage = () => {
     { value: 'H2015', label: 'H2015 - Comprehensive Community Support' }
   ];
 
-  // ScribeAssist AI Note Generation Function
+  // AI Note Generation Function
   const generateScribeAssistNote = async () => {
     if (!noteForm.description.trim()) {
       alert('Please provide an activity description before generating the note.');
@@ -334,7 +318,6 @@ const DailyNotesPage = () => {
     setQaScore(null);
 
     try {
-      // Prepare the prompt based on ScribeAssist architecture
       const selectedGoal = individual.goals?.find(g => g.id === noteForm.selectedIspGoalId);
       const pcpGoalText = selectedGoal ? selectedGoal.description : 'General habilitation goals';
       
@@ -391,7 +374,6 @@ ${noteForm.communityouting ? `- Outing Location: ${noteForm.outinglocation}\n- O
 
 Generate ONLY the note content in the exact format above. Do not include explanations or meta-commentary.`;
 
-      // Call Groq API with Kimi model
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -424,7 +406,6 @@ Generate ONLY the note content in the exact format above. Do not include explana
       const data = await response.json();
       const generatedText = data.choices[0].message.content.trim();
 
-      // Calculate QA Score
       const score = calculateQAScore(generatedText, noteForm);
 
       setAiGeneratedText(generatedText);
@@ -437,18 +418,18 @@ Generate ONLY the note content in the exact format above. Do not include explana
         qaScore: score.score,
         qaFlags: score.flags,
         uniquenessHash: generateHash(generatedText),
-        scribeAssistVersion: '1.0'
+        scribeAssistVersion: '1.0',
+        entryMode: 'ai'
       }));
 
     } catch (error) {
       console.error('Error generating note:', error);
-      alert('Failed to generate AI note. Please try again or write manually.');
+      alert('Failed to generate AI note. Please try again or switch to manual mode.');
     } finally {
       setGeneratingNote(false);
     }
   };
 
-  // QA Scoring Function (based on ScribeAssist spec)
   const calculateQAScore = (noteText, formData) => {
     let score = 0;
     const flags = [];
@@ -463,7 +444,6 @@ Generate ONLY the note content in the exact format above. Do not include explana
       outcomeLanguage: false
     };
 
-    // Check 1: Billing code present (10 points)
     if (formData.billingCode) {
       score += 10;
       checks.billingCodePresent = true;
@@ -471,7 +451,6 @@ Generate ONLY the note content in the exact format above. Do not include explana
       flags.push('Missing billing code');
     }
 
-    // Check 2: Time range valid (10 points)
     if (formData.shiftTimeIn && formData.shiftTimeOut) {
       score += 10;
       checks.timeRangeValid = true;
@@ -479,7 +458,6 @@ Generate ONLY the note content in the exact format above. Do not include explana
       flags.push('Invalid time range');
     }
 
-    // Check 3: PCP linkage (20 points)
     const pcpKeywords = ['person-centered plan', 'pcp', 'goal', 'outcome', 'objective'];
     if (pcpKeywords.some(keyword => noteText.toLowerCase().includes(keyword))) {
       score += 20;
@@ -488,7 +466,6 @@ Generate ONLY the note content in the exact format above. Do not include explana
       flags.push('Missing PCP linkage');
     }
 
-    // Check 4: Community language if applicable (20 points or N/A)
     if (formData.activityType === 'COMMUNITY_INTEGRATION' || formData.communityouting) {
       const communityKeywords = ['community', 'outing', 'public', 'navigation', 'store', 'bank', 'safety'];
       if (communityKeywords.some(keyword => noteText.toLowerCase().includes(keyword))) {
@@ -498,11 +475,10 @@ Generate ONLY the note content in the exact format above. Do not include explana
         flags.push('Missing community-specific language');
       }
     } else {
-      score += 20; // N/A, give full points
+      score += 20;
       checks.communityLanguagePresent = true;
     }
 
-    // Check 5: Individualized detail (20 points)
     if (noteText.length > 200 && formData.description.length > 20) {
       score += 20;
       checks.individualizedDetail = true;
@@ -510,7 +486,6 @@ Generate ONLY the note content in the exact format above. Do not include explana
       flags.push('Insufficient individualized detail');
     }
 
-    // Check 6: Intervention section present (10 points)
     if (noteText.toLowerCase().includes('intervention') || 
         noteText.match(/staff (provided|supported|facilitated|coached)/i)) {
       score += 10;
@@ -519,7 +494,6 @@ Generate ONLY the note content in the exact format above. Do not include explana
       flags.push('Missing intervention language');
     }
 
-    // Check 7: Response section present (10 points)
     if (noteText.toLowerCase().includes('response') || 
         noteText.match(/(participated|engaged|demonstrated|required)/i)) {
       score += 10;
@@ -528,7 +502,6 @@ Generate ONLY the note content in the exact format above. Do not include explana
       flags.push('Missing response language');
     }
 
-    // Check 8: Outcome section present (10 points)
     if (noteText.toLowerCase().includes('outcome') || 
         noteText.match(/(progress|supports|strengthens|reinforces)/i)) {
       score += 10;
@@ -545,7 +518,6 @@ Generate ONLY the note content in the exact format above. Do not include explana
     };
   };
 
-  // Generate uniqueness hash
   const generateHash = (text) => {
     let hash = 0;
     for (let i = 0; i < text.length; i++) {
@@ -708,6 +680,9 @@ Generate ONLY the note content in the exact format above. Do not include explana
       prnMedications: note.prnMedications || []
     });
     
+    // Set entry mode based on note's entryMode
+    setEntryMode(note.entryMode || (note.aiGenerated ? 'ai' : 'manual'));
+    
     if (note.aiGeneratedText) {
       setAiGeneratedText(note.aiGeneratedText);
     }
@@ -789,7 +764,8 @@ Generate ONLY the note content in the exact format above. Do not include explana
           last_edited_by: userProfile.fullname,
           last_edited_by_role: userProfile.role_name,
           documentationStatus: docStatus,
-          dateSigned: now
+          dateSigned: now,
+          entryMode: entryMode
         };
         
         historyEntry = {
@@ -804,8 +780,9 @@ Generate ONLY the note content in the exact format above. Do not include explana
           note_id: editingNote,
           documentation_status: docStatus,
           individual_name: `${individual.firstname} ${individual.lastname}`,
-          ai_generated: noteForm.aiGenerated || false,
-          qa_score: noteForm.qaScore
+          ai_generated: entryMode === 'ai',
+          qa_score: noteForm.qaScore,
+          entry_mode: entryMode
         };
         
         const updatedNotes = dailyNotes.map(note => 
@@ -850,7 +827,9 @@ Generate ONLY the note content in the exact format above. Do not include explana
           recordId: `DN-${Date.now()}`,
           auditTimestamp: now,
           dateSigned: now,
-          billingValidated: docStatus === 'Billing-Validated'
+          billingValidated: docStatus === 'Billing-Validated',
+          entryMode: entryMode,
+          aiGenerated: entryMode === 'ai'
         };
 
         historyEntry = {
@@ -870,10 +849,11 @@ Generate ONLY the note content in the exact format above. Do not include explana
           isp_goal_addressed: noteForm.ispGoalAddressed,
           community_outing: noteForm.communityouting,
           individual_name: `${individual.firstname} ${individual.lastname}`,
-          ai_generated: noteForm.aiGenerated || false,
+          ai_generated: entryMode === 'ai',
           qa_score: noteForm.qaScore,
           scribeassist_activity_type: noteForm.activityType,
-          billing_code: noteForm.billingCode
+          billing_code: noteForm.billingCode,
+          entry_mode: entryMode
         };
 
         const updatedNotes = [newNote, ...dailyNotes];
@@ -900,7 +880,9 @@ Generate ONLY the note content in the exact format above. Do not include explana
           ...prev,
           update_history: newHistory
         }));
-        alert(`Daily note saved successfully! Status: ${docStatus}${noteForm.aiGenerated ? ' (AI-Generated)' : ''}`);
+        
+        const modeLabel = entryMode === 'ai' ? 'AI-Assisted' : 'Manual';
+        alert(`Daily note saved successfully! Status: ${docStatus} (${modeLabel} Mode)`);
       }
 
       setShowAddModal(false);
@@ -1005,6 +987,7 @@ Generate ONLY the note content in the exact format above. Do not include explana
     });
     setAiGeneratedText('');
     setQaScore(null);
+    setEntryMode('manual');
   };
 
   const filteredNotes = dailyNotes.filter(note => {
@@ -1048,6 +1031,284 @@ Generate ONLY the note content in the exact format above. Do not include explana
     return colors[mood] || 'text-slate-400';
   };
 
+  const printDailyNote = (note) => {
+    if (!note) {
+      alert('No note selected to print');
+      return;
+    }
+
+    if (!note.date) {
+      alert('This note is missing required date information');
+      return;
+    }
+
+    const printWindow = window.open('', '_blank');
+    
+    if (!printWindow) {
+      alert('Please allow pop-ups to print notes');
+      return;
+    }
+    
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Daily Service Note - ${new Date(note.date).toLocaleDateString()}</title>
+        <style>
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          
+          body {
+            font-family: 'Arial', sans-serif;
+            padding: 40px;
+            color: #1a1a1a;
+            background: white;
+          }
+          
+          .header {
+            border-bottom: 3px solid #10b981;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+          }
+          
+          .header h1 {
+            color: #10b981;
+            font-size: 28px;
+            margin-bottom: 10px;
+          }
+          
+          .header-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+          }
+          
+          .header-info-item {
+            font-size: 14px;
+          }
+          
+          .header-info-item strong {
+            color: #4b5563;
+          }
+          
+          .section {
+            margin-bottom: 25px;
+            page-break-inside: avoid;
+          }
+          
+          .section-title {
+            background: #f3f4f6;
+            padding: 10px 15px;
+            border-left: 4px solid #10b981;
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: #1f2937;
+          }
+          
+          .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+          }
+          
+          .grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+          }
+          
+          .field {
+            margin-bottom: 12px;
+          }
+          
+          .field-label {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 4px;
+            font-weight: 600;
+          }
+          
+          .field-value {
+            font-size: 14px;
+            color: #1f2937;
+            padding: 8px;
+            background: #f9fafb;
+            border-radius: 4px;
+            border: 1px solid #e5e7eb;
+          }
+          
+          .narrative-box {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 15px;
+            white-space: pre-wrap;
+            line-height: 1.6;
+            font-size: 14px;
+          }
+          
+          .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-right: 8px;
+            margin-bottom: 5px;
+          }
+          
+          .badge-ai {
+            background: #e9d5ff;
+            color: #7c3aed;
+          }
+          
+          .badge-manual {
+            background: #dbeafe;
+            color: #2563eb;
+          }
+          
+          .badge-approved {
+            background: #d1fae5;
+            color: #059669;
+          }
+          
+          .badge-qa {
+            background: #fef3c7;
+            color: #d97706;
+          }
+          
+          .badge-qa-high {
+            background: #d1fae5;
+            color: #059669;
+          }
+          
+          .badge-qa-low {
+            background: #fee2e2;
+            color: #dc2626;
+          }
+          
+          .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #e5e7eb;
+            font-size: 12px;
+            color: #6b7280;
+            text-align: center;
+          }
+          
+          @media print {
+            body {
+              padding: 20px;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Daily Service Note</h1>
+          <div style="margin-top: 10px;">
+            ${note.entryMode === 'ai' ? '<span class="badge badge-ai">🪄 AI-Assisted</span>' : '<span class="badge badge-manual">📝 Manual Entry</span>'}
+            ${note.approved ? '<span class="badge badge-approved">✓ Approved</span>' : ''}
+            ${note.qaScore !== undefined ? `<span class="badge ${note.qaScore >= 90 ? 'badge-qa-high' : note.qaScore >= 75 ? 'badge-qa' : 'badge-qa-low'}">QA Score: ${note.qaScore}/100</span>` : ''}
+          </div>
+          <div class="header-info">
+            <div class="header-info-item">
+              <strong>Individual:</strong> ${individual?.firstname || 'N/A'} ${individual?.lastname || ''}
+            </div>
+            <div class="header-info-item">
+              <strong>Individual ID:</strong> ${individual?.individualid || 'N/A'}
+            </div>
+            <div class="header-info-item">
+              <strong>Date:</strong> ${new Date(note.date).toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}
+            </div>
+            <div class="header-info-item">
+              <strong>Shift:</strong> ${note.shift || 'N/A'}
+            </div>
+            <div class="header-info-item">
+              <strong>Staff:</strong> ${note.staffname || 'N/A'}
+            </div>
+            <div class="header-info-item">
+              <strong>Entry Method:</strong> ${note.entryMode === 'ai' ? 'AI-Assisted' : 'Manual'}
+            </div>
+          </div>
+        </div>
+
+        ${note.description ? `
+        <div class="section">
+          <div class="section-title">📝 Activity Description</div>
+          <div class="narrative-box">${note.description}</div>
+        </div>
+        ` : ''}
+
+        ${note.narrative ? `
+        <div class="section">
+          <div class="section-title">💬 Clinical Documentation</div>
+          <div class="narrative-box">${note.narrative}</div>
+        </div>
+        ` : ''}
+
+        <div class="section">
+          <div class="section-title">💊 Health & Wellness</div>
+          <div class="grid-3">
+            <div class="field">
+              <div class="field-label">Mood</div>
+              <div class="field-value">${note.mood || 'N/A'}</div>
+            </div>
+            <div class="field">
+              <div class="field-label">Appetite</div>
+              <div class="field-value">${note.appetite || 'N/A'}</div>
+            </div>
+            <div class="field">
+              <div class="field-label">Sleep Quality</div>
+              <div class="field-value">${note.sleep || 'N/A'}</div>
+            </div>
+          </div>
+        </div>
+
+        ${note.electronicSignature ? `
+        <div class="section">
+          <div class="section-title">📝 Electronic Signature</div>
+          <div class="grid-2">
+            <div class="field">
+              <div class="field-label">Signed By</div>
+              <div class="field-value">${note.electronicSignature}</div>
+            </div>
+            <div class="field">
+              <div class="field-label">Date Signed</div>
+              <div class="field-value">${note.dateSigned ? new Date(note.dateSigned).toLocaleString() : 'N/A'}</div>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+
+        <div class="footer">
+          <p>Document created on ${note.timestamp ? new Date(note.timestamp).toLocaleString() : 'N/A'}</p>
+          <p style="margin-top: 10px;">Printed on ${new Date().toLocaleString()}</p>
+        </div>
+
+        <script>
+          window.onload = function() {
+            window.print();
+          };
+        </script>
+      </body>
+      </html>
+    `;
+    
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   if (!profileLoading && !canViewDailyNotes) {
     return (
       <div className="flex items-center justify-center h-screen bg-slate-950">
@@ -1055,13 +1316,8 @@ Generate ONLY the note content in the exact format above. Do not include explana
           <Shield className="w-20 h-20 text-red-500 mx-auto mb-6" />
           <h2 className="text-3xl font-bold text-white mb-4">Access Restricted</h2>
           <p className="text-slate-400 mb-6">
-            You do not have permission to view daily notes. Please contact your administrator if you believe this is an error.
+            You do not have permission to view daily notes.
           </p>
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-            <p className="text-sm text-slate-400">Your Current Role:</p>
-            <p className="text-lg font-bold text-emerald-400 mt-1">{userProfile?.role_name}</p>
-            <p className="text-sm text-slate-500 mt-2">Division: {userProfile?.division}</p>
-          </div>
           <button
             onClick={() => router.push('/individual')}
             className="mt-4 px-6 py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-all"
@@ -1102,7 +1358,7 @@ Generate ONLY the note content in the exact format above. Do not include explana
   }
 
   return (
-    <div className=" bg-slate-950 p-6  max-h-[600px] overflow-y-auto ">
+  <div className="max-h-screen bg-slate-950 p-6 overflow-y-auto">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -1114,15 +1370,9 @@ Generate ONLY the note content in the exact format above. Do not include explana
               <ArrowLeft className="text-white" size={20} />
             </button>
             <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500">
-                  Daily Service Notes
-                </h1>
-                <span className="px-3 py-1 bg-purple-600/20 border border-purple-500/30 rounded-full text-purple-400 text-xs font-bold flex items-center gap-1">
-                  <Wand2 size={12} />
-                  AI-Powered
-                </span>
-              </div>
+              <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500">
+                Daily Service Notes
+              </h1>
               <p className="text-slate-400 mt-1">
                 {individual.firstname} {individual.lastname} • ID: {individual.individualid}
               </p>
@@ -1150,7 +1400,7 @@ Generate ONLY the note content in the exact format above. Do not include explana
               <FileText className="text-emerald-400" size={24} />
               <span className="text-2xl font-bold text-white">{filteredNotes.length}</span>
             </div>
-            <p className="text-slate-300 text-sm font-semibold">Visible Notes</p>
+            <p className="text-slate-300 text-sm font-semibold">Total Notes</p>
           </div>
           <div className="bg-gradient-to-br from-blue-600/20 to-cyan-500/20 border border-blue-500/30 rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">
@@ -1159,34 +1409,34 @@ Generate ONLY the note content in the exact format above. Do not include explana
                 {dailyNotes.filter(n => n.date === new Date().toISOString().split('T')[0]).length}
               </span>
             </div>
-            <p className="text-slate-300 text-sm font-semibold">Today's Notes</p>
+            <p className="text-slate-300 text-sm font-semibold">Today</p>
           </div>
           <div className="bg-gradient-to-br from-purple-600/20 to-pink-500/20 border border-purple-500/30 rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">
               <Wand2 className="text-purple-400" size={24} />
               <span className="text-2xl font-bold text-white">
-                {dailyNotes.filter(n => n.aiGenerated).length}
+                {dailyNotes.filter(n => n.entryMode === 'ai').length}
               </span>
             </div>
-            <p className="text-slate-300 text-sm font-semibold">AI-Generated</p>
+            <p className="text-slate-300 text-sm font-semibold">AI-Assisted</p>
           </div>
-          <div className="bg-gradient-to-br from-orange-600/20 to-yellow-500/20 border border-orange-500/30 rounded-xl p-4">
+          <div className="bg-gradient-to-br from-blue-600/20 to-indigo-500/20 border border-blue-500/30 rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">
-              <MapPin className="text-orange-400" size={24} />
+              <FileText className="text-blue-400" size={24} />
               <span className="text-2xl font-bold text-white">
-                {dailyNotes.filter(n => n.communityouting).length}
+                {dailyNotes.filter(n => n.entryMode === 'manual' || !n.entryMode).length}
               </span>
             </div>
-            <p className="text-slate-300 text-sm font-semibold">Community Outings</p>
+            <p className="text-slate-300 text-sm font-semibold">Manual Entry</p>
           </div>
-          <div className="bg-gradient-to-br from-red-600/20 to-pink-500/20 border border-red-500/30 rounded-xl p-4">
+          <div className="bg-gradient-to-br from-orange-600/20 to-red-500/20 border border-orange-500/30 rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">
-              <AlertCircle className="text-red-400" size={24} />
+              <AlertCircle className="text-orange-400" size={24} />
               <span className="text-2xl font-bold text-white">
                 {dailyNotes.filter(n => n.incidentreported || n.safetyIssues).length}
               </span>
             </div>
-            <p className="text-slate-300 text-sm font-semibold">Incidents/Safety</p>
+            <p className="text-slate-300 text-sm font-semibold">Incidents</p>
           </div>
         </div>
 
@@ -1228,7 +1478,7 @@ Generate ONLY the note content in the exact format above. Do not include explana
               <h3 className="text-xl font-bold text-slate-400 mb-2">No daily notes found</h3>
               <p className="text-slate-500 mb-4">
                 {dailyNotes.length === 0 
-                  ? 'Start documenting daily activities and care' 
+                  ? 'Start documenting with AI-assisted or manual entry' 
                   : 'Try adjusting your search or filters'}
               </p>
               {canCreateDailyNotes && (
@@ -1256,14 +1506,17 @@ Generate ONLY the note content in the exact format above. Do not include explana
                       className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-6 hover:border-emerald-500/50 transition-all cursor-pointer group"
                       onClick={() => setSelectedNote(note)}
                     >
-                      {/* Note Header */}
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center">
-                            <Calendar className="text-white" size={24} />
+                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                            note.entryMode === 'ai' 
+                              ? 'bg-gradient-to-br from-purple-600 to-pink-500'
+                              : 'bg-gradient-to-br from-emerald-600 to-teal-500'
+                          }`}>
+                            {note.entryMode === 'ai' ? <Wand2 className="text-white" size={24} /> : <Calendar className="text-white" size={24} />}
                           </div>
                           <div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 flex-wrap">
                               <h3 className="text-lg font-bold text-white">
                                 {new Date(note.date).toLocaleDateString('en-US', { 
                                   weekday: 'long', 
@@ -1275,10 +1528,15 @@ Generate ONLY the note content in the exact format above. Do not include explana
                               <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 text-xs rounded-full font-bold border border-emerald-500/30">
                                 {note.shift}
                               </span>
-                              {note.aiGenerated && (
+                              {note.entryMode === 'ai' ? (
                                 <span className="px-3 py-1 bg-purple-500/20 text-purple-400 text-xs rounded-full font-bold border border-purple-500/30 flex items-center gap-1">
                                   <Wand2 size={12} />
-                                  AI
+                                  Scribe Assist
+                                </span>
+                              ) : (
+                                <span className="px-3 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full font-bold border border-blue-500/30 flex items-center gap-1">
+                                  <FileText size={12} />
+                                  Manual
                                 </span>
                               )}
                               {note.approved && (
@@ -1295,16 +1553,9 @@ Generate ONLY the note content in the exact format above. Do not include explana
                                   QA: {note.qaScore}
                                 </span>
                               )}
-                              {note.last_edited && (
-                                <span className="px-3 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full font-bold border border-blue-500/30">
-                                  Edited
-                                </span>
-                              )}
                             </div>
                             <p className="text-slate-400 text-sm mt-1">
-                              Documented by {note.staffname} • {new Date(note.timestamp).toLocaleTimeString()}
-                              {note.created_by_role && ` • ${note.created_by_role}`}
-                              {note.last_edited && ` • Last edited by ${note.last_edited_by}`}
+                              {note.staffname} • {new Date(note.timestamp).toLocaleTimeString()}
                             </p>
                           </div>
                         </div>
@@ -1317,7 +1568,6 @@ Generate ONLY the note content in the exact format above. Do not include explana
                                 handleEditNote(note);
                               }}
                               className="p-2 hover:bg-blue-500/20 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                              title="Edit Note"
                             >
                               <Edit2 size={16} className="text-blue-400" />
                             </button>
@@ -1329,7 +1579,6 @@ Generate ONLY the note content in the exact format above. Do not include explana
                                 handleDeleteNote(note.id);
                               }}
                               className="p-2 hover:bg-red-500/20 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                              title="Delete Note"
                             >
                               <Trash2 size={16} className="text-red-400" />
                             </button>
@@ -1337,19 +1586,22 @@ Generate ONLY the note content in the exact format above. Do not include explana
                         </div>
                       </div>
 
-                      {/* Quick Summary */}
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                        <div className="bg-slate-800/50 rounded-lg p-3">
-                          <p className="text-xs text-slate-400 mb-1">Activity Type</p>
-                          <p className="text-sm font-semibold text-white">{note.activityType || 'N/A'}</p>
-                        </div>
-                        <div className="bg-slate-800/50 rounded-lg p-3">
-                          <p className="text-xs text-slate-400 mb-1">Billing Code</p>
-                          <p className="text-sm font-semibold text-white">{note.billingCode || 'N/A'}</p>
-                        </div>
                         <div className="bg-slate-800/50 rounded-lg p-3">
                           <p className="text-xs text-slate-400 mb-1">Mood</p>
                           <p className="text-sm font-semibold text-white">{note.mood}</p>
+                        </div>
+                        {note.activityType && (
+                          <div className="bg-slate-800/50 rounded-lg p-3">
+                            <p className="text-xs text-slate-400 mb-1">Activity Type</p>
+                            <p className="text-sm font-semibold text-white">{note.activityType}</p>
+                          </div>
+                        )}
+                        <div className="bg-slate-800/50 rounded-lg p-3">
+                          <p className="text-xs text-slate-400 mb-1">Entry Method</p>
+                          <p className="text-sm font-semibold text-white">
+                            {note.entryMode === 'ai' ? 'AI-Assisted' : 'Manual'}
+                          </p>
                         </div>
                         <div className="bg-slate-800/50 rounded-lg p-3">
                           <p className="text-xs text-slate-400 mb-1">Community</p>
@@ -1359,7 +1611,6 @@ Generate ONLY the note content in the exact format above. Do not include explana
                         </div>
                       </div>
 
-                      {/* Narrative Preview */}
                       {(note.narrative || note.description) && (
                         <div className="bg-slate-800/30 rounded-lg p-4">
                           <p className="text-sm text-slate-300 line-clamp-3">
@@ -1368,13 +1619,10 @@ Generate ONLY the note content in the exact format above. Do not include explana
                         </div>
                       )}
 
-                      {/* Incident Alert */}
                       {(note.incidentreported || note.safetyIssues) && (
                         <div className="mt-4 flex items-center gap-2 text-orange-400 text-sm">
                           <AlertCircle size={16} />
-                          <span className="font-semibold">
-                            {note.incidentreported ? 'Incident reported' : 'Safety issue reported'} - requires review
-                          </span>
+                          <span className="font-semibold">Requires review</span>
                         </div>
                       )}
                     </div>
@@ -1387,183 +1635,204 @@ Generate ONLY the note content in the exact format above. Do not include explana
         </div>
       </div>
 
-      {/* Add/Edit Note Modal with ScribeAssist Integration */}
+      {/* Add/Edit Note Modal with Mode Toggle */}
       {(showAddModal && canCreateDailyNotes) && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b border-slate-700 bg-slate-900/95 backdrop-blur-sm z-10">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center">
-                  <ClipboardList className="text-white" size={24} />
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  entryMode === 'ai' 
+                    ? 'bg-gradient-to-br from-purple-600 to-pink-500'
+                    : 'bg-gradient-to-br from-emerald-600 to-teal-500'
+                }`}>
+                  {entryMode === 'ai' ? <Wand2 className="text-white" size={24} /> : <ClipboardList className="text-white" size={24} />}
                 </div>
                 <div>
                   <h3 className="text-2xl font-bold text-white flex items-center gap-2">
                     {editingNote ? 'Edit Daily Service Note' : 'Daily Service Note'}
-                    <span className="px-2 py-1 bg-purple-600/20 border border-purple-500/30 rounded-full text-purple-400 text-xs font-bold flex items-center gap-1">
-                      <Wand2 size={10} />
-                      ScribeAssist
-                    </span>
                   </h3>
                   <p className="text-slate-400 text-sm">
-                    {editingNote ? 'Update existing daily note' : 'AI-powered documentation for Medicaid compliance'}
+                    {entryMode === 'ai' ? 'Scribe Assist documentation' : 'Manual documentation entry'}
                   </p>
                 </div>
               </div>
-              <button 
-                onClick={handleCancelEdit}
-                className="p-2 hover:bg-slate-700 rounded-lg transition-all"
-              >
-                <X className="text-slate-400" size={24} />
-              </button>
+              <div className="flex items-center gap-3">
+                {/* MODE TOGGLE BUTTONS */}
+                <div className="flex items-center gap-2 bg-slate-800/50 rounded-xl p-1">
+                  <button
+                    type="button"
+                    onClick={() => setEntryMode('manual')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all ${
+                      entryMode === 'manual'
+                        ? 'bg-emerald-600 text-white shadow-lg'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <FileText size={16} />
+                    Manual
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEntryMode('ai')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all ${
+                      entryMode === 'ai'
+                        ? 'bg-gradient-to-r from-purple-600 to-pink-500 text-white shadow-lg'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Wand2 size={16} />
+                    Scribe Assist
+                  </button>
+                </div>
+                <button 
+                  onClick={handleCancelEdit}
+                  className="p-2 hover:bg-slate-700 rounded-lg transition-all"
+                >
+                  <X className="text-slate-400" size={24} />
+                </button>
+              </div>
             </div>
 
             <ScrollArea className="h-[calc(90vh-160px)]">
               <form onSubmit={handleSaveNote} className="p-6 space-y-8">
                 
-                {/* SCRIBEASSIST AI GENERATOR SECTION */}
-                <div className="bg-gradient-to-br from-purple-900/20 to-pink-900/20 border border-purple-500/30 rounded-xl p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <Wand2 className="text-purple-400" size={24} />
-                    <h4 className="text-lg font-bold text-purple-400">ScribeAssist AI Documentation Engine</h4>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Activity Type *</label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {scribeAssistActivityTypes.map(type => {
-                          const Icon = type.icon;
-                          return (
-                            <button
-                              key={type.value}
-                              type="button"
-                              onClick={() => setNoteForm(prev => ({ ...prev, activityType: type.value }))}
-                              className={`p-3 border rounded-lg transition-all flex flex-col items-center gap-2 ${
-                                noteForm.activityType === type.value
-                                  ? `bg-${type.color}-600/20 border-${type.color}-500 text-${type.color}-400`
-                                  : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
-                              }`}
-                            >
-                              <Icon size={20} />
-                              <span className="text-xs font-semibold text-center">{type.label}</span>
-                            </button>
-                          );
-                        })}
+                {/* AI MODE - ScribeAssist Section */}
+                {entryMode === 'ai' && (
+                  <div className="bg-gradient-to-br from-purple-900/20 to-pink-900/20 border border-purple-500/30 rounded-xl p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <Wand2 className="text-purple-400" size={24} />
+                      <h4 className="text-lg font-bold text-purple-400">ScribeAssist Documentation Engine</h4>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">Activity Type *</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {scribeAssistActivityTypes.map(type => {
+                            const Icon = type.icon;
+                            return (
+                              <button
+                                key={type.value}
+                                type="button"
+                                onClick={() => setNoteForm(prev => ({ ...prev, activityType: type.value }))}
+                                className={`p-3 border rounded-lg transition-all flex flex-col items-center gap-2 ${
+                                  noteForm.activityType === type.value
+                                    ? `bg-${type.color}-600/20 border-${type.color}-500 text-${type.color}-400`
+                                    : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
+                                }`}
+                              >
+                                <Icon size={20} />
+                                <span className="text-xs font-semibold text-center">{type.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">Billing Code *</label>
+                        <select
+                          name="billingCode"
+                          value={noteForm.billingCode}
+                          onChange={handleInputChange}
+                          required
+                          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500"
+                        >
+                          {billingCodes.map(code => (
+                            <option key={code.value} value={code.value}>{code.label}</option>
+                          ))}
+                        </select>
                       </div>
                     </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Billing Code *</label>
-                      <select
-                        name="billingCode"
-                        value={noteForm.billingCode}
+
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Activity Description *
+                      </label>
+                      <textarea
+                        name="description"
+                        value={noteForm.description}
                         onChange={handleInputChange}
+                        placeholder="Describe the activity in detail. Be specific - AI will use this to generate the clinical note."
+                        rows="3"
                         required
-                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500"
-                      >
-                        {billingCodes.map(code => (
-                          <option key={code.value} value={code.value}>{code.label}</option>
-                        ))}
-                      </select>
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 resize-none"
+                      />
                     </div>
-                  </div>
 
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Activity Description * <span className="text-xs text-slate-500">(Be specific - AI will use this to generate the note)</span>
-                    </label>
-                    <textarea
-                      name="description"
-                      value={noteForm.description}
-                      onChange={handleInputChange}
-                      placeholder="Example: Went to the bank to withdraw money and then to the mall to buy clothes. Practiced budgeting and making independent purchasing decisions."
-                      rows="3"
-                      required
-                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 resize-none"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={generateScribeAssistNote}
-                      disabled={generatingNote || !noteForm.description.trim()}
-                      className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-purple-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {generatingNote ? (
-                        <>
-                          <Loader2 size={18} className="animate-spin" />
-                          Generating...
-                        </>
-                      ) : (
-                        <>
-                          <Zap size={18} />
-                          Generate AI Note
-                        </>
-                      )}
-                    </button>
-                    
-                    {aiGeneratedText && (
+                    <div className="flex items-center gap-3">
                       <button
                         type="button"
                         onClick={generateScribeAssistNote}
-                        disabled={generatingNote}
-                        className="flex items-center gap-2 px-4 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all"
+                        disabled={generatingNote || !noteForm.description.trim()}
+                        className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-purple-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <RefreshCw size={16} />
-                        Regenerate
+                        {generatingNote ? (
+                          <>
+                            <Loader2 size={18} className="animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <Zap size={18} />
+                            Generate Note
+                          </>
+                        )}
                       </button>
+                      
+                      {aiGeneratedText && (
+                        <button
+                          type="button"
+                          onClick={generateScribeAssistNote}
+                          disabled={generatingNote}
+                          className="flex items-center gap-2 px-4 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all"
+                        >
+                          <RefreshCw size={16} />
+                          Regenerate
+                        </button>
+                      )}
+                    </div>
+
+                    {aiGeneratedText && (
+                      <div className="mt-4 space-y-3">
+                        <div className="bg-slate-900/50 border border-emerald-500/30 rounded-xl p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h5 className="font-bold text-emerald-400 flex items-center gap-2">
+                              <CheckCircle size={16} />
+                              AI-Generated Clinical Note
+                            </h5>
+                            {qaScore && (
+                              <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                qaScore.score >= 90 ? 'bg-green-500/20 text-green-400' :
+                                qaScore.score >= 75 ? 'bg-yellow-500/20 text-yellow-400' :
+                                'bg-red-500/20 text-red-400'
+                              }`}>
+                                QA Score: {qaScore.score}/100
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-slate-300 whitespace-pre-wrap bg-slate-800/50 rounded-lg p-4">
+                            {aiGeneratedText}
+                          </div>
+                        </div>
+
+                        {qaScore && qaScore.flags.length > 0 && (
+                          <div className="bg-orange-900/20 border border-orange-500/30 rounded-lg p-3">
+                            <p className="text-xs font-bold text-orange-400 mb-2">QA Flags:</p>
+                            <ul className="text-xs text-orange-300 space-y-1">
+                              {qaScore.flags.map((flag, index) => (
+                                <li key={index}>• {flag}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
+                )}
 
-                  {/* AI Generated Note Display */}
-                  {aiGeneratedText && (
-                    <div className="mt-4 space-y-3">
-                      <div className="bg-slate-900/50 border border-emerald-500/30 rounded-xl p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <h5 className="font-bold text-emerald-400 flex items-center gap-2">
-                            <CheckCircle size={16} />
-                            AI-Generated Clinical Note
-                          </h5>
-                          {qaScore && (
-                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                              qaScore.score >= 90 ? 'bg-green-500/20 text-green-400' :
-                              qaScore.score >= 75 ? 'bg-yellow-500/20 text-yellow-400' :
-                              'bg-red-500/20 text-red-400'
-                            }`}>
-                              QA Score: {qaScore.score}/100
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-sm text-slate-300 whitespace-pre-wrap bg-slate-800/50 rounded-lg p-4">
-                          {aiGeneratedText}
-                        </div>
-                      </div>
-
-                      {/* QA Flags */}
-                      {qaScore && qaScore.flags.length > 0 && (
-                        <div className="bg-orange-900/20 border border-orange-500/30 rounded-lg p-3">
-                          <p className="text-xs font-bold text-orange-400 mb-2">QA Flags:</p>
-                          <ul className="text-xs text-orange-300 space-y-1">
-                            {qaScore.flags.map((flag, index) => (
-                              <li key={index}>• {flag}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      {/* Info Box */}
-                      <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3">
-                        <p className="text-xs text-blue-400">
-                          💡 <strong>Note:</strong> This AI-generated documentation is audit-defensible and follows Medicaid compliance standards. 
-                          You can edit it below if needed, or save it as-is. The note is automatically linked to your selected PCP goals and activity type.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* SECTION 1 — SHIFT DETAILS */}
+                {/* SHIFT DETAILS - Required for both modes */}
                 <div>
                   <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
                     <Clock size={20} />
@@ -1637,45 +1906,231 @@ Generate ONLY the note content in the exact format above. Do not include explana
                   </div>
                 </div>
 
-                {/* ADLs */}
-                <div>
-                  <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
-                    <Activity size={20} />
-                    Activities of Daily Living (ADLs)
-                  </h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {[
-                      { name: 'bathing', icon: Bath, label: 'Bathing' },
-                      { name: 'dressing', icon: Shirt, label: 'Dressing' },
-                      { name: 'grooming', icon: User, label: 'Grooming' },
-                      { name: 'toileting', icon: HomeIcon, label: 'Toileting' },
-                      { name: 'eating', icon: Utensils, label: 'Eating' },
-                      { name: 'mobility', icon: Activity, label: 'Mobility' }
-                    ].map(adl => {
-                      const Icon = adl.icon;
-                      return (
-                        <div key={adl.name}>
-                          <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center gap-2">
-                            <Icon size={16} />
-                            {adl.label}
-                          </label>
-                          <select
-                            name={adl.name}
-                            value={noteForm[adl.name]}
-                            onChange={handleInputChange}
-                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
-                          >
-                            {adlOptions.map(option => (
-                              <option key={option} value={option}>{option}</option>
-                            ))}
-                          </select>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                {/* MANUAL MODE - All Detailed Sections */}
+                {entryMode === 'manual' && (
+                  <>
+                    {/* ADLs */}
+                    <div>
+                      <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
+                        <Activity size={20} />
+                        Activities of Daily Living (ADLs)
+                      </h4>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {[
+                          { name: 'bathing', icon: Bath, label: 'Bathing' },
+                          { name: 'dressing', icon: Shirt, label: 'Dressing' },
+                          { name: 'grooming', icon: User, label: 'Grooming' },
+                          { name: 'toileting', icon: HomeIcon, label: 'Toileting' },
+                          { name: 'eating', icon: Utensils, label: 'Eating' },
+                          { name: 'mobility', icon: Activity, label: 'Mobility' }
+                        ].map(adl => {
+                          const Icon = adl.icon;
+                          return (
+                            <div key={adl.name}>
+                              <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center gap-2">
+                                <Icon size={16} />
+                                {adl.label}
+                              </label>
+                              <select
+                                name={adl.name}
+                                value={noteForm[adl.name]}
+                                onChange={handleInputChange}
+                                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
+                              >
+                                {adlOptions.map(option => (
+                                  <option key={option} value={option}>{option}</option>
+                                ))}
+                              </select>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
 
-                {/* ISP LINKAGE */}
+                    {/* ISP Goals */}
+                    <div>
+                      <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
+                        <Target size={20} />
+                        ISP GOALS & SUPPORT PROVIDED
+                      </h4>
+                      <div className="space-y-3 mb-4">
+                        {individual.goals?.length > 0 ? (
+                          individual.goals.map(goal => {
+                            const isSelected = noteForm.goalsworked.includes(goal.id);
+                            return (
+                              <button
+                                key={goal.id}
+                                type="button"
+                                onClick={() => toggleGoal(goal.id)}
+                                className={`w-full p-4 border rounded-xl transition-all text-left ${
+                                  isSelected
+                                    ? 'bg-blue-600/20 border-blue-500'
+                                    : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center ${
+                                    isSelected ? 'bg-blue-600 border-blue-600' : 'border-slate-600'
+                                  }`}>
+                                    {isSelected && <CheckCircle size={16} className="text-white" />}
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className={`font-semibold ${isSelected ? 'text-blue-400' : 'text-slate-300'}`}>
+                                      {goal.description}
+                                    </p>
+                                    <p className="text-xs text-slate-500 mt-1">
+                                      Frequency: {goal.frequency} • Progress: {goal.progress}%
+                                    </p>
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })
+                        ) : (
+                          <p className="text-slate-500 text-sm">No goals defined for this individual</p>
+                        )}
+                      </div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Narrative (Describe support provided):
+                      </label>
+                      <textarea
+                        name="ispGoalsNarrative"
+                        value={noteForm.ispGoalsNarrative}
+                        onChange={handleInputChange}
+                        placeholder="Describe how you supported the individual with their goals..."
+                        rows="3"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 resize-none"
+                      />
+                    </div>
+
+                    {/* Activities */}
+                    <div>
+                      <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
+                        <Sparkles size={20} />
+                        DAILY ACTIVITIES
+                      </h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                        {activityTypes.map(activity => {
+                          const Icon = activity.icon;
+                          const isSelected = noteForm.activities.includes(activity.value);
+                          return (
+                            <button
+                              key={activity.value}
+                              type="button"
+                              onClick={() => toggleActivity(activity.value)}
+                              className={`p-3 border rounded-lg transition-all flex flex-col items-center gap-2 ${
+                                isSelected
+                                  ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400'
+                                  : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
+                              }`}
+                            >
+                              <Icon size={20} />
+                              <span className="text-xs font-semibold text-center">{activity.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <textarea
+                        name="activitydetails"
+                        value={noteForm.activitydetails}
+                        onChange={handleInputChange}
+                        placeholder="Describe activities in detail..."
+                        rows="2"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 resize-none"
+                      />
+                    </div>
+
+                    {/* Behaviors */}
+                    <div>
+                      <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
+                        <Brain size={20} />
+                        BEHAVIORS OBSERVED
+                      </h4>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+                        {behaviorTypes.map(behavior => {
+                          const isSelected = noteForm.behaviors.includes(behavior);
+                          return (
+                            <button
+                              key={behavior}
+                              type="button"
+                              onClick={() => toggleBehavior(behavior)}
+                              className={`p-3 border rounded-lg transition-all text-sm font-semibold ${
+                                isSelected
+                                  ? 'bg-purple-600/20 border-purple-500 text-purple-400'
+                                  : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
+                              }`}
+                            >
+                              {behavior}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="grid grid-cols-1 gap-4">
+                        <textarea
+                          name="behaviordetails"
+                          value={noteForm.behaviordetails}
+                          onChange={handleInputChange}
+                          placeholder="Describe behaviors..."
+                          rows="2"
+                          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 resize-none"
+                        />
+                        <textarea
+                          name="behaviortriggers"
+                          value={noteForm.behaviortriggers}
+                          onChange={handleInputChange}
+                          placeholder="Identify triggers..."
+                          rows="2"
+                          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 resize-none"
+                        />
+                        <textarea
+                          name="behaviorinterventions"
+                          value={noteForm.behaviorinterventions}
+                          onChange={handleInputChange}
+                          placeholder="Interventions used..."
+                          rows="2"
+                          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 resize-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Living Skills */}
+                    <div>
+                      <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
+                        <HomeIcon size={20} />
+                        INDEPENDENT LIVING SKILLS
+                      </h4>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {livingSkills.map(skill => {
+                          const isSelected = noteForm.livingSkills.includes(skill.value);
+                          return (
+                            <button
+                              key={skill.value}
+                              type="button"
+                              onClick={() => toggleLivingSkill(skill.value)}
+                              className={`p-3 border rounded-lg transition-all text-sm font-semibold ${
+                                isSelected
+                                  ? 'bg-blue-600/20 border-blue-500 text-blue-400'
+                                  : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
+                              }`}
+                            >
+                              {skill.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <textarea
+                        name="livingSkillsNarrative"
+                        value={noteForm.livingSkillsNarrative}
+                        onChange={handleInputChange}
+                        placeholder="Describe skills practiced..."
+                        rows="3"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 resize-none mt-4"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {/* ISP LINKAGE - Required for both modes */}
                 <div>
                   <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
                     <Target size={20} />
@@ -1697,7 +2152,7 @@ Generate ONLY the note content in the exact format above. Do not include explana
                     </div>
 
                     {noteForm.ispGoalAddressed && (
-                      <div className="pl-8 space-y-4 animate-in fade-in">
+                      <div className="pl-8 space-y-4">
                         <div>
                           <label className="block text-sm font-medium text-slate-300 mb-2">
                             Select ISP Goal ID *
@@ -1719,7 +2174,7 @@ Generate ONLY the note content in the exact format above. Do not include explana
                             <option value="">-- Select Active ISP Goal --</option>
                             {individual.goals?.filter(g => g.status === 'Active').map(goal => (
                               <option key={goal.id} value={goal.id}>
-                                {goal.description} (Domain: {goal.hcbsdomain || goal.domain || 'Other'})
+                                {goal.description}
                               </option>
                             ))}
                           </select>
@@ -1729,7 +2184,7 @@ Generate ONLY the note content in the exact format above. Do not include explana
                   </div>
                 </div>
 
-                {/* CHOICE & AUTONOMY */}
+                {/* CHOICE & AUTONOMY - Required for both modes */}
                 <div>
                   <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
                     <CheckSquare size={20} />
@@ -1773,7 +2228,7 @@ Generate ONLY the note content in the exact format above. Do not include explana
                         name="choiceExercisedDescription"
                         value={noteForm.choiceExercisedDescription}
                         onChange={handleInputChange}
-                        placeholder="Example: Individual chose to wear blue shirt instead of red, chose pizza for lunch, decided to skip afternoon walk and read instead."
+                        placeholder="Describe the choices the individual made today..."
                         rows="2"
                         required
                         className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 resize-none"
@@ -1782,7 +2237,7 @@ Generate ONLY the note content in the exact format above. Do not include explana
                   </div>
                 </div>
 
-                {/* COMMUNITY OUTING */}
+                {/* COMMUNITY OUTING - Required for both modes */}
                 <div>
                   <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
                     <MapPin size={20} />
@@ -1812,7 +2267,7 @@ Generate ONLY the note content in the exact format above. Do not include explana
                             name="outinglocation"
                             value={noteForm.outinglocation}
                             onChange={handleInputChange}
-                            placeholder="e.g., Local park, grocery store"
+                            placeholder="e.g., Local park"
                             className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
                           />
                         </div>
@@ -1823,7 +2278,7 @@ Generate ONLY the note content in the exact format above. Do not include explana
                             name="outingpurpose"
                             value={noteForm.outingpurpose}
                             onChange={handleInputChange}
-                            placeholder="e.g., Shopping, social visit"
+                            placeholder="e.g., Shopping"
                             className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500"
                           />
                         </div>
@@ -1832,14 +2287,14 @@ Generate ONLY the note content in the exact format above. Do not include explana
                   </div>
                 </div>
 
-                {/* HEALTH OBSERVATIONS */}
+                {/* HEALTH OBSERVATIONS - Required for both modes */}
                 <div>
                   <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
                     <Stethoscope size={20} />
-                    HEALTH & WELLNESS OBSERVATIONS
+                    HEALTH & WELLNESS
                   </h4>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-2">Mood</label>
                       <select
@@ -1867,7 +2322,7 @@ Generate ONLY the note content in the exact format above. Do not include explana
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Sleep Quality</label>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Sleep</label>
                       <select
                         name="sleep"
                         value={noteForm.sleep}
@@ -1882,73 +2337,61 @@ Generate ONLY the note content in the exact format above. Do not include explana
                   </div>
                 </div>
 
-                {/* MEDICATION ADMINISTRATION */}
+                {/* MEDICATION - Required for both modes */}
                 <div>
                   <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
                     <Bell size={20} />
                     MEDICATION ADMINISTRATION
                   </h4>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Medications Administered as Scheduled:
-                      </label>
-                      <div className="flex gap-4">
-                        {medicationOptions.map(option => (
-                          <button
-                            key={option}
-                            type="button"
-                            onClick={() => setNoteForm(prev => ({ ...prev, medicationsAdministered: option }))}
-                            className={`px-4 py-2 border rounded-lg font-semibold ${
-                              noteForm.medicationsAdministered === option
-                                ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400'
-                                : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
-                            }`}
-                          >
-                            {option}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                  <div className="flex gap-4">
+                    {medicationOptions.map(option => (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => setNoteForm(prev => ({ ...prev, medicationsAdministered: option }))}
+                        className={`px-4 py-2 border rounded-lg font-semibold ${
+                          noteForm.medicationsAdministered === option
+                            ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400'
+                            : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                {/* SAFETY & INCIDENTS */}
+                {/* SAFETY - Required for both modes */}
                 <div>
                   <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
                     <AlertCircle size={20} />
-                    SAFETY & INCIDENT SCREENING
+                    SAFETY & INCIDENTS
                   </h4>
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        name="safetyIssues"
-                        checked={noteForm.safetyIssues}
-                        onChange={handleInputChange}
-                        className="w-5 h-5 bg-slate-800 border-slate-700 rounded focus:ring-emerald-500"
-                      />
-                      <label className="text-white font-semibold">
-                        Safety issues or incidents to report
-                      </label>
-                    </div>
-
-                    {noteForm.safetyIssues && (
-                      <div className="pl-8">
-                        <textarea
-                          name="safetyNarrative"
-                          value={noteForm.safetyNarrative}
-                          onChange={handleInputChange}
-                          placeholder="Describe the safety issue or incident..."
-                          rows="3"
-                          className="w-full bg-red-900/20 border border-red-500/50 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500 resize-none"
-                        />
-                      </div>
-                    )}
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      name="safetyIssues"
+                      checked={noteForm.safetyIssues}
+                      onChange={handleInputChange}
+                      className="w-5 h-5 bg-slate-800 border-slate-700 rounded focus:ring-emerald-500"
+                    />
+                    <label className="text-white font-semibold">
+                      Safety issues to report
+                    </label>
                   </div>
+                  {noteForm.safetyIssues && (
+                    <textarea
+                      name="safetyNarrative"
+                      value={noteForm.safetyNarrative}
+                      onChange={handleInputChange}
+                      placeholder="Describe the safety issue..."
+                      rows="3"
+                      className="w-full bg-red-900/20 border border-red-500/50 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500 resize-none mt-4"
+                    />
+                  )}
                 </div>
 
-                {/* STAFF SIGN-OFF */}
+                {/* STAFF SIGN-OFF - Required for both modes */}
                 <div>
                   <h4 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
                     <ClipboardCheck size={20} />
@@ -1965,12 +2408,12 @@ Generate ONLY the note content in the exact format above. Do not include explana
                         name="electronicSignature"
                         value={noteForm.electronicSignature}
                         onChange={handleInputChange}
-                        placeholder="Type your full name to confirm"
+                        placeholder="Type your full name"
                         required
                         className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-orange-500"
                       />
                       {noteForm.electronicSignature && noteForm.electronicSignature !== noteForm.staffname && (
-                        <p className="text-red-400 text-xs mt-1">⚠️ Signature must match staff name exactly</p>
+                        <p className="text-red-400 text-xs mt-1">⚠️ Must match staff name exactly</p>
                       )}
                     </div>
 
@@ -1984,7 +2427,7 @@ Generate ONLY the note content in the exact format above. Do not include explana
                         className="w-5 h-5 bg-slate-800 border-slate-700 rounded focus:ring-orange-500 mt-0.5"
                       />
                       <label className="text-white text-sm">
-                        <strong>I certify that:</strong> The information documented is accurate and complete. *
+                        <strong>I certify</strong> that this information is accurate and complete. *
                       </label>
                     </div>
                   </div>
@@ -2031,8 +2474,12 @@ Generate ONLY the note content in the exact format above. Do not include explana
           <div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b border-slate-700 bg-slate-900/95 backdrop-blur-sm z-10">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center">
-                  <Eye className="text-white" size={24} />
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  selectedNote.entryMode === 'ai' 
+                    ? 'bg-gradient-to-br from-purple-600 to-pink-500'
+                    : 'bg-gradient-to-br from-emerald-600 to-teal-500'
+                }`}>
+                  {selectedNote.entryMode === 'ai' ? <Wand2 className="text-white" size={24} /> : <Eye className="text-white" size={24} />}
                 </div>
                 <div>
                   <h3 className="text-2xl font-bold text-white">Daily Note Details</h3>
@@ -2054,7 +2501,6 @@ Generate ONLY the note content in the exact format above. Do not include explana
                       handleEditNote(selectedNote);
                     }}
                     className="p-2 hover:bg-blue-500/20 rounded-lg transition-all"
-                    title="Edit Note"
                   >
                     <Edit2 size={20} className="text-blue-400" />
                   </button>
@@ -2070,103 +2516,73 @@ Generate ONLY the note content in the exact format above. Do not include explana
 
             <ScrollArea className="h-[calc(90vh-160px)]">
               <div className="p-6 space-y-6">
-                {/* ScribeAssist Metadata */}
-                {selectedNote.aiGenerated && (
-                  <div className="bg-purple-900/20 border border-purple-500/30 rounded-xl p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <Wand2 className="text-purple-400" size={20} />
-                        <h4 className="font-bold text-purple-400">AI-Generated Documentation</h4>
-                      </div>
-                      {selectedNote.qaScore !== undefined && (
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                          selectedNote.qaScore >= 90 ? 'bg-green-500/20 text-green-400' :
-                          selectedNote.qaScore >= 75 ? 'bg-yellow-500/20 text-yellow-400' :
-                          'bg-red-500/20 text-red-400'
-                        }`}>
-                          QA Score: {selectedNote.qaScore}/100
-                        </span>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-3 gap-3 text-sm">
-                      <div>
-                        <p className="text-slate-400">Activity Type:</p>
-                        <p className="text-white font-semibold">{selectedNote.activityType}</p>
-                      </div>
-                      <div>
-                        <p className="text-slate-400">Billing Code:</p>
-                        <p className="text-white font-semibold">{selectedNote.billingCode}</p>
-                      </div>
-                      <div>
-                        <p className="text-slate-400">Version:</p>
-                        <p className="text-white font-semibold">{selectedNote.scribeAssistVersion || '1.0'}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                {/* Entry Mode Badge */}
+                <div className="flex items-center gap-2">
+                  {selectedNote.entryMode === 'ai' ? (
+                    <span className="px-3 py-1 bg-purple-500/20 text-purple-400 text-xs rounded-full font-bold border border-purple-500/30 flex items-center gap-1">
+                      <Wand2 size={12} />
+                      AI-Assisted Entry
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full font-bold border border-blue-500/30 flex items-center gap-1">
+                      <FileText size={12} />
+                      Manual Entry
+                    </span>
+                  )}
+                  {selectedNote.qaScore !== undefined && (
+                    <span className={`px-3 py-1 text-xs rounded-full font-bold border ${
+                      selectedNote.qaScore >= 90 ? 'bg-green-500/20 text-green-400 border-green-500/30' :
+                      selectedNote.qaScore >= 75 ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :
+                      'bg-red-500/20 text-red-400 border-red-500/30'
+                    }`}>
+                      QA: {selectedNote.qaScore}
+                    </span>
+                  )}
+                </div>
 
-                {/* Shift Details */}
+                {/* Rest of the view modal content - shift details, health, etc. */}
                 <div>
-                  <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2">
-                    <Clock size={18} />
-                    Shift Details
-                  </h4>
+                  <h4 className="text-lg font-bold text-emerald-400 mb-3">Shift Details</h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="bg-slate-800/50 rounded-lg p-3">
                       <p className="text-xs text-slate-400 mb-1">Shift</p>
                       <p className="text-white font-semibold">{selectedNote.shift}</p>
                     </div>
-                    {selectedNote.shiftTimeIn && (
-                      <div className="bg-slate-800/50 rounded-lg p-3">
-                        <p className="text-xs text-slate-400 mb-1">Time In</p>
-                        <p className="text-white font-semibold">{selectedNote.shiftTimeIn}</p>
-                      </div>
-                    )}
-                    {selectedNote.shiftTimeOut && (
-                      <div className="bg-slate-800/50 rounded-lg p-3">
-                        <p className="text-xs text-slate-400 mb-1">Time Out</p>
-                        <p className="text-white font-semibold">{selectedNote.shiftTimeOut}</p>
-                      </div>
-                    )}
                     <div className="bg-slate-800/50 rounded-lg p-3">
                       <p className="text-xs text-slate-400 mb-1">Staff</p>
                       <p className="text-white font-semibold">{selectedNote.staffname}</p>
                     </div>
+                    <div className="bg-slate-800/50 rounded-lg p-3">
+                      <p className="text-xs text-slate-400 mb-1">Time In</p>
+                      <p className="text-white font-semibold">{selectedNote.shiftTimeIn || 'N/A'}</p>
+                    </div>
+                    <div className="bg-slate-800/50 rounded-lg p-3">
+                      <p className="text-xs text-slate-400 mb-1">Time Out</p>
+                      <p className="text-white font-semibold">{selectedNote.shiftTimeOut || 'N/A'}</p>
+                    </div>
                   </div>
                 </div>
 
-                {/* Activity Description */}
                 {selectedNote.description && (
                   <div>
-                    <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2">
-                      <FileText size={18} />
-                      Activity Description
-                    </h4>
+                    <h4 className="text-lg font-bold text-emerald-400 mb-3">Activity Description</h4>
                     <div className="bg-slate-800/50 rounded-lg p-4">
                       <p className="text-slate-300 text-sm whitespace-pre-wrap">{selectedNote.description}</p>
                     </div>
                   </div>
                 )}
 
-                {/* Clinical Note */}
                 {selectedNote.narrative && (
                   <div>
-                    <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2">
-                      <MessageSquare size={18} />
-                      Clinical Documentation
-                    </h4>
+                    <h4 className="text-lg font-bold text-emerald-400 mb-3">Clinical Documentation</h4>
                     <div className="bg-slate-800/50 rounded-lg p-4">
                       <p className="text-slate-300 text-sm whitespace-pre-wrap">{selectedNote.narrative}</p>
                     </div>
                   </div>
                 )}
 
-                {/* Health Observations */}
                 <div>
-                  <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2">
-                    <Stethoscope size={18} />
-                    Health & Wellness
-                  </h4>
+                  <h4 className="text-lg font-bold text-emerald-400 mb-3">Health & Wellness</h4>
                   <div className="grid grid-cols-3 gap-3">
                     <div className="bg-slate-800/50 rounded-lg p-3">
                       <p className="text-xs text-slate-400 mb-1">Mood</p>
@@ -2183,24 +2599,28 @@ Generate ONLY the note content in the exact format above. Do not include explana
                   </div>
                 </div>
 
-                {/* Timestamp */}
                 <div className="text-center pt-4 border-t border-slate-700">
                   <p className="text-xs text-slate-500">
-                    Documented on {new Date(selectedNote.timestamp).toLocaleString()}
-                    {selectedNote.created_by_role && ` • Role: ${selectedNote.created_by_role}`}
-                    {selectedNote.last_edited && ` • Last edited on ${new Date(selectedNote.last_edited).toLocaleString()} by ${selectedNote.last_edited_by}`}
+                    Documented on {new Date(selectedNote.timestamp).toLocaleString()} • Entry Method: {selectedNote.entryMode === 'ai' ? 'AI-Assisted' : 'Manual'}
                   </p>
                 </div>
               </div>
             </ScrollArea>
 
             <div className="p-6 border-t border-slate-700 flex justify-end gap-3">
+              <button
+                onClick={() => printDailyNote(selectedNote)}
+                className="px-6 py-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-xl font-semibold transition-all flex items-center gap-2"
+              >
+                <FileText size={18} />
+                Print
+              </button>
               {canDeleteDailyNotes && (
                 <button
                   onClick={() => handleDeleteNote(selectedNote.id)}
                   className="px-6 py-3 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-xl font-semibold transition-all"
                 >
-                  Delete Note
+                  Delete
                 </button>
               )}
               <button
@@ -2218,4 +2638,3 @@ Generate ONLY the note content in the exact format above. Do not include explana
 };
 
 export default DailyNotesPage;
-
