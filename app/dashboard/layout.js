@@ -27,16 +27,7 @@ const PRIVILEGED_USERS = [
 // Complete rolesByDivision object
 const rolesByDivision = {
   DD: [
-    { 
-      id: 'DSP_DD', 
-      name: 'Direct Support Professional (DSP)', 
-      permissions: [
-        'dashboard_view',
-        'individuals_view', 'individuals_edit',
-        'medications_view', 'medications_edit', 'mar',
-        'incidents_view', 'incidents_edit', 'incidents'
-      ]
-    },
+    
      { 
       id: 'IntakeCoordinator', 
       name: 'Intake Coordinator', 
@@ -48,19 +39,6 @@ const rolesByDivision = {
         'data_privacy_view', 'data_privacy_edit',
         'report_view', 'report_edit',
         'billing_view', 'billing_edit',
-        'analytics_view'
-      ]
-    },
-    { 
-      id: 'HouseManager_DD', 
-      name: 'House Manager', 
-      permissions: [
-        'dashboard_view', 'dashboard_edit',
-        'individuals_view', 'individuals_edit',
-        'medications_view', 'medications_edit',
-        'incidents_view', 'incidents_edit',
-        'staff_admin',
-        'report_view', 'report_edit',
         'analytics_view'
       ]
     },
@@ -84,18 +62,7 @@ const rolesByDivision = {
         'hcbs_dashboard'
       ]
     },
-    { 
-      id: 'MAS_Nurse', 
-      name: 'MAS Nurse', 
-      permissions: [
-        'dashboard_view', 'dashboard_edit',
-        'individuals_view', 'individuals_edit',
-        'medications_admin', 'mar_full', 'approve_mar',
-        'incidents_view', 'incidents_edit',
-        'report_view', 'report_edit',
-        'analytics_view'
-      ]
-    },
+  
     { 
       id: 'IntakeCoordinator', 
       name: 'Intake Coordinator', 
@@ -110,6 +77,44 @@ const rolesByDivision = {
         'analytics_view'
       ]
     },
+       { 
+      id: 'DSP_DD', 
+      name: 'Direct Support Professional (DSP)', 
+      permissions: [
+        'dashboard_view',
+        'individuals_view', 'individuals_edit',
+        'medications_view', 'medications_edit', 'mar',
+        'incidents_view', 'incidents_edit', 'incidents',
+        'view_plans'  // ADD THIS
+      ]
+    },
+    { 
+      id: 'HouseManager_DD', 
+      name: 'House Manager', 
+      permissions: [
+        'dashboard_view', 'dashboard_edit',
+        'individuals_view', 'individuals_edit',
+        'medications_view', 'medications_edit',
+        'incidents_view', 'incidents_edit',
+        'staff_admin',
+        'report_view', 'report_edit',
+        'analytics_view',
+        'view_plans'  // ADD THIS
+      ]
+    },
+    { 
+      id: 'MAS_Nurse', 
+      name: 'MAS Nurse', 
+      permissions: [
+        'dashboard_view', 'dashboard_edit',
+        'individuals_view', 'individuals_edit',
+        'medications_admin', 'mar_full', 'approve_mar',
+        'incidents_view', 'incidents_edit',
+        'report_view', 'report_edit',
+        'analytics_view',
+        'view_plans'  // ADD THIS
+      ]
+    },
     { 
       id: 'BillingStaff', 
       name: 'Billing Staff', 
@@ -120,7 +125,8 @@ const rolesByDivision = {
         'billing_report_admin',
         'report_admin',
         'billing_admin',
-        'analytics_admin'
+        'analytics_admin',
+        'view_plans'  // ADD THIS
       ]
     },
     { 

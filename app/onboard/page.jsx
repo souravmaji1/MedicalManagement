@@ -65,29 +65,8 @@ const OnboardingFlow = () => {
 
   const rolesByDivision = {
   DD: [
-    { 
-      id: 'DSP_DD', 
-      name: 'Direct Support Professional (DSP)', 
-      permissions: [
-        'dashboard_view',
-        'individuals_view', 'individuals_edit',
-        'medications_view', 'medications_edit', 'mar',
-        'incidents_view', 'incidents_edit', 'incidents'
-      ]
-    },
-    { 
-      id: 'HouseManager_DD', 
-      name: 'House Manager', 
-      permissions: [
-        'dashboard_view', 'dashboard_edit',
-        'individuals_view', 'individuals_edit',
-        'medications_view', 'medications_edit',
-        'incidents_view', 'incidents_edit',
-        'staff_admin',
-        'report_view', 'report_edit',
-        'analytics_view'
-      ]
-    },
+   
+  
      { 
     id: 'IntakeCoordinator', 
     name: 'Intake Coordinator', 
@@ -122,18 +101,7 @@ const OnboardingFlow = () => {
         'hcbs_dashboard'
       ]
     },
-    { 
-      id: 'MAS_Nurse', 
-      name: 'MAS Nurse', 
-      permissions: [
-        'dashboard_view', 'dashboard_edit',
-        'individuals_view', 'individuals_edit',
-        'medications_admin', 'mar_full', 'approve_mar',
-        'incidents_view', 'incidents_edit',
-        'report_view', 'report_edit',
-        'analytics_view'
-      ]
-    },
+   
     { 
       id: 'IntakeCoordinator', 
       name: 'Intake Coordinator', 
@@ -149,18 +117,57 @@ const OnboardingFlow = () => {
       ]
     },
     { 
-      id: 'BillingStaff', 
-      name: 'Billing Staff', 
-      permissions: [
-        'dashboard_view',
-        'individuals_view',
-        'incidents_view',
-        'billing_report_admin',
-        'report_admin',
-        'billing_admin',
-        'analytics_admin'
-      ]
-    },
+    id: 'DSP_DD', 
+    name: 'Direct Support Professional (DSP)', 
+    permissions: [
+      'dashboard_view',
+      'individuals_view', 'individuals_edit',
+      'medications_view', 'medications_edit', 'mar',
+      'incidents_view', 'incidents_edit', 'incidents',
+      'view_plans'  // ADD THIS
+    ]
+  },
+  { 
+    id: 'HouseManager_DD', 
+    name: 'House Manager', 
+    permissions: [
+      'dashboard_view', 'dashboard_edit',
+      'individuals_view', 'individuals_edit',
+      'medications_view', 'medications_edit',
+      'incidents_view', 'incidents_edit',
+      'staff_admin',
+      'report_view', 'report_edit',
+      'analytics_view',
+      'view_plans'  // ADD THIS
+    ]
+  },
+  { 
+    id: 'MAS_Nurse', 
+    name: 'MAS Nurse', 
+    permissions: [
+      'dashboard_view', 'dashboard_edit',
+      'individuals_view', 'individuals_edit',
+      'medications_admin', 'mar_full', 'approve_mar',
+      'incidents_view', 'incidents_edit',
+      'report_view', 'report_edit',
+      'analytics_view',
+      'view_plans'  // ADD THIS
+    ]
+  },
+  { 
+    id: 'BillingStaff', 
+    name: 'Billing Staff', 
+    permissions: [
+      'dashboard_view',
+      'individuals_view',
+      'incidents_view',
+      'billing_report_admin',
+      'report_admin',
+      'billing_admin',
+      'analytics_admin',
+      'view_plans'  // ADD THIS
+    ]
+  },
     { 
       id: 'SystemAdmin', 
       name: 'System Administrator', 
