@@ -20,6 +20,7 @@ import { useRouter } from 'next/navigation';
 import { useUserProfile } from '../../contexts/userProfileContext';
 import { PERMISSIONS } from '../../utils/permissions';
 import { ScrollBar } from '../../components/ui/scroll-area';
+import { getModuleAccessLevel, MODULE_PERMISSIONS, ACCESS_LEVELS } from '../../utils/permissions';
 
 const supabase = createClient(
   'https://bbikcxalypttfgrlxstf.supabase.co',
@@ -79,11 +80,29 @@ const HCBSDashboard = () => {
     { id: 'staff', label: 'Staff Readiness', icon: Users, color: 'cyan' }
   ];
 
-  const canViewHCBS = hasAnyPermission([
-    PERMISSIONS.PLANS_VIEW,
-    PERMISSIONS.FULL_ACCESS,
-    PERMISSIONS.ADMIN
-  ]);
+ // Replace the existing permission checks section in HCBSDashboard with:
+
+const getModuleAccess = (moduleName) => {
+  if (!userProfile || !userProfile.permissions) return ACCESS_LEVELS.NONE;
+  
+  const modulePerms = MODULE_PERMISSIONS[moduleName];
+  if (!modulePerms) return ACCESS_LEVELS.NONE;
+  
+  return getModuleAccessLevel(userProfile.permissions, modulePerms);
+};
+
+// Get access level for HCBS dashboard (using plans module permissions)
+const moduleAccess = getModuleAccess('plans'); // HCBS uses plans permissions
+
+const canViewHCBS = moduleAccess !== 'none';
+const canEditHCBS = moduleAccess === 'edit' || moduleAccess === 'admin';
+const canAdminHCBS = moduleAccess === 'admin';
+
+// Specific HCBS permissions
+const canExportCompliance = canViewHCBS; // Anyone who can view can export
+const canEnableAuditMode = canEditHCBS; // Edit or admin can enable audit mode
+const canUpdateDateRange = canEditHCBS; // Edit or admin can update date range
+const canRefreshData = canViewHCBS; // Anyone who can view can refresh
 
   useEffect(() => {
     if (isLoaded && user && !profileLoading && userProfile) {
@@ -110,15 +129,7 @@ const HCBSDashboard = () => {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (userProfile.role_id === 'HouseManager_DD') {
-        query = query.eq('homeassignment', userProfile.facility);
-      } else if (userProfile.role_id === 'DSP_DD') {
-        query = query.eq('homeassignment', userProfile.facility);
-      } else if (userProfile.division === 'MI' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-        query = query.eq('division', 'MI');
-      } else if (userProfile.division === 'SUD' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-        query = query.eq('division', 'SUD');
-      }
+    
 
       const { data, error } = await query;
 
@@ -1324,171 +1335,14 @@ const HCBSDashboard = () => {
     setAuditModeData(null);
   };
 
-  const NavBar = () => (
-    <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-900/20 backdrop-blur-xl border-b border-slate-800/50 px-6 py-4 flex items-center justify-between sticky top-0 z-40 shadow-2xl">
-      <div className="flex items-center gap-4">
-        <button 
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="lg:hidden p-2 hover:bg-white/10 rounded-xl transition-all duration-300 hover:scale-105"
-        >
-          {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className="w-12 h-12 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/50 animate-pulse">
-              <Activity className="text-white" size={26} />
-            </div>
-            <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-900 animate-pulse"></div>
-          </div>
-          <div>
-            <h1 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-500">
-              CareBridge Pro
-            </h1>
-            <p className="text-xs text-slate-400 font-medium tracking-wide">HCBS Compliance Dashboard</p>
-          </div>
-        </div>
-      </div>
-      
-      <div className="flex items-center gap-4">
-        <div className="hidden md:flex items-center gap-3 bg-slate-800/50 backdrop-blur-sm rounded-2xl px-5 py-2.5 w-96 border border-slate-700/50 hover:border-emerald-500/50 transition-all duration-300">
-          <Search size={18} className="text-emerald-400" />
-          <input 
-            type="text" 
-            placeholder="Search individuals..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="bg-transparent border-none outline-none text-sm text-white w-full placeholder:text-slate-500"
-          />
-        </div>
-        
-        <button className="relative p-2.5 hover:bg-white/10 rounded-xl transition-all duration-300 hover:scale-105 group">
-          <Bell size={20} className="text-slate-300 group-hover:text-emerald-400 transition-colors" />
-          {alerts.length > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
-              {alerts.filter(a => a.severity === 'critical').length}
-            </span>
-          )}
-        </button>
-        
-        <div className="flex items-center gap-3 pl-4 border-l border-slate-700/50 cursor-pointer hover:bg-white/5 rounded-xl p-2 transition-all duration-300 group">
-          <div className="text-right hidden sm:block">
-            <p className="text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors">
-              {userProfile?.fullname || 'User'}
-            </p>
-            <p className="text-xs text-slate-400 font-medium">
-              {userProfile?.role_name || 'Staff'} • Online
-            </p>
-          </div>
-          <div className="relative">
-            <div className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-emerald-500/50">
-              <UserButton afterSignOutUrl="/" />
-            </div>
-            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-900"></div>
-          </div>
-          <ChevronDown size={16} className="text-slate-400 group-hover:text-emerald-400 transition-colors" />
-        </div>
-      </div>
-    </div>
-  );
+ 
 
-  const Sidebar = () => (
-    <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-50 w-72 bg-gradient-to-b from-slate-900 via-slate-900 to-emerald-900/10 border-r border-slate-800/50 transition-all duration-300 flex flex-col backdrop-blur-xl h-screen`}>
-      <div className="p-6 border-b border-slate-800/50 flex-shrink-0">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2 text-sm">
-            <div className="relative">
-              <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></div>
-              <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-75"></div>
-            </div>
-            <span className="text-slate-300 font-semibold">HCBS Compliant</span>
-          </div>
-          <div className="px-2.5 py-1 bg-emerald-500/20 border border-emerald-500/30 rounded-full">
-            <span className="text-emerald-400 text-xs font-bold">ADMH</span>
-          </div>
-        </div>
-        
-        {selectedIndividual && (
-          <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 rounded-xl p-3">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-slate-400 font-medium">Compliance Score</span>
-              <span className="text-xs text-emerald-400 font-bold">
-                {calculateOverallComplianceScore(complianceData)}%
-              </span>
-            </div>
-            <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
-              <div 
-                className="h-full bg-gradient-to-r from-emerald-600 to-teal-500 rounded-full transition-all duration-1000" 
-                style={{width: `${calculateOverallComplianceScore(complianceData)}%`}}
-              ></div>
-            </div>
-          </div>
-        )}
-      </div>
-      
-      <ScrollArea className="flex-1 px-4 py-4">
-        <div className="mb-2 px-3">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Main Menu</span>
-        </div>
-        {menuItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = currentPage === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => {
-                setCurrentPage(item.id);
-                if (item.id !== 'dashboard') {
-                  router.push(`/${item.id === 'dashboard' ? 'dashboard' : item.id}`);
-                }
-                if (window.innerWidth < 1024) setSidebarOpen(false);
-              }}
-              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl mb-2 transition-all duration-300 group relative overflow-hidden ${
-                isActive 
-                  ? 'bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow-lg shadow-emerald-500/50 scale-105' 
-                  : 'text-slate-400 hover:bg-white/5 hover:text-white hover:scale-105'
-              }`}
-            >
-              {isActive && (
-                <div className="absolute inset-0 bg-gradient-to-r from-green-400/20 to-emerald-500/20 animate-pulse"></div>
-              )}
-              <Icon size={20} className={`relative z-10 ${isActive ? 'animate-pulse' : ''}`} />
-              <span className="font-semibold relative z-10 flex-1 text-left">{item.label}</span>
-              {item.badge && (
-                <span className={`relative z-10 px-2 py-0.5 rounded-full text-xs font-bold ${
-                  isActive 
-                    ? 'bg-white/20 text-white' 
-                    : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                }`}>
-                  {item.badge}
-                </span>
-              )}
-              {isActive && <ChevronRight size={16} className="relative z-10 animate-pulse" />}
-            </button>
-          );
-        })}
-      </ScrollArea>
-      
-      <div className="p-4 border-t border-slate-800/50 space-y-3 flex-shrink-0">
-        <div className="bg-gradient-to-br from-emerald-900/30 via-teal-900/30 to-green-900/30 rounded-xl p-4 border border-emerald-500/30 backdrop-blur-sm relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/10 rounded-full blur-2xl"></div>
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-2">
-              <Shield className="text-emerald-400" size={18} />
-              <p className="text-sm font-bold text-white">HCBS Certified</p>
-            </div>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Alabama DD/MI/SUD Compliant
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  
 
   if (!profileLoading && !canViewHCBS) {
     return (
       <div className="h-screen flex flex-col bg-slate-950 text-white">
-        <NavBar />
+      
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center max-w-md">
             <Shield className="w-20 h-20 text-red-500 mx-auto mb-6" />
@@ -1516,9 +1370,9 @@ const HCBSDashboard = () => {
  
   return (
     <div className="h-screen flex flex-col bg-slate-950 text-white overflow-hidden">
-      <NavBar />
+      
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
+        
         <div className="flex-1 overflow-hidden">
           <ScrollArea className="h-full">
             <main className="p-6 lg:p-8">
@@ -1540,6 +1394,20 @@ const HCBSDashboard = () => {
                       Real-time compliance monitoring • Person-centered • Audit-ready • HCBS Settings Rule
                     </p>
                   </div>
+
+                  <div className={`px-3 py-1 rounded-full border ${
+  moduleAccess === 'admin' ? 'bg-purple-500/20 border-purple-500/30 text-purple-400' :
+  moduleAccess === 'edit' ? 'bg-blue-500/20 border-blue-500/30 text-blue-400' :
+  moduleAccess === 'view' ? 'bg-green-500/20 border-green-500/30 text-green-400' :
+  'bg-slate-500/20 border-slate-500/30 text-slate-400'
+}`}>
+  <span className="text-xs font-bold uppercase flex items-center gap-1">
+    <Shield size={12} />
+    {moduleAccess === 'admin' ? 'Full Access' : 
+     moduleAccess === 'edit' ? 'Edit Access' : 
+     moduleAccess === 'view' ? 'View Only' : 'No Access'}
+  </span>
+</div>
                   
                   {selectedIndividual && (
                     <div className="flex items-center gap-3">
@@ -1560,13 +1428,15 @@ const HCBSDashboard = () => {
                           Disable Audit Mode
                         </button>
                       )}
-                      <button
-                        onClick={exportCompliance}
-                        className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-5 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 border border-slate-700"
-                      >
-                        <Download size={18} />
-                        Export Report
-                      </button>
+                     {canExportCompliance && (
+  <button
+    onClick={exportCompliance}
+    className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-5 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 border border-slate-700"
+  >
+    <Download size={18} />
+    Export Report
+  </button>
+)}
                       <button
                         onClick={() => calculateComplianceData()}
                         className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-2xl hover:shadow-emerald-500/50 transition-all duration-300 hover:scale-105"

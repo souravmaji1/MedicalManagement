@@ -16,7 +16,7 @@ const supabase = createClient(
 
 
 
-const RoleSelectionFlow = () => {
+const OnboardingFlow = () => {
   const { user, isLoaded } = useUser();
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -65,34 +65,273 @@ const RoleSelectionFlow = () => {
 
   const rolesByDivision = {
   DD: [
-    { id: 'DSP_DD', name: 'Direct Support Professional (DSP)', permissions: ['daily_notes', 'adls', 'incidents', 'mar'] },
-    { id: 'HouseManager_DD', name: 'House Manager', permissions: ['approve_notes', 'approve_incidents', 'approve_mar'] },
-    { id: 'QDDP', name: 'QDDP/QIDP', permissions: ['plans', 'review_all', 'hcbs_dashboard'] },
-    { id: 'MAS_Nurse', name: 'MAS Nurse', permissions: ['medications', 'mar_approve', 'health_tracking'] },
-    { id: 'ExecDirector', name: 'Executive Director', permissions: ['full_access'] },
-    { id: 'ExecPresident', name: 'Executive President', permissions: ['full_access', 'system_admin', 'all_divisions', 'financial_access', 'user_management', 'compliance_oversight', 'strategic_planning'] }
+    { 
+      id: 'DSP_DD', 
+      name: 'Direct Support Professional (DSP)', 
+      permissions: [
+        'dashboard_view',
+        'individuals_view', 'individuals_edit',
+        'medications_view', 'medications_edit', 'mar',
+        'incidents_view', 'incidents_edit', 'incidents'
+      ]
+    },
+    { 
+      id: 'HouseManager_DD', 
+      name: 'House Manager', 
+      permissions: [
+        'dashboard_view', 'dashboard_edit',
+        'individuals_view', 'individuals_edit',
+        'medications_view', 'medications_edit',
+        'incidents_view', 'incidents_edit',
+        'staff_admin',
+        'report_view', 'report_edit',
+        'analytics_view'
+      ]
+    },
+     { 
+    id: 'IntakeCoordinator', 
+    name: 'Intake Coordinator', 
+    permissions: [
+      'dashboard_view', 'dashboard_edit',
+      'individuals_admin',
+      'incidents_view',
+      'billing_report_view', 'billing_report_edit',
+      'data_privacy_view', 'data_privacy_edit',
+      'report_view', 'report_edit',
+      'billing_view', 'billing_edit',
+      'analytics_view'
+    ]
+  },
+    { 
+      id: 'QDDP', 
+      name: 'QDDP/Program Director', 
+      permissions: [
+        'dashboard_admin',
+        'individuals_admin',
+        'medications_admin',
+        'incidents_admin',
+        'billing_report_admin',
+        'staff_admin',
+        'data_privacy_admin',
+        'report_admin',
+        'foresight_engine_admin',
+        'user_foresight_admin',
+        'billing_admin',
+        'analytics_admin',
+        'plans', 'edit_plans', 'view_plans',
+        'hcbs_dashboard'
+      ]
+    },
+    { 
+      id: 'MAS_Nurse', 
+      name: 'MAS Nurse', 
+      permissions: [
+        'dashboard_view', 'dashboard_edit',
+        'individuals_view', 'individuals_edit',
+        'medications_admin', 'mar_full', 'approve_mar',
+        'incidents_view', 'incidents_edit',
+        'report_view', 'report_edit',
+        'analytics_view'
+      ]
+    },
+    { 
+      id: 'IntakeCoordinator', 
+      name: 'Intake Coordinator', 
+      permissions: [
+        'dashboard_view', 'dashboard_edit',
+        'individuals_admin',
+        'incidents_view',
+        'billing_report_view', 'billing_report_edit',
+        'data_privacy_view', 'data_privacy_edit',
+        'report_view', 'report_edit',
+        'billing_view', 'billing_edit',
+        'analytics_view'
+      ]
+    },
+    { 
+      id: 'BillingStaff', 
+      name: 'Billing Staff', 
+      permissions: [
+        'dashboard_view',
+        'individuals_view',
+        'incidents_view',
+        'billing_report_admin',
+        'report_admin',
+        'billing_admin',
+        'analytics_admin'
+      ]
+    },
+    { 
+      id: 'SystemAdmin', 
+      name: 'System Administrator', 
+      permissions: ['full_access', 'admin', 'system_admin']
+    },
+    { 
+      id: 'ExecDirector', 
+      name: 'Executive Director', 
+      permissions: ['full_access', 'admin', 'all_divisions', 'system_oversight']
+    }
   ],
   MI: [
-    { id: 'MI_Staff', name: 'Residential MI Staff', permissions: ['shift_notes', 'incidents', 'behaviors'] },
-    { id: 'Therapist_MI', name: 'Therapist/Clinician', permissions: ['clinical_notes', 'treatment_plans', 'assessments'] },
-    { id: 'Psychiatrist', name: 'Psychiatrist', permissions: ['med_orders', 'diagnoses', 'clinical_notes'] },
-    { id: 'MI_Supervisor', name: 'Clinical Supervisor', permissions: ['approve_plans', 'review_incidents', 'reports'] },
-    { id: 'MI_PeerSupport', name: 'Certified Peer Specialist', permissions: ['peer_notes', 'recovery_goals'] },
-    { id: 'ExecPresident', name: 'Executive President', permissions: ['full_access', 'system_admin', 'all_divisions', 'financial_access', 'user_management', 'compliance_oversight', 'strategic_planning'] }
+    { 
+      id: 'MI_Staff', 
+      name: 'Residential MI Staff', 
+      permissions: [
+        'dashboard_view',
+        'individuals_view', 'individuals_edit',
+        'medications_view',
+        'incidents_view', 'incidents_edit'
+      ]
+    },
+    { 
+      id: 'Therapist_MI', 
+      name: 'Therapist/Clinician', 
+      permissions: [
+        'dashboard_view', 'dashboard_edit',
+        'individuals_view', 'individuals_edit',
+        'plans', 'edit_plans', 'view_plans',
+        'incidents_view',
+        'report_view', 'report_edit'
+      ]
+    },
+    { 
+      id: 'Psychiatrist', 
+      name: 'Psychiatrist', 
+      permissions: [
+        'dashboard_view', 'dashboard_edit',
+        'individuals_view', 'individuals_edit',
+        'medications_admin', 'mar_full',
+        'plans', 'edit_plans', 'view_plans',
+        'incidents_view',
+        'report_view', 'report_edit'
+      ]
+    },
+    { 
+      id: 'MI_Supervisor', 
+      name: 'Clinical Supervisor', 
+      permissions: [
+        'dashboard_admin',
+        'individuals_admin',
+        'medications_view', 'medications_edit',
+        'incidents_admin', 'approve_incidents', 'review_incidents',
+        'report_admin',
+        'analytics_view', 'analytics_edit'
+      ]
+    },
+    { 
+      id: 'MI_PeerSupport', 
+      name: 'Certified Peer Specialist', 
+      permissions: [
+        'dashboard_view',
+        'individuals_view', 'individuals_edit',
+        'incidents_view',
+        'report_view'
+      ]
+    },
+    { 
+      id: 'ExecDirector', 
+      name: 'Executive Director', 
+      permissions: ['full_access', 'admin', 'all_divisions', 'system_oversight']
+    }
   ],
   SUD: [
-    { id: 'SUD_Counselor', name: 'SUD Counselor', permissions: ['counseling_notes', 'asam', 'recovery_plan'] },
-    { id: 'SUD_PeerSupport', name: 'Recovery Coach', permissions: ['peer_notes', 'relapse_logs'] },
-    { id: 'Nurse_SUD', name: 'SUD Nurse', permissions: ['mat_tracking', 'withdrawal', 'vitals'] },
-    { id: 'MAT_Staff', name: 'MAT Clinic Staff', permissions: ['mat_full', 'dose_logs'] },
-    { id: 'SUD_Director', name: 'Program Director', permissions: ['approve_all', 'reports', 'admin'] },
-    { id: 'ExecPresident', name: 'Executive President', permissions: ['full_access', 'system_admin', 'all_divisions', 'financial_access', 'user_management', 'compliance_oversight', 'strategic_planning'] }
+    { 
+      id: 'SUD_Counselor', 
+      name: 'SUD Counselor', 
+      permissions: [
+        'dashboard_view', 'dashboard_edit',
+        'individuals_view', 'individuals_edit',
+        'plans', 'edit_plans', 'view_plans',
+        'incidents_view',
+        'report_view', 'report_edit'
+      ]
+    },
+    { 
+      id: 'SUD_PeerSupport', 
+      name: 'Recovery Coach', 
+      permissions: [
+        'dashboard_view',
+        'individuals_view', 'individuals_edit',
+        'incidents_view',
+        'report_view'
+      ]
+    },
+    { 
+      id: 'Nurse_SUD', 
+      name: 'SUD Nurse', 
+      permissions: [
+        'dashboard_view', 'dashboard_edit',
+        'individuals_view', 'individuals_edit',
+        'medications_admin', 'mar_full',
+        'incidents_view', 'incidents_edit',
+        'report_view', 'report_edit'
+      ]
+    },
+    { 
+      id: 'MAT_Staff', 
+      name: 'MAT Clinic Staff', 
+      permissions: [
+        'dashboard_view', 'dashboard_edit',
+        'individuals_view', 'individuals_edit',
+        'medications_admin', 'mar_full',
+        'report_view', 'report_edit'
+      ]
+    },
+    { 
+      id: 'SUD_Director', 
+      name: 'Program Director', 
+      permissions: [
+        'dashboard_admin',
+        'individuals_admin',
+        'medications_admin',
+        'incidents_admin',
+        'billing_report_admin',
+        'report_admin',
+        'billing_admin',
+        'analytics_admin'
+      ]
+    },
+    { 
+      id: 'ExecDirector', 
+      name: 'Executive Director', 
+      permissions: ['full_access', 'admin', 'all_divisions', 'system_oversight']
+    }
   ],
   PEER: [
-    { id: 'DD_PeerMentor', name: 'DD Peer Mentor', permissions: ['peer_notes', 'community_activities'] },
-    { id: 'MI_CPS', name: 'MI Certified Peer Specialist', permissions: ['cps_notes', 'recovery_support'] },
-    { id: 'SUD_PeerRecovery', name: 'SUD Peer Recovery Specialist', permissions: ['peer_recovery_notes', 'relapse_support'] },
-    { id: 'ExecPresident', name: 'Executive President', permissions: ['full_access', 'system_admin', 'all_divisions', 'financial_access', 'user_management', 'compliance_oversight', 'strategic_planning'] }
+    { 
+      id: 'DD_PeerMentor', 
+      name: 'DD Peer Mentor', 
+      permissions: [
+        'dashboard_view',
+        'individuals_view', 'individuals_edit',
+        'report_view'
+      ]
+    },
+    { 
+      id: 'MI_CPS', 
+      name: 'MI Certified Peer Specialist', 
+      permissions: [
+        'dashboard_view',
+        'individuals_view', 'individuals_edit',
+        'incidents_view',
+        'report_view'
+      ]
+    },
+    { 
+      id: 'SUD_PeerRecovery', 
+      name: 'SUD Peer Recovery Specialist', 
+      permissions: [
+        'dashboard_view',
+        'individuals_view', 'individuals_edit',
+        'incidents_view',
+        'report_view'
+      ]
+    },
+    { 
+      id: 'ExecDirector', 
+      name: 'Executive Director', 
+      permissions: ['full_access', 'admin', 'all_divisions', 'system_oversight']
+    }
   ]
 };
 
@@ -112,7 +351,7 @@ const RoleSelectionFlow = () => {
 
       if (data) {
         // Profile exists, redirect to dashboard
-        router.push('/individual');
+        router.push('/dashboard/individual');
       } else {
         // No profile, show role selection
         setLoading(false);
@@ -156,7 +395,7 @@ const RoleSelectionFlow = () => {
       if (error) throw error;
 
       // Redirect to dashboard
-      router.push('/individual');
+      router.push('/dashboard/individual');
     } catch (error) {
       console.error('Error saving profile:', error);
       alert('Error saving profile. Please try again.');
@@ -381,4 +620,4 @@ const RoleSelectionFlow = () => {
   );
 };
 
-export default RoleSelectionFlow;
+export default OnboardingFlow;

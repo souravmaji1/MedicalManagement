@@ -1,6 +1,6 @@
 
 
-// app/layout.tsx
+// app/layout.js
 
 import "./globals.css";
 import { Aclonica, Kanit, Mulish } from "next/font/google";
