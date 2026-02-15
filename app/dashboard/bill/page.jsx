@@ -1903,7 +1903,7 @@ const handleCreateClaimFromBatch = async (batch) => {
 if (!profileLoading && !canViewBilling) {
   return (
     <div className="h-screen flex flex-col bg-slate-950 text-white">
-      <NavBar />
+    
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center max-w-md">
           <Shield className="w-20 h-20 text-red-500 mx-auto mb-6" />

@@ -213,37 +213,68 @@ const addToUpdateHistory = (currentHistory, updateType, updatedFields, userProfi
   }, [isLoaded, user, profileLoading, userProfile]);
 
   // Fetch all incidents for statistics
-  const fetchAllIncidents = async () => {
-    try {
-      let query = supabase
-        .from('incidents')
-        .select('*')
-        .order('created_at', { ascending: false });
+ const fetchAllIncidents = async () => {
+  try {
+    let query = supabase
+      .from('incidents')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-      // Role-based filtering for incidents
-      if (userProfile.role_id === 'DSP_DD' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-        query = query.or(`created_by.eq.${userProfile.fullname},facility.eq.${userProfile.facility}`);
-      } else if (userProfile.division === 'MI' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-        query = query.eq('division', 'MI');
-      } else if (userProfile.division === 'SUD' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-        query = query.eq('division', 'SUD');
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.warn('Incidents table not found for stats, will calculate from individuals');
-        // We'll calculate from individuals in fetchIndividuals
-        return;
-      }
-
-      setAllIncidents(data || []);
-      calculateStats(data || []);
-    } catch (error) {
-      console.error('Error fetching all incidents:', error);
-      setAllIncidents([]);
+    // Apply ONLY division-based filtering (NO facility filtering)
+    const isAdmin = hasPermission(PERMISSIONS.FULL_ACCESS) || 
+                    hasPermission(PERMISSIONS.ADMIN) || 
+                    userProfile.role_id === 'ExecDirector' || 
+                    userProfile.role_id === 'SystemAdmin' ||
+                    userProfile.role_id === 'QDDP';
+    
+    if (isAdmin) {
+      console.log('✅ Admin incidents - no filters');
+      // No filter
     }
-  };
+    // Billing Staff and Intake Coordinator - See ALL
+    else if (userProfile.role_id === 'BillingStaff' || 
+             userProfile.role_id === 'IntakeCoordinator') {
+      console.log('✅ Billing/Intake incidents - no filters');
+      // No filter
+    }
+    // All DD roles see all DD incidents (DSP, House Manager, MAS Nurse)
+    else if (userProfile.role_id === 'DSP_DD' || 
+             userProfile.role_id === 'HouseManager_DD' || 
+             userProfile.role_id === 'MAS_Nurse') {
+      console.log('🏠 DD incidents - filtering by DD division only');
+      query = query.or('division.eq.DD,division.is.null');
+    }
+    // MI Division staff
+    else if (userProfile.division === 'MI') {
+      if (userProfile.role_id === 'Residential_MI_Staff') {
+        console.log('🧠 Residential MI incidents - no filters');
+        // No filter
+      } else {
+        console.log('🧠 MI incidents - filtering by MI division');
+        query = query.eq('division', 'MI');
+      }
+    }
+    // SUD Division staff
+    else if (userProfile.division === 'SUD') {
+      console.log('💊 SUD incidents - filtering by SUD division');
+      query = query.eq('division', 'SUD');
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.warn('Incidents table not found for stats, will calculate from individuals');
+      // We'll calculate from individuals in fetchIndividuals
+      return;
+    }
+
+    setAllIncidents(data || []);
+    calculateStats(data || []);
+  } catch (error) {
+    console.error('Error fetching all incidents:', error);
+    setAllIncidents([]);
+  }
+};
 
   // Calculate statistics from incidents data
   const calculateStats = (incidentsData) => {
@@ -263,157 +294,237 @@ const addToUpdateHistory = (currentHistory, updateType, updatedFields, userProfi
     });
   };
 
-  const fetchIndividuals = async () => {
-    try {
-      setLoading(true);
-      
-      let query = supabase
-        .from('individuals')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      // Role-based filtering
-      if (userProfile.role_id === 'HouseManager_DD') {
-        // House managers only see individuals in their facility
-        query = query.eq('homeassignment', userProfile.facility);
-      } else if (userProfile.role_id === 'DSP_DD') {
-        // DSPs only see individuals in their assigned home
-        query = query.eq('homeassignment', userProfile.facility);
-      } else if (userProfile.division === 'MI' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-        // MI staff see only their division's individuals
-        query = query.eq('division', 'MI');
-      } else if (userProfile.division === 'SUD' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-        // SUD staff see only their division's individuals
-        query = query.eq('division', 'SUD');
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setIndividuals(data || []);
-      
-      // If allIncidents is empty, calculate from individuals data
-      if (allIncidents.length === 0 && data) {
-        const incidentsFromIndividuals = extractIncidentsFromIndividuals(data);
-        setAllIncidents(incidentsFromIndividuals);
-        calculateStats(incidentsFromIndividuals);
-      }
-    } catch (error) {
-      console.error('Error fetching individuals:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Extract incidents from individuals data
-  const extractIncidentsFromIndividuals = (individualsData) => {
-    let allIncidentsFromIndividuals = [];
+ const fetchIndividuals = async () => {
+  try {
+    setLoading(true);
     
-    individualsData.forEach(individual => {
-      if (individual.incidents && Array.isArray(individual.incidents)) {
-        // Apply role-based filtering to individual incidents
-        let filteredIncidents = individual.incidents;
-        
-        if (userProfile.role_id === 'DSP_DD' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-          filteredIncidents = individual.incidents.filter(incident => 
-            incident.created_by === userProfile.fullname || 
-            incident.facility === userProfile.facility
-          );
-        } else if (userProfile.division === 'MI' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-          filteredIncidents = individual.incidents.filter(incident => incident.division === 'MI');
-        } else if (userProfile.division === 'SUD' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-          filteredIncidents = individual.incidents.filter(incident => incident.division === 'SUD');
-        }
-        
-        filteredIncidents.forEach(incident => {
-          allIncidentsFromIndividuals.push({
-            ...incident,
-            individual_id: individual.id,
-            individual_name: `${individual.firstname} ${individual.lastname}`,
-            individual_identifier: individual.individualid
-          });
-        });
-      }
-    });
+    let query = supabase
+      .from('individuals')
+      .select('*')
+      .order('created_at', { ascending: false});
 
-    return allIncidentsFromIndividuals;
-  };
+    // Apply ONLY division-based filtering (NO facility filtering)
+    const isAdmin = hasPermission(PERMISSIONS.FULL_ACCESS) || 
+                    hasPermission(PERMISSIONS.ADMIN) || 
+                    userProfile.role_id === 'ExecDirector' || 
+                    userProfile.role_id === 'SystemAdmin' ||
+                    userProfile.role_id === 'QDDP';
+    
+    if (isAdmin) {
+      console.log('✅ Admin - no filters');
+      // No filter - see ALL divisions
+    }
+    // Billing Staff and Intake Coordinator - See ALL
+    else if (userProfile.role_id === 'BillingStaff' || 
+             userProfile.role_id === 'IntakeCoordinator') {
+      console.log('✅ Billing/Intake - no filters');
+      // No filter - see ALL divisions
+    }
+    // All DD roles see all DD individuals (DSP, House Manager, MAS Nurse)
+    else if (userProfile.role_id === 'DSP_DD' || 
+             userProfile.role_id === 'HouseManager_DD' || 
+             userProfile.role_id === 'MAS_Nurse') {
+      console.log('🏠 DD Role - filtering by DD division only');
+      query = query.or('division.eq.DD,division.is.null');
+    }
+    // MI Division staff - See all MI
+    else if (userProfile.division === 'MI') {
+      if (userProfile.role_id === 'Residential_MI_Staff') {
+        console.log('🧠 Residential MI - no filters');
+        // No filter
+      } else {
+        console.log('🧠 MI Staff - filtering by MI division');
+        query = query.eq('division', 'MI');
+      }
+    }
+    // SUD Division staff - See all SUD
+    else if (userProfile.division === 'SUD') {
+      console.log('💊 SUD Staff - filtering by SUD division');
+      query = query.eq('division', 'SUD');
+    }
+    // PEER Division - See ALL
+    else if (userProfile.division === 'PEER') {
+      console.log('🤝 PEER Staff - no filters');
+      // No filter
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    setIndividuals(data || []);
+    
+    // If allIncidents is empty, calculate from individuals data
+    if (allIncidents.length === 0 && data) {
+      const incidentsFromIndividuals = extractIncidentsFromIndividuals(data);
+      setAllIncidents(incidentsFromIndividuals);
+      calculateStats(incidentsFromIndividuals);
+    }
+  } catch (error) {
+    console.error('Error fetching individuals:', error);
+  } finally {
+    setLoading(false);
+  }
+};
+
+ const extractIncidentsFromIndividuals = (individualsData) => {
+  let allIncidentsFromIndividuals = [];
+  
+  individualsData.forEach(individual => {
+    if (individual.incidents && Array.isArray(individual.incidents)) {
+      // Apply division-based filtering only (NO facility filtering)
+      let filteredIncidents = individual.incidents;
+      
+      const isAdmin = hasPermission(PERMISSIONS.FULL_ACCESS) || 
+                      hasPermission(PERMISSIONS.ADMIN) || 
+                      userProfile.role_id === 'ExecDirector' || 
+                      userProfile.role_id === 'SystemAdmin' ||
+                      userProfile.role_id === 'QDDP';
+      
+      if (isAdmin || 
+          userProfile.role_id === 'BillingStaff' || 
+          userProfile.role_id === 'IntakeCoordinator') {
+        // No filtering - see all
+      }
+      // DD roles - no facility filter, just division
+      else if (userProfile.role_id === 'DSP_DD' || 
+               userProfile.role_id === 'HouseManager_DD' || 
+               userProfile.role_id === 'MAS_Nurse') {
+        filteredIncidents = individual.incidents.filter(incident => 
+          incident.division === 'DD' || !incident.division
+        );
+      }
+      // MI Division
+      else if (userProfile.division === 'MI' && userProfile.role_id !== 'Residential_MI_Staff') {
+        filteredIncidents = individual.incidents.filter(incident => 
+          incident.division === 'MI'
+        );
+      }
+      // SUD Division
+      else if (userProfile.division === 'SUD') {
+        filteredIncidents = individual.incidents.filter(incident => 
+          incident.division === 'SUD'
+        );
+      }
+      
+      filteredIncidents.forEach(incident => {
+        allIncidentsFromIndividuals.push({
+          ...incident,
+          individual_id: individual.id,
+          individual_name: `${individual.firstname} ${individual.lastname}`,
+          individual_identifier: individual.individualid
+        });
+      });
+    }
+  });
+
+  return allIncidentsFromIndividuals;
+};
 
   // Fetch incidents from incidents table
   const fetchIncidents = async (individualId) => {
-    try {
-      setLoading(true);
-      
-      let query = supabase
-        .from('incidents')
-        .select('*')
-        .eq('individual_id', individualId)
-        .order('created_at', { ascending: false });
+  try {
+    setLoading(true);
+    
+    let query = supabase
+      .from('incidents')
+      .select('*')
+      .eq('individual_id', individualId)
+      .order('created_at', { ascending: false });
 
-      // Role-based incident filtering
-      if (userProfile.role_id === 'DSP_DD' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-        // DSPs can only see incidents they reported or incidents in their facility
-        query = query.or(`created_by.eq.${userProfile.fullname},facility.eq.${userProfile.facility}`);
-      } else if (userProfile.division === 'MI' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-        // MI staff see only MI division incidents
-        query = query.eq('division', 'MI');
-      } else if (userProfile.division === 'SUD' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-        // SUD staff see only SUD division incidents
-        query = query.eq('division', 'SUD');
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.warn('Incidents table not found, falling back to individuals table');
-        // Fallback to individuals table if incidents table doesn't exist
-        await fetchIncidentsFromIndividualsTable(individualId);
-      } else {
-        setIncidents(data || []);
-      }
-    } catch (error) {
-      console.error('Error fetching incidents:', error);
-      setIncidents([]);
-    } finally {
-      setLoading(false);
+    // Apply division-based filtering only (NO facility filtering)
+    const isAdmin = hasPermission(PERMISSIONS.FULL_ACCESS) || 
+                    hasPermission(PERMISSIONS.ADMIN) || 
+                    userProfile.role_id === 'ExecDirector' || 
+                    userProfile.role_id === 'SystemAdmin' ||
+                    userProfile.role_id === 'QDDP';
+    
+    if (isAdmin || 
+        userProfile.role_id === 'BillingStaff' || 
+        userProfile.role_id === 'IntakeCoordinator' ||
+        userProfile.role_id === 'DSP_DD' ||
+        userProfile.role_id === 'HouseManager_DD' ||
+        userProfile.role_id === 'MAS_Nurse') {
+      // No filtering - DD roles see all DD incidents
+      console.log('✅ Viewing all incidents for individual');
     }
-  };
+    // MI Division staff
+    else if (userProfile.division === 'MI' && userProfile.role_id !== 'Residential_MI_Staff') {
+      query = query.eq('division', 'MI');
+    }
+    // SUD Division staff
+    else if (userProfile.division === 'SUD') {
+      query = query.eq('division', 'SUD');
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.warn('Incidents table not found, falling back to individuals table');
+      // Fallback to individuals table if incidents table doesn't exist
+      await fetchIncidentsFromIndividualsTable(individualId);
+    } else {
+      setIncidents(data || []);
+    }
+  } catch (error) {
+    console.error('Error fetching incidents:', error);
+    setIncidents([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Fallback function to fetch incidents from individuals table
   const fetchIncidentsFromIndividualsTable = async (individualId) => {
-    try {
-      const { data, error } = await supabase
-        .from('individuals')
-        .select('incidents')
-        .eq('id', individualId)
-        .single();
+  try {
+    const { data, error } = await supabase
+      .from('individuals')
+      .select('incidents')
+      .eq('id', individualId)
+      .single();
 
-      if (error) throw error;
+    if (error) throw error;
+    
+    if (data && data.incidents) {
+      // Apply division-based filtering only (NO facility filtering)
+      let filteredIncidents = data.incidents;
       
-      if (data && data.incidents) {
-        // Filter incidents based on user permissions
-        let filteredIncidents = data.incidents;
-        
-        if (userProfile.role_id === 'DSP_DD' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-          filteredIncidents = data.incidents.filter(incident => 
-            incident.created_by === userProfile.fullname || 
-            incident.facility === userProfile.facility
-          );
-        } else if (userProfile.division === 'MI' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-          filteredIncidents = data.incidents.filter(incident => incident.division === 'MI');
-        } else if (userProfile.division === 'SUD' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-          filteredIncidents = data.incidents.filter(incident => incident.division === 'SUD');
-        }
-        
-        setIncidents(filteredIncidents);
-      } else {
-        setIncidents([]);
+      const isAdmin = hasPermission(PERMISSIONS.FULL_ACCESS) || 
+                      hasPermission(PERMISSIONS.ADMIN) || 
+                      userProfile.role_id === 'ExecDirector' || 
+                      userProfile.role_id === 'SystemAdmin' ||
+                      userProfile.role_id === 'QDDP';
+      
+      if (isAdmin || 
+          userProfile.role_id === 'BillingStaff' || 
+          userProfile.role_id === 'IntakeCoordinator' ||
+          userProfile.role_id === 'DSP_DD' ||
+          userProfile.role_id === 'HouseManager_DD' ||
+          userProfile.role_id === 'MAS_Nurse') {
+        // No filtering for DD roles
+        console.log('✅ Viewing all incidents from individuals table');
       }
-    } catch (error) {
-      console.error('Error fetching incidents from individuals table:', error);
+      // MI Division
+      else if (userProfile.division === 'MI' && userProfile.role_id !== 'Residential_MI_Staff') {
+        filteredIncidents = data.incidents.filter(incident => 
+          incident.division === 'MI'
+        );
+      }
+      // SUD Division
+      else if (userProfile.division === 'SUD') {
+        filteredIncidents = data.incidents.filter(incident => 
+          incident.division === 'SUD'
+        );
+      }
+      
+      setIncidents(filteredIncidents);
+    } else {
       setIncidents([]);
     }
-  };
+  } catch (error) {
+    console.error('Error fetching incidents from individuals table:', error);
+    setIncidents([]);
+  }
+};
 
   // Handle card click to filter individuals
   const handleCardClick = (cardType) => {
@@ -2166,3 +2277,5 @@ const addToUpdateHistory = (currentHistory, updateType, updatedFields, userProfi
 };
 
 export default IncidentsPage;
+
+

@@ -1,5 +1,7 @@
 // utils/permissions.js
 
+// utils/permissions.js
+
 export const PERMISSIONS = {
   // Dashboard
   DASHBOARD_VIEW: 'dashboard_view',
@@ -10,6 +12,13 @@ export const PERMISSIONS = {
   INDIVIDUALS_VIEW: 'individuals_view',
   INDIVIDUALS_EDIT: 'individuals_edit',
   INDIVIDUALS_ADMIN: 'individuals_admin',
+  
+  // Daily Notes - NEW GRANULAR PERMISSIONS
+  DAILY_NOTES_VIEW: 'daily_notes_view',
+  DAILY_NOTES_CREATE: 'daily_notes_create',
+  DAILY_NOTES_EDIT: 'daily_notes_edit',
+  DAILY_NOTES_DELETE: 'daily_notes_delete',
+  DAILY_NOTES_APPROVE: 'daily_notes_approve',
   
   // Medications
   MEDICATIONS_VIEW: 'medications_view',
@@ -65,24 +74,18 @@ export const PERMISSIONS = {
   ANALYTICS_EDIT: 'analytics_edit',
   ANALYTICS_ADMIN: 'analytics_admin',
   
-  // Legacy permissions (keeping for backward compatibility)
-  DAILY_NOTES_CREATE: 'daily_notes',
-  DAILY_NOTES_APPROVE: 'approve_notes',
-  DAILY_NOTES_VIEW: 'view_notes',
-  PLANS_CREATE: 'plans',
-  PLANS_EDIT: 'edit_plans',
-  PLANS_VIEW: 'view_plans',
-  HCBS_DASHBOARD: 'hcbs_dashboard',
-  
-  // Full Access
-  FULL_ACCESS: 'full_access',
-  ADMIN: 'admin',
-  
   // Discharge
   DISCHARGE_VIEW: 'discharge_view',
   DISCHARGE_EDIT: 'discharge_edit',
-  DISCHARGE_ADMIN: 'discharge_admin'
+  DISCHARGE_ADMIN: 'discharge_admin',
+  
+  // Full Access
+  FULL_ACCESS: 'full_access',
+  ADMIN: 'admin'
 };
+
+// ... rest of permissions.js stays the same
+// ... rest of permissions.js stays the same
 
 // Access Levels
 export const ACCESS_LEVELS = {

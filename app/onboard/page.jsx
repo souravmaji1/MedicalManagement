@@ -116,15 +116,18 @@ const OnboardingFlow = () => {
         'analytics_view'
       ]
     },
-    { 
+ 
+   
+  { 
     id: 'DSP_DD', 
     name: 'Direct Support Professional (DSP)', 
     permissions: [
       'dashboard_view',
-      'individuals_view', 'individuals_edit',
+      'individuals_view', 'individuals_edit',  // Can view ALL individuals
+      'daily_notes_view', 'daily_notes_create', 'daily_notes_edit',  // Can create and edit daily notes
       'medications_view', 'medications_edit', 'mar',
       'incidents_view', 'incidents_edit', 'incidents',
-      'view_plans'  // ADD THIS
+      'view_plans'
     ]
   },
   { 
@@ -132,13 +135,14 @@ const OnboardingFlow = () => {
     name: 'House Manager', 
     permissions: [
       'dashboard_view', 'dashboard_edit',
-      'individuals_view', 'individuals_edit',
+      'individuals_view', 'individuals_edit',  // Can view ALL individuals
+      'daily_notes_view', 'daily_notes_create', 'daily_notes_edit', 'daily_notes_delete',  // Full daily notes access
       'medications_view', 'medications_edit',
       'incidents_view', 'incidents_edit',
       'staff_admin',
       'report_view', 'report_edit',
       'analytics_view',
-      'view_plans'  // ADD THIS
+      'view_plans'
     ]
   },
   { 
@@ -146,12 +150,13 @@ const OnboardingFlow = () => {
     name: 'MAS Nurse', 
     permissions: [
       'dashboard_view', 'dashboard_edit',
-      'individuals_view', 'individuals_edit',
+      'individuals_view', 'individuals_edit',  // Can view ALL individuals
+      'daily_notes_view', 'daily_notes_create', 'daily_notes_edit',  // Full daily notes access
       'medications_admin', 'mar_full', 'approve_mar',
       'incidents_view', 'incidents_edit',
       'report_view', 'report_edit',
       'analytics_view',
-      'view_plans'  // ADD THIS
+      'view_plans'
     ]
   },
   { 
@@ -159,13 +164,46 @@ const OnboardingFlow = () => {
     name: 'Billing Staff', 
     permissions: [
       'dashboard_view',
-      'individuals_view',
+      'individuals_view',  // VIEW ONLY - can see all individuals
+      'daily_notes_view',  // VIEW ONLY - can see all daily notes
       'incidents_view',
       'billing_report_admin',
       'report_admin',
       'billing_admin',
       'analytics_admin',
-      'view_plans'  // ADD THIS
+      'view_plans'
+    ]
+  },
+  { 
+    id: 'IntakeCoordinator', 
+    name: 'Intake Coordinator', 
+    permissions: [
+      'dashboard_view', 'dashboard_edit',
+      'individuals_admin',
+      'daily_notes_view', 'daily_notes_create', 'daily_notes_edit',
+      'incidents_view',
+      'billing_report_view', 'billing_report_edit',
+      'data_privacy_view', 'data_privacy_edit',
+      'report_view', 'report_edit',
+      'billing_view', 'billing_edit',
+      'analytics_view'
+    ]
+  },
+  
+ 
+  { 
+    id: 'IntakeCoordinator', 
+    name: 'Intake Coordinator', 
+    permissions: [
+      'dashboard_view', 'dashboard_edit',
+      'individuals_admin',
+      'daily_notes_view', 'daily_notes_create', 'daily_notes_edit',
+      'incidents_view',
+      'billing_report_view', 'billing_report_edit',
+      'data_privacy_view', 'data_privacy_edit',
+      'report_view', 'report_edit',
+      'billing_view', 'billing_edit',
+      'analytics_view'
     ]
   },
     { 

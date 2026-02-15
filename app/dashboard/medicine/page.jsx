@@ -6,7 +6,7 @@ import {
   Clock, AlertCircle, Calendar, User, Activity, TrendingUp, Download, ArrowLeft,User2Icon,
   ChevronRight, ChevronDown, Loader2, AlertTriangle, FileText, PlusCircle,CreditCard,
   MinusCircle, RotateCcw, History, BarChart3, Settings, Eye,NetworkIcon,
-  Users, FileText as FileTextIcon, Home, MapPin, Brain, Zap, Sparkles, Award,
+  Users, FileText as FileTextIcon, Home, MapPin, Brain, Zap, Sparkles, Award,Lock,
   ChevronLeft, Bell, Menu, Shield, BookOpen, ClipboardCheck, Stethoscope,Trash,
   Thermometer, Heart, BrainCircuit, Activity as ActivityIcon, Pill as PillIcon,
   Droplets, Wind, HeartPulse
@@ -362,6 +362,11 @@ const canApproveMAREntries = hasAnyPermission([
 const plansAccess = getModuleAccess('plans');
 const canViewPlans = plansAccess !== 'none';
 const canManageDocuments = plansAccess === 'edit' || plansAccess === 'admin'; 
+
+
+
+
+
     // PDF Signature States
     const [pdfFile, setPdfFile] = useState(null);
     const [pdfPages, setPdfPages] = useState([]);
@@ -1000,51 +1005,85 @@ const addToUpdateHistory = (currentHistory, updateType, updatedFields, userProfi
     applyFilters();
   }, [individuals, activeFilters, statsFilter]);
 
-  const fetchIndividuals = async () => {
-    try {
-      setLoading(true);
-      
-      let query = supabase
-        .from('individuals')
-        .select('*')
-        .order('created_at', { ascending: false });
+ const fetchIndividuals = async () => {
+  try {
+    setLoading(true);
+    
+    let query = supabase
+      .from('individuals')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-      // Role-based filtering
-      if (userProfile.role_id === 'HouseManager_DD') {
-        query = query.eq('homeassignment', userProfile.facility);
-      } else if (userProfile.role_id === 'DSP_DD') {
-        query = query.eq('homeassignment', userProfile.facility);
-      } else if (userProfile.division === 'MI' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-        query = query.eq('division', 'MI');
-      } else if (userProfile.division === 'SUD' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-        query = query.eq('division', 'SUD');
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      
-      // Parse medications and marhistory from JSON strings
-      const parsedData = (data || []).map(individual => ({
-        ...individual,
-        medications: parseJSONData(individual.medications) || [],
-        marhistory: parseJSONData(individual.marhistory) || []
-      }));
-      
-      setIndividuals(parsedData);
-      
-      // Calculate stats for all individuals
-      const stats = calculateAllStats(parsedData);
-      setMedicationStats(stats);
-      
-      // Apply initial filters
-      applyFiltersWithData(parsedData);
-    } catch (error) {
-      console.error('Error fetching individuals:', error);
-    } finally {
-      setLoading(false);
+    // Apply ONLY division-based filtering (NO facility filtering)
+    const isAdmin = hasPermission(PERMISSIONS.FULL_ACCESS) || 
+                    hasPermission(PERMISSIONS.ADMIN) || 
+                    userProfile.role_id === 'ExecDirector' || 
+                    userProfile.role_id === 'SystemAdmin' ||
+                    userProfile.role_id === 'QDDP';
+    
+    if (isAdmin) {
+      console.log('✅ Admin - no filters');
+      // No filter - see ALL divisions
     }
-  };
+    // Billing Staff and Intake Coordinator - See ALL
+    else if (userProfile.role_id === 'BillingStaff' || 
+             userProfile.role_id === 'IntakeCoordinator') {
+      console.log('✅ Billing/Intake - no filters');
+      // No filter - see ALL divisions
+    }
+    // All DD roles see all DD individuals (DSP, House Manager, MAS Nurse)
+    else if (userProfile.role_id === 'DSP_DD' || 
+             userProfile.role_id === 'HouseManager_DD' || 
+             userProfile.role_id === 'MAS_Nurse') {
+      console.log('🏠 DD Role - filtering by DD division only');
+      query = query.or('division.eq.DD,division.is.null');
+    }
+    // MI Division staff - See all MI
+    else if (userProfile.division === 'MI') {
+      if (userProfile.role_id === 'Residential_MI_Staff') {
+        console.log('🧠 Residential MI - no filters');
+        // No filter
+      } else {
+        console.log('🧠 MI Staff - filtering by MI division');
+        query = query.eq('division', 'MI');
+      }
+    }
+    // SUD Division staff - See all SUD
+    else if (userProfile.division === 'SUD') {
+      console.log('💊 SUD Staff - filtering by SUD division');
+      query = query.eq('division', 'SUD');
+    }
+    // PEER Division - See ALL
+    else if (userProfile.division === 'PEER') {
+      console.log('🤝 PEER Staff - no filters');
+      // No filter
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    
+    // Parse medications and marhistory from JSON strings
+    const parsedData = (data || []).map(individual => ({
+      ...individual,
+      medications: parseJSONData(individual.medications) || [],
+      marhistory: parseJSONData(individual.marhistory) || []
+    }));
+    
+    setIndividuals(parsedData);
+    
+    // Calculate stats for all individuals
+    const stats = calculateAllStats(parsedData);
+    setMedicationStats(stats);
+    
+    // Apply initial filters
+    applyFiltersWithData(parsedData);
+  } catch (error) {
+    console.error('Error fetching individuals:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
 
 const handleWellnessEntry = async (e) => {
@@ -2675,15 +2714,16 @@ const resetWellnessForm = () => {
                             Medication Guide
                           </button>
                           
-                          {canAddMedications && (
-                            <button
-                              onClick={() => setShowAddModal(true)}
-                              className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-2xl hover:shadow-emerald-500/50 transition-all duration-300"
-                            >
-                              <Plus size={18} />
-                              Add Medication
-                            </button>
-                          )}
+                        {/* Add Medication Button - Only for authorized roles */}
+{canAddMedications && userProfile.role_id !== 'DSP_DD' && (
+  <button
+    onClick={() => setShowAddModal(true)}
+    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-emerald-500/50 transition-all"
+  >
+    <Plus size={18} />
+    Add Medication
+  </button>
+)}
                     
 {!canAddMedications && moduleAccess === 'view' && (
   <div className="px-4 py-2 bg-slate-700/50 text-slate-400 rounded-xl text-sm">
@@ -2692,13 +2732,16 @@ const resetWellnessForm = () => {
   </div>
 )}
 
-                           <button
-      onClick={() => setShowWellnessModal(true)}
-      className="flex items-center gap-2 bg-gradient-to-r from-pink-600 to-rose-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-2xl hover:shadow-pink-500/50 transition-all duration-300"
-    >
-      <Plus size={18} />
-      Add Wellness
-    </button>
+                        {/* Add Wellness Button - NOT for DSP */}
+{ userProfile.role_id !== 'DSP_DD' && (
+  <button
+    onClick={() => setShowWellnessModal(true)}
+    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-blue-500/50 transition-all"
+  >
+    <Plus size={18} />
+    Add Wellness Entry
+  </button>
+)}
                         </div>
                       </div>
 

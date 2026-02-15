@@ -32,7 +32,7 @@ import { useUser, UserButton } from '@clerk/nextjs';
 import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '../../../contexts/userProfileContext';
-import { PERMISSIONS } from '../../../utils/permissions';
+import { PERMISSIONS, getModuleAccessLevel, MODULE_PERMISSIONS, ACCESS_LEVELS } from '../../../utils/permissions';
 
 const supabase = createClient(
   'https://bbikcxalypttfgrlxstf.supabase.co',
@@ -222,24 +222,46 @@ const AnalyticsPage = () => {
     goalAchievements: 0
   });
 
-  // Permission checks
-  const canViewReports = hasAnyPermission([
-    PERMISSIONS.REPORTS_VIEW,
-    PERMISSIONS.ADMIN,
-    PERMISSIONS.FULL_ACCESS
-  ]);
+  
 
-  const canExportReports = hasAnyPermission([
-    PERMISSIONS.REPORTS_EXPORT,
-    PERMISSIONS.ADMIN,
-    PERMISSIONS.FULL_ACCESS
-  ]);
 
-  const canAuditReports = hasAnyPermission([
-    PERMISSIONS.REPORTS_AUDIT,
-    PERMISSIONS.ADMIN,
-    PERMISSIONS.FULL_ACCESS
-  ]);
+
+
+
+  // Get module access using the permissions utility
+const getModuleAccess = (moduleName) => {
+  if (!userProfile || !userProfile.permissions) return 'none';
+  
+  const modulePerms = MODULE_PERMISSIONS[moduleName];
+  if (!modulePerms) return 'none';
+  
+  return getModuleAccessLevel(userProfile.permissions, modulePerms);
+};
+
+// Get access level for reports/analytics module
+const reportsAccess = getModuleAccess('reports');
+const analyticsAccess = getModuleAccess('analytics');
+
+// Define permissions based on module access level
+const canViewReports = reportsAccess !== 'none' || analyticsAccess !== 'none';
+
+const canExportReports = reportsAccess === 'edit' || 
+                         reportsAccess === 'admin' || 
+                         analyticsAccess === 'edit' || 
+                         analyticsAccess === 'admin' ||
+                         hasAnyPermission([
+                           PERMISSIONS.REPORTS_EXPORT,
+                           PERMISSIONS.ADMIN,
+                           PERMISSIONS.FULL_ACCESS
+                         ]);
+
+const canAuditReports = reportsAccess === 'admin' || 
+                        analyticsAccess === 'admin' ||
+                        hasAnyPermission([
+                          PERMISSIONS.REPORTS_AUDIT,
+                          PERMISSIONS.ADMIN,
+                          PERMISSIONS.FULL_ACCESS
+                        ]);
 
   // Menu items updated for reports
     const menuItems = [
@@ -851,49 +873,83 @@ const AnalyticsPage = () => {
   };
 
   const fetchIndividuals = async () => {
-    try {
-      setLoading(true);
-      
-      let query = supabase
-        .from('individuals')
-        .select('*')
-        .order('created_at', { ascending: false });
+  try {
+    setLoading(true);
+    
+    let query = supabase
+      .from('individuals')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-      // Role-based filtering
-      if (userProfile.role_id === 'HouseManager_DD') {
-        query = query.eq('homeassignment', userProfile.facility);
-      } else if (userProfile.role_id === 'DSP_DD') {
-        query = query.eq('homeassignment', userProfile.facility);
-      } else if (userProfile.division === 'MI' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-        query = query.eq('division', 'MI');
-      } else if (userProfile.division === 'SUD' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-        query = query.eq('division', 'SUD');
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      
-      // Parse all individuals' data
-      const parsedData = (data || []).map(individual => ({
-        ...individual,
-        medications: parseJSONData(individual.medications) || [],
-        marhistory: parseJSONData(individual.marhistory) || [],
-        dailynotes: parseJSONData(individual.dailynotes) || [],
-        incidents: parseJSONData(individual.incidents) || [],
-        goals: parseJSONData(individual.goals) || [],
-        wellness_data: parseJSONData(individual.wellness_data) || [],
-        outcomes: parseJSONData(individual.outcomes) || [],
-        riskplans: parseJSONData(individual.riskplans) || []
-      }));
-      
-      setIndividuals(parsedData);
-    } catch (error) {
-      console.error('Error fetching individuals:', error);
-    } finally {
-      setLoading(false);
+    // Apply ONLY division-based filtering (NO facility filtering)
+    const isAdmin = hasPermission(PERMISSIONS.FULL_ACCESS) || 
+                    hasPermission(PERMISSIONS.ADMIN) || 
+                    userProfile.role_id === 'ExecDirector' || 
+                    userProfile.role_id === 'SystemAdmin' ||
+                    userProfile.role_id === 'QDDP';
+    
+    if (isAdmin) {
+      console.log('✅ Admin - no filters');
+      // No filter - see ALL divisions
     }
-  };
+    // Billing Staff and Intake Coordinator - See ALL
+    else if (userProfile.role_id === 'BillingStaff' || 
+             userProfile.role_id === 'IntakeCoordinator') {
+      console.log('✅ Billing/Intake - no filters');
+      // No filter - see ALL divisions
+    }
+    // All DD roles see all DD individuals (DSP, House Manager, MAS Nurse)
+    else if (userProfile.role_id === 'DSP_DD' || 
+             userProfile.role_id === 'HouseManager_DD' || 
+             userProfile.role_id === 'MAS_Nurse') {
+      console.log('🏠 DD Role - filtering by DD division only');
+      query = query.or('division.eq.DD,division.is.null');
+    }
+    // MI Division staff - See all MI
+    else if (userProfile.division === 'MI') {
+      if (userProfile.role_id === 'Residential_MI_Staff') {
+        console.log('🧠 Residential MI - no filters');
+        // No filter
+      } else {
+        console.log('🧠 MI Staff - filtering by MI division');
+        query = query.eq('division', 'MI');
+      }
+    }
+    // SUD Division staff - See all SUD
+    else if (userProfile.division === 'SUD') {
+      console.log('💊 SUD Staff - filtering by SUD division');
+      query = query.eq('division', 'SUD');
+    }
+    // PEER Division - See ALL
+    else if (userProfile.division === 'PEER') {
+      console.log('🤝 PEER Staff - no filters');
+      // No filter
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    
+    // Parse all individuals' data
+    const parsedData = (data || []).map(individual => ({
+      ...individual,
+      medications: parseJSONData(individual.medications) || [],
+      marhistory: parseJSONData(individual.marhistory) || [],
+      dailynotes: parseJSONData(individual.dailynotes) || [],
+      incidents: parseJSONData(individual.incidents) || [],
+      goals: parseJSONData(individual.goals) || [],
+      wellness_data: parseJSONData(individual.wellness_data) || [],
+      outcomes: parseJSONData(individual.outcomes) || [],
+      riskplans: parseJSONData(individual.riskplans) || []
+    }));
+    
+    setIndividuals(parsedData);
+  } catch (error) {
+    console.error('Error fetching individuals:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const calculateAnalytics = () => {
     let filteredIndividuals = individuals;

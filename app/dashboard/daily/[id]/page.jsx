@@ -50,83 +50,180 @@ const DailyNotesPage = () => {
   const [entryMode, setEntryMode] = useState('manual');
 
   // Permission checks
-  const canViewDailyNotes = hasAnyPermission([
-    PERMISSIONS.DAILY_NOTES_VIEW,
-    PERMISSIONS.DAILY_NOTES_CREATE,
-    PERMISSIONS.DAILY_NOTES_APPROVE,
-    PERMISSIONS.FULL_ACCESS
-  ]);
+  
 
-  const canCreateDailyNotes = hasAnyPermission([
-    PERMISSIONS.DAILY_NOTES_CREATE,
-    PERMISSIONS.DAILY_NOTES_APPROVE,
-    PERMISSIONS.FULL_ACCESS
-  ]);
 
-  const canEditDailyNotes = hasAnyPermission([
-    PERMISSIONS.DAILY_NOTES_APPROVE,
-    PERMISSIONS.FULL_ACCESS
-  ]);
 
-  const canDeleteDailyNotes = hasAnyPermission([
-    PERMISSIONS.DAILY_NOTES_APPROVE,
-    PERMISSIONS.ADMIN,
-    PERMISSIONS.FULL_ACCESS
-  ]);
+  // Permission checks - UPDATED TO MATCH PDF REQUIREMENTS
+const canViewDailyNotes = hasAnyPermission([
+  PERMISSIONS.DAILY_NOTES_VIEW,
+  PERMISSIONS.DAILY_NOTES_CREATE,
+  PERMISSIONS.DAILY_NOTES_EDIT,
+  PERMISSIONS.DAILY_NOTES_APPROVE,
+  PERMISSIONS.INDIVIDUALS_VIEW,  // Anyone who can view individuals can view daily notes
+  PERMISSIONS.FULL_ACCESS
+]);
 
-  const canApproveDailyNotes = hasAnyPermission([
-    PERMISSIONS.DAILY_NOTES_APPROVE,
-    PERMISSIONS.FULL_ACCESS
-  ]);
+const canCreateDailyNotes = hasAnyPermission([
+  PERMISSIONS.DAILY_NOTES_CREATE,
+  PERMISSIONS.DAILY_NOTES_EDIT,
+  PERMISSIONS.DAILY_NOTES_APPROVE,
+  PERMISSIONS.FULL_ACCESS
+]);
 
-  const addToUpdateHistory = (currentHistory, updateType, updatedFields, userProfile, additionalInfo = {}) => {
-    const historyEntry = {
-      timestamp: new Date().toISOString(),
-      updated_by: userProfile.fullname,
-      updated_by_role: userProfile.role_name,
-      user_id: user.id,
-      update_type: updateType,
-      changes: updatedFields,
-      ...additionalInfo
-    };
+const canEditDailyNotes = hasAnyPermission([
+  PERMISSIONS.DAILY_NOTES_EDIT,
+  PERMISSIONS.DAILY_NOTES_APPROVE,
+  PERMISSIONS.FULL_ACCESS
+]);
 
-    const history = Array.isArray(currentHistory) ? currentHistory : [];
-    return [historyEntry, ...history];
-  };
+const canDeleteDailyNotes = hasAnyPermission([
+  PERMISSIONS.DAILY_NOTES_DELETE,
+  PERMISSIONS.DAILY_NOTES_APPROVE,
+  PERMISSIONS.ADMIN,
+  PERMISSIONS.FULL_ACCESS
+]);
 
-  const canAccessIndividual = () => {
-    if (!userProfile || !individual) return false;
-    if (hasPermission(PERMISSIONS.FULL_ACCESS)) return true;
-    if (userProfile.role_id === 'HouseManager_DD') {
-      return individual.homeassignment === userProfile.facility;
-    }
-    if (userProfile.role_id === 'DSP_DD') {
-      return individual.homeassignment === userProfile.facility;
-    }
-    if (userProfile.division === 'MI' && userProfile.role_id !== 'Residential_MI_Staff') {
-      return individual.division === 'MI';
-    }
-    if (userProfile.division === 'SUD') {
-      return individual.division === 'SUD';
-    }
-    if (userProfile.role_id === 'Residential_MI_Staff') {
-      return true;
-    }
+const canApproveDailyNotes = hasAnyPermission([
+  PERMISSIONS.DAILY_NOTES_APPROVE,
+  PERMISSIONS.FULL_ACCESS
+]);
+
+useEffect(() => {
+  if (userProfile) {
+    console.log('🔍 DEBUG USER PROFILE:', {
+      role_id: userProfile.role_id,
+      role_name: userProfile.role_name,
+      facility: userProfile.facility,
+      division: userProfile.division,
+      permissions: userProfile.permissions
+    });
+  }
+}, [userProfile]);
+
+useEffect(() => {
+  if (individual) {
+    console.log('🏠 DEBUG INDIVIDUAL:', {
+      id: individual.id,
+      name: `${individual.firstname} ${individual.lastname}`,
+      homeassignment: individual.homeassignment,
+      division: individual.division
+    });
+  }
+}, [individual]);
+
+const canUserEditNote = (note) => {
+  if (!note || !userProfile) return false;
+  
+  // Full access roles can edit anything
+  if (hasPermission(PERMISSIONS.FULL_ACCESS)) return true;
+  if (hasPermission(PERMISSIONS.ADMIN)) return true;
+  if (userProfile.role_id === 'ExecDirector') return true;
+  if (userProfile.role_id === 'SystemAdmin') return true;
+  if (userProfile.role_id === 'QDDP') return true;
+  
+  // Billing Staff - VIEW ONLY (cannot edit)
+  if (userProfile.role_id === 'BillingStaff') {
+    console.log('❌ Billing Staff - view only, cannot edit');
     return false;
-  };
-
-  const canUserEditNote = (note) => {
-    if (!note || !userProfile) return false;
-    if (hasPermission(PERMISSIONS.FULL_ACCESS)) return true;
-    if (hasPermission(PERMISSIONS.DAILY_NOTES_APPROVE)) return true;
+  }
+  
+  // House Manager - Can edit all DD notes
+  if (userProfile.role_id === 'HouseManager_DD') {
+    console.log('✅ House Manager - can edit all DD notes');
+    return true;
+  }
+  
+  // MAS Nurse - Can edit all DD notes
+  if (userProfile.role_id === 'MAS_Nurse') {
+    console.log('✅ MAS Nurse - can edit all DD notes');
+    return true;
+  }
+  
+  // DSP - Can ONLY edit their own notes within 24 hours
+  if (userProfile.role_id === 'DSP_DD') {
     if (note.created_by === userProfile.fullname) {
       const noteDate = new Date(note.timestamp);
       const now = new Date();
       const hoursDiff = (now - noteDate) / (1000 * 60 * 60);
-      return hoursDiff <= 24;
+      const canEdit = hoursDiff <= 24;
+      console.log(`DSP edit check: own note=${note.created_by === userProfile.fullname}, hours=${hoursDiff.toFixed(1)}, canEdit=${canEdit}`);
+      return canEdit;
     }
+    console.log('❌ DSP - can only edit own notes within 24 hours');
     return false;
-  };
+  }
+  
+  // Intake Coordinator - Can edit
+  if (userProfile.role_id === 'IntakeCoordinator') {
+    return true;
+  }
+  
+  return false;
+};
+
+const canAccessIndividual = () => {
+  if (!userProfile || !individual) {
+    console.log('❌ No userProfile or individual');
+    return false;
+  }
+  
+  console.log('🔐 Checking access for:', userProfile.role_id);
+  
+  // LEVEL 1: Super Admin Access - See EVERYTHING
+  if (hasPermission(PERMISSIONS.FULL_ACCESS) || 
+      hasPermission(PERMISSIONS.ADMIN) || 
+      userProfile.role_id === 'ExecDirector' || 
+      userProfile.role_id === 'SystemAdmin' ||
+      userProfile.role_id === 'QDDP') {
+    console.log('✅ Admin/Exec access granted');
+    return true;
+  }
+  
+  // LEVEL 2: Cross-Program Access - See ALL
+  if (userProfile.role_id === 'BillingStaff' || 
+      userProfile.role_id === 'IntakeCoordinator') {
+    console.log('✅ Billing/Intake access granted');
+    return true;
+  }
+  
+  // LEVEL 3: DD Division Roles - See ALL DD individuals (NO facility restriction)
+  if (userProfile.role_id === 'HouseManager_DD' || 
+      userProfile.role_id === 'DSP_DD' || 
+      userProfile.role_id === 'MAS_Nurse') {
+    const hasAccess = individual.division === 'DD' || !individual.division;
+    console.log(`🏠 DD Role check: division=${individual.division}, access=${hasAccess}`);
+    return hasAccess;
+  }
+  
+  // LEVEL 4: MI Division - See all MI individuals
+  if (userProfile.division === 'MI') {
+    if (userProfile.role_id === 'Residential_MI_Staff') {
+      console.log('✅ Residential MI Staff - full access');
+      return true;
+    }
+    const hasAccess = individual.division === 'MI';
+    console.log(`🧠 MI staff check: ${individual.division} === MI = ${hasAccess}`);
+    return hasAccess;
+  }
+  
+  // LEVEL 5: SUD Division - See all SUD individuals
+  if (userProfile.division === 'SUD') {
+    const hasAccess = individual.division === 'SUD';
+    console.log(`💊 SUD staff check: ${individual.division} === SUD = ${hasAccess}`);
+    return hasAccess;
+  }
+  
+  // LEVEL 6: PEER Division - See ALL
+  if (userProfile.division === 'PEER') {
+    console.log('✅ PEER staff - full access');
+    return true;
+  }
+  
+  console.log('❌ No access rules matched');
+  return false;
+};
+
 
   const defaultNoteForm = {
     date: new Date().toISOString().split('T')[0],
@@ -599,70 +696,137 @@ Generate ONLY the note content in the exact format above. Do not include explana
     }
   }, [isLoaded, user, individualId, profileLoading]);
 
-  const fetchIndividual = async () => {
-    try {
-      setLoading(true);
-      let query = supabase
-        .from('individuals')
-        .select('*')
-        .eq('id', individualId);
+const fetchIndividual = async () => {
+  try {
+    setLoading(true);
+    
+    console.log('📡 Fetching individual:', individualId);
+    console.log('👤 User role:', userProfile?.role_id);
+    console.log('📍 User division:', userProfile?.division);
+    
+    // Start with base query - NO FACILITY FILTERING
+    let query = supabase
+      .from('individuals')
+      .select('*')
+      .eq('id', individualId);
 
-      if (userProfile.role_id === 'HouseManager_DD') {
-        query = query.eq('homeassignment', userProfile.facility);
-      } else if (userProfile.role_id === 'DSP_DD') {
-        query = query.eq('homeassignment', userProfile.facility);
-      } else if (userProfile.division === 'MI' && !hasPermission(PERMISSIONS.FULL_ACCESS) && userProfile.role_id !== 'Residential_MI_Staff') {
+    // Apply ONLY division-based filtering (not facility)
+    const isAdmin = hasPermission(PERMISSIONS.FULL_ACCESS) || 
+                    hasPermission(PERMISSIONS.ADMIN) || 
+                    userProfile.role_id === 'ExecDirector' || 
+                    userProfile.role_id === 'SystemAdmin' ||
+                    userProfile.role_id === 'QDDP';
+    
+    if (isAdmin) {
+      console.log('✅ Admin access - no filters');
+      // No filters for admin - see ALL divisions
+    }
+    // Billing Staff and Intake Coordinator - See ALL
+    else if (userProfile.role_id === 'BillingStaff' || 
+             userProfile.role_id === 'IntakeCoordinator') {
+      console.log('✅ Billing/Intake access - no filters');
+      // No filters - see ALL divisions
+    }
+    // DSP - See all DD individuals (NO facility filter)
+    else if (userProfile.role_id === 'DSP_DD') {
+      console.log('👷 DSP - filtering by DD division only');
+      query = query.or('division.eq.DD,division.is.null');
+    }
+    // House Manager - See all DD individuals (NO facility filter)
+    else if (userProfile.role_id === 'HouseManager_DD') {
+      console.log('🏠 House Manager - filtering by DD division only');
+      query = query.or('division.eq.DD,division.is.null');
+    }
+    // MAS Nurse - See all DD individuals
+    else if (userProfile.role_id === 'MAS_Nurse') {
+      console.log('💊 MAS Nurse - filtering by DD division only');
+      query = query.or('division.eq.DD,division.is.null');
+    }
+    // MI Division staff - See all MI individuals
+    else if (userProfile.division === 'MI') {
+      if (userProfile.role_id === 'Residential_MI_Staff') {
+        console.log('🧠 Residential MI Staff - no filters');
+        // No filter
+      } else {
+        console.log('🧠 MI Staff - filtering by MI division');
         query = query.eq('division', 'MI');
-      } else if (userProfile.division === 'SUD' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-        query = query.eq('division', 'SUD');
       }
-
-      const { data, error } = await query.single();
-
-      if (error) throw error;
-      setIndividual(data);
-    } catch (error) {
-      console.error('Error fetching individual:', error);
-      setIndividual(null);
-    } finally {
-      setLoading(false);
     }
-  };
-
-  const fetchDailyNotes = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('individuals')
-        .select('dailynotes')
-        .eq('id', individualId)
-        .single();
-
-      if (error) throw error;
-      
-      let notes = data?.dailynotes || [];
-      
-      if (!hasPermission(PERMISSIONS.FULL_ACCESS)) {
-        if (userProfile.role_id === 'DSP_DD') {
-          notes = notes.filter(note => 
-            note.created_by === userProfile.fullname || 
-            note.facility === userProfile.facility
-          );
-        } else if (userProfile.division === 'MI' && userProfile.role_id !== 'Residential_MI_Staff') {
-          notes = notes.filter(note => note.division === 'MI');
-        } else if (userProfile.division === 'SUD') {
-          notes = notes.filter(note => note.division === 'SUD');
-        }
-      }
-      
-      setDailyNotes(notes);
-    } catch (error) {
-      console.error('Error fetching daily notes:', error);
-      setDailyNotes([]);
-    } finally {
-      setLoading(false);
+    // SUD Division staff - See all SUD individuals
+    else if (userProfile.division === 'SUD') {
+      console.log('💊 SUD Staff - filtering by SUD division');
+      query = query.eq('division', 'SUD');
     }
-  };
+    // PEER Division staff - See ALL
+    else if (userProfile.division === 'PEER') {
+      console.log('🤝 PEER Staff - no filters');
+      // No filter - see all divisions
+    }
+
+    const { data, error } = await query.single();
+
+    if (error) throw error;
+    
+    console.log('✅ Individual fetched:', data?.firstname, data?.lastname);
+    console.log('🏠 Individual homeassignment:', data?.homeassignment);
+    console.log('📍 Individual division:', data?.division);
+    
+    setIndividual(data);
+  } catch (error) {
+    console.error('❌ Error fetching individual:', error);
+    setIndividual(null);
+  } finally {
+    setLoading(false);
+  }
+};
+
+ const fetchDailyNotes = async () => {
+  try {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('individuals')
+      .select('dailynotes')
+      .eq('id', individualId)
+      .single();
+
+    if (error) throw error;
+    
+    let notes = data?.dailynotes || [];
+    
+    // NO FILTERING by facility - all DD staff see all DD notes
+    // Only filter for non-DD divisions
+    const isAdmin = hasPermission(PERMISSIONS.FULL_ACCESS) || 
+                    hasPermission(PERMISSIONS.ADMIN) || 
+                    userProfile.role_id === 'ExecDirector' || 
+                    userProfile.role_id === 'SystemAdmin' ||
+                    userProfile.role_id === 'QDDP';
+    
+    if (isAdmin || 
+        userProfile.role_id === 'BillingStaff' || 
+        userProfile.role_id === 'IntakeCoordinator' ||
+        userProfile.role_id === 'DSP_DD' ||
+        userProfile.role_id === 'HouseManager_DD' ||
+        userProfile.role_id === 'MAS_Nurse') {
+      // See ALL notes - no filtering
+      console.log('✅ Viewing all notes - no filtering');
+    }
+    // MI Division staff - filter by MI
+    else if (userProfile.division === 'MI' && userProfile.role_id !== 'Residential_MI_Staff') {
+      notes = notes.filter(note => note.division === 'MI');
+    }
+    // SUD Division staff - filter by SUD
+    else if (userProfile.division === 'SUD') {
+      notes = notes.filter(note => note.division === 'SUD');
+    }
+    
+    setDailyNotes(notes);
+  } catch (error) {
+    console.error('Error fetching daily notes:', error);
+    setDailyNotes([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleEditNote = (note) => {
     if (!canUserEditNote(note)) {
