@@ -14,7 +14,9 @@ import { useUser, UserButton } from '@clerk/nextjs';
 import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '../../../contexts/userProfileContext';
-import { PERMISSIONS } from '../../../utils/permissions';
+// Import the module access utilities at the top
+import { PERMISSIONS, getModuleAccessLevel, MODULE_PERMISSIONS, ACCESS_LEVELS } from '../../../utils/permissions';
+
 
 const supabase = createClient(
   'https://bbikcxalypttfgrlxstf.supabase.co',
@@ -56,11 +58,30 @@ const ForesightEnginePage = () => {
     { id: 'analytics', icon: TrendingUp, label: 'Analytics', badge: null }
   ];
 
-  const canViewEngine = hasAnyPermission([
-    PERMISSIONS.REPORTS_VIEW,
-    PERMISSIONS.ADMIN,
-    PERMISSIONS.FULL_ACCESS
-  ]);
+ 
+// Get module access level
+const getModuleAccess = (moduleName) => {
+  if (!userProfile || !userProfile.permissions) return ACCESS_LEVELS.NONE;
+  
+  const modulePerms = MODULE_PERMISSIONS[moduleName];
+  if (!modulePerms) return ACCESS_LEVELS.NONE;
+  
+  return getModuleAccessLevel(userProfile.permissions, modulePerms);
+};
+
+// Check access to Foresight Engine (uses analytics/reports permissions)
+const analyticsAccess = getModuleAccess('analytics');
+const reportsAccess = getModuleAccess('reports');
+
+// Can view if they have any analytics or reports permissions
+const canViewEngine = analyticsAccess !== 'none' || 
+                      reportsAccess !== 'none' ||
+                      hasAnyPermission([
+                        PERMISSIONS.ANALYTICS_VIEW,
+                        PERMISSIONS.REPORTS_VIEW,
+                        PERMISSIONS.ADMIN,
+                        PERMISSIONS.FULL_ACCESS
+                      ]);
 
   useEffect(() => {
     if (isLoaded && user && !profileLoading && userProfile) {
@@ -73,54 +94,89 @@ const ForesightEnginePage = () => {
   }, [isLoaded, user, profileLoading, userProfile]);
 
   const fetchIndividuals = async () => {
-    try {
-      setLoading(true);
-      
-      let query = supabase
-        .from('individuals')
-        .select('*')
-        .order('created_at', { ascending: false });
+  try {
+    setLoading(true);
+    
+    let query = supabase
+      .from('individuals')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-      if (userProfile.role_id === 'HouseManager_DD') {
-        query = query.eq('homeassignment', userProfile.facility);
-      } else if (userProfile.role_id === 'DSP_DD') {
-        query = query.eq('homeassignment', userProfile.facility);
-      } else if (userProfile.division === 'MI' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-        query = query.eq('division', 'MI');
-      } else if (userProfile.division === 'SUD' && !hasPermission(PERMISSIONS.FULL_ACCESS)) {
-        query = query.eq('division', 'SUD');
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      
-      const parsedData = (data || []).map(individual => ({
-        ...individual,
-        medications: parseJSONData(individual.medications) || [],
-        dailynotes: parseJSONData(individual.dailynotes) || [],
-        incidents: parseJSONData(individual.incidents) || [],
-        goals: parseJSONData(individual.goals) || [],
-        wellness_data: parseJSONData(individual.wellness_data) || [],
-        hcbs_data: parseJSONData(individual.hcbs_data) || {},
-        marhistory: parseJSONData(individual.marhistory) || [],
-        outcomes: parseJSONData(individual.outcomes) || [],
-        riskplans: parseJSONData(individual.riskplans) || [],
-        medicalalerts: parseJSONData(individual.medicalalerts) || [],
-        behavioralalerts: parseJSONData(individual.behavioralalerts) || [],
-        assigned_staff: parseJSONData(individual.assigned_staff) || [],
-        complaints: parseJSONData(individual.complaints) || [],
-        corrective_action_plans: parseJSONData(individual.corrective_action_plans) || [],
-        quarterly_reviews: parseJSONData(individual.quarterly_reviews) || []
-      }));
-      
-      setIndividuals(parsedData);
-    } catch (error) {
-      console.error('Error fetching individuals:', error);
-    } finally {
-      setLoading(false);
+    // Apply ONLY division-based filtering (NO facility filtering)
+    const isAdmin = hasPermission(PERMISSIONS.FULL_ACCESS) || 
+                    hasPermission(PERMISSIONS.ADMIN) || 
+                    userProfile.role_id === 'ExecDirector' || 
+                    userProfile.role_id === 'SystemAdmin' ||
+                    userProfile.role_id === 'QDDP';
+    
+    if (isAdmin) {
+      console.log('✅ Admin - no filters');
+      // No filter - see ALL divisions
     }
-  };
+    // Billing Staff and Intake Coordinator - See ALL
+    else if (userProfile.role_id === 'BillingStaff' || 
+             userProfile.role_id === 'IntakeCoordinator') {
+      console.log('✅ Billing/Intake - no filters');
+      // No filter - see ALL divisions
+    }
+    // All DD roles see all DD individuals (DSP, House Manager, MAS Nurse)
+    else if (userProfile.role_id === 'DSP_DD' || 
+             userProfile.role_id === 'HouseManager_DD' || 
+             userProfile.role_id === 'MAS_Nurse') {
+      console.log('🏠 DD Role - filtering by DD division only');
+      query = query.or('division.eq.DD,division.is.null');
+    }
+    // MI Division staff - See all MI
+    else if (userProfile.division === 'MI') {
+      if (userProfile.role_id === 'Residential_MI_Staff') {
+        console.log('🧠 Residential MI - no filters');
+        // No filter
+      } else {
+        console.log('🧠 MI Staff - filtering by MI division');
+        query = query.eq('division', 'MI');
+      }
+    }
+    // SUD Division staff - See all SUD
+    else if (userProfile.division === 'SUD') {
+      console.log('💊 SUD Staff - filtering by SUD division');
+      query = query.eq('division', 'SUD');
+    }
+    // PEER Division - See ALL
+    else if (userProfile.division === 'PEER') {
+      console.log('🤝 PEER Staff - no filters');
+      // No filter
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    
+    const parsedData = (data || []).map(individual => ({
+      ...individual,
+      medications: parseJSONData(individual.medications) || [],
+      dailynotes: parseJSONData(individual.dailynotes) || [],
+      incidents: parseJSONData(individual.incidents) || [],
+      goals: parseJSONData(individual.goals) || [],
+      wellness_data: parseJSONData(individual.wellness_data) || [],
+      hcbs_data: parseJSONData(individual.hcbs_data) || {},
+      marhistory: parseJSONData(individual.marhistory) || [],
+      outcomes: parseJSONData(individual.outcomes) || [],
+      riskplans: parseJSONData(individual.riskplans) || [],
+      medicalalerts: parseJSONData(individual.medicalalerts) || [],
+      behavioralalerts: parseJSONData(individual.behavioralalerts) || [],
+      assigned_staff: parseJSONData(individual.assigned_staff) || [],
+      complaints: parseJSONData(individual.complaints) || [],
+      corrective_action_plans: parseJSONData(individual.corrective_action_plans) || [],
+      quarterly_reviews: parseJSONData(individual.quarterly_reviews) || []
+    }));
+    
+    setIndividuals(parsedData);
+  } catch (error) {
+    console.error('Error fetching individuals:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const parseJSONData = (data) => {
     if (!data) return null;
@@ -874,7 +930,7 @@ Provide evidence-based, actionable insights that help leadership make strategic 
   if (!profileLoading && !canViewEngine) {
     return (
       <div className="h-screen flex flex-col bg-slate-950 text-white">
-        <NavBar />
+    
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center max-w-md">
             <Shield className="w-20 h-20 text-red-500 mx-auto mb-6" />
