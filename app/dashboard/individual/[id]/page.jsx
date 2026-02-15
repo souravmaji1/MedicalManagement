@@ -76,29 +76,39 @@ const IndividualProfilePage = () => {
   
 
 
-  
-  const getModuleAccess = (moduleName) => {
-    if (!userProfile || !userProfile.permissions) return ACCESS_LEVELS.NONE;
-    
-    const modulePerms = MODULE_PERMISSIONS[moduleName];
-    if (!modulePerms) return ACCESS_LEVELS.NONE;
-    
-    return getModuleAccessLevel(userProfile.permissions, modulePerms);
-  };
+
 
  // Replace the existing permission checks section with:
+
+
+
+
+
+const getModuleAccess = (moduleName) => {
+  if (!userProfile || !userProfile.permissions) return ACCESS_LEVELS.NONE;
+  
+  const modulePerms = MODULE_PERMISSIONS[moduleName];
+  if (!modulePerms) return ACCESS_LEVELS.NONE;
+  
+  return getModuleAccessLevel(userProfile.permissions, modulePerms);
+};
+
+// Get module access level
 const moduleAccess = getModuleAccess('individuals');
 
 const canViewProfile = moduleAccess !== 'none';
 const canEditBasicInfo = moduleAccess === 'edit' || moduleAccess === 'admin';
 const canAdminIndividuals = moduleAccess === 'admin';
-const canManageAlerts = canAdminIndividuals;
-const canManageRisks = canAdminIndividuals;
-const canViewPlans = canAdminIndividuals;
-const canEditPlans = canAdminIndividuals; // Anyone who can view can export
 
-// For status updates - requires edit or admin
-const canManageDocuments = canEditBasicInfo;
+// Tab-level permissions - more granular control
+const canViewPlans = canViewProfile; // Anyone who can view individuals can see plans
+const canEditPlans = canEditBasicInfo; // Edit or admin can modify plans
+const canManageAlerts = canEditBasicInfo; // Edit or admin can manage alerts
+const canManageRisks = canEditBasicInfo; // Edit or admin can manage risks
+const canManageDocuments = canEditBasicInfo; // Edit or admin can manage documents
+
+// Billing Staff gets special read-only access
+//const isReadOnly = userProfile.role_id === 'BillingStaff';
 
   // Form state - matches all fields from the add modal
   const [formData, setFormData] = useState({
@@ -290,42 +300,101 @@ const addToUpdateHistory = (currentHistory, updateType, updatedFields, userProfi
   return [historyEntry, ...history];
 };
 
-  const fetchIndividual = async () => {
-    try {
-      setLoading(true);
-      
-      let query = supabase
-        .from('individuals')
-        .select('*')
-        .eq('id', individualId);
-
+const fetchIndividual = async () => {
+  try {
+    setLoading(true);
     
+    let query = supabase
+      .from('individuals')
+      .select('*')
+      .eq('id', individualId);
 
-      const { data, error } = await query.single();
-
-      if (error) throw error;
-      
-      if (data) {
-        setIndividual(data);
-        setFormData({
-          ...data,
-          outcomes: data.outcomes || [],
-          goals: data.goals || [],
-          riskplans: data.riskplans || [],
-          medicalalerts: data.medicalalerts || [],
-          behavioralalerts: data.behavioralalerts || [],
-          rightsrestrictions: data.rightsrestrictions || [],
-          hcbsdomains: data.hcbsdomains || []
-        });
+    // Apply ONLY division-based filtering (NO facility filtering)
+    const isAdmin = hasPermission(PERMISSIONS.FULL_ACCESS) || 
+                    hasPermission(PERMISSIONS.ADMIN) || 
+                    userProfile.role_id === 'ExecDirector' || 
+                    userProfile.role_id === 'SystemAdmin' ||
+                    userProfile.role_id === 'QDDP';
+    
+    if (!isAdmin) {
+      // Billing Staff and Intake Coordinator - See ALL
+      if (userProfile.role_id === 'BillingStaff' || 
+          userProfile.role_id === 'IntakeCoordinator') {
+        console.log('✅ Billing/Intake - no filters');
+        // No additional filter
       }
-    } catch (error) {
-      console.error('Error fetching individual:', error);
-      alert('Error loading individual data or you do not have permission to view this individual.');
-      router.push('/individuals');
-    } finally {
-      setLoading(false);
+      // All DD roles see all DD individuals (DSP, House Manager, MAS Nurse)
+      else if (userProfile.role_id === 'DSP_DD' || 
+               userProfile.role_id === 'HouseManager_DD' || 
+               userProfile.role_id === 'MAS_Nurse') {
+        console.log('🏠 DD Role - checking DD division');
+        // They can only view if individual is in DD division
+        // This will be checked after fetch
+      }
+      // MI Division staff
+      else if (userProfile.division === 'MI') {
+        console.log('🧠 MI Staff - checking MI division');
+        // They can only view if individual is in MI division
+      }
+      // SUD Division staff
+      else if (userProfile.division === 'SUD') {
+        console.log('💊 SUD Staff - checking SUD division');
+        // They can only view if individual is in SUD division
+      }
     }
-  };
+
+    const { data, error } = await query.single();
+
+    if (error) throw error;
+    
+    if (data) {
+      // Check division access for non-admin users
+      if (!isAdmin && 
+          userProfile.role_id !== 'BillingStaff' && 
+          userProfile.role_id !== 'IntakeCoordinator') {
+        
+        // DD staff can only view DD individuals
+        if ((userProfile.role_id === 'DSP_DD' || 
+             userProfile.role_id === 'HouseManager_DD' || 
+             userProfile.role_id === 'MAS_Nurse') && 
+            data.division !== 'DD' && 
+            data.division !== null) {
+          throw new Error('Access denied - Individual not in your division');
+        }
+        
+        // MI staff can only view MI individuals
+        if (userProfile.division === 'MI' && 
+            data.division !== 'MI') {
+          throw new Error('Access denied - Individual not in your division');
+        }
+        
+        // SUD staff can only view SUD individuals
+        if (userProfile.division === 'SUD' && 
+            data.division !== 'SUD') {
+          throw new Error('Access denied - Individual not in your division');
+        }
+      }
+      
+      setIndividual(data);
+      setFormData({
+        ...data,
+        outcomes: data.outcomes || [],
+        goals: data.goals || [],
+        riskplans: data.riskplans || [],
+        medicalalerts: data.medicalalerts || [],
+        behavioralalerts: data.behavioralalerts || [],
+        rightsrestrictions: data.rightsrestrictions || [],
+        hcbsdomains: data.hcbsdomains || []
+      });
+    }
+  } catch (error) {
+    console.error('Error fetching individual:', error);
+    alert('Error loading individual data or you do not have permission to view this individual.');
+    router.push('/individual');
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Fetch Community Activities
 
@@ -1406,20 +1475,55 @@ const deleteChoiceAcknowledgment = async (acknowledgmentId) => {
   }
 
 const tabs = [
-  { id: 'overview', label: 'Overview', icon: User, permission: canViewProfile },
-  { id: 'isp', label: 'Individual Support Plan', icon: FileText, permission: canViewPlans },
-  { id: 'person-centered-plan', label: 'Person-Centered Plan', icon: FileText, permission: canViewPlans },
-  { id: 'goals', label: 'Goals & Outcomes', icon: Target, permission: canViewPlans },
-  
-  // ADD THIS NEW TAB:
-  { id: 'community-activities', label: 'Community Integration', icon: MapPin, permission: canViewPlans },
-  
-  { id: 'rights-agreements', label: 'Rights & Agreements', icon: FileText, permission: canViewPlans },
-  { id: 'risks', label: 'Risk Management', icon: Shield, permission: canManageRisks || canViewPlans },
-  { id: 'alerts', label: 'Alerts & Restrictions', icon: AlertTriangle, permission: canManageAlerts || canViewPlans }
+  { 
+    id: 'overview', 
+    label: 'Overview', 
+    icon: User, 
+    permission: canViewProfile 
+  },
+  { 
+    id: 'isp', 
+    label: 'Individual Support Plan', 
+    icon: FileText, 
+    permission: canViewProfile // Changed from canViewPlans
+  },
+  { 
+    id: 'person-centered-plan', 
+    label: 'Person-Centered Plan', 
+    icon: FileText, 
+    permission: canViewProfile // Changed from canViewPlans
+  },
+  { 
+    id: 'goals', 
+    label: 'Goals & Outcomes', 
+    icon: Target, 
+    permission: canViewProfile // Changed from canViewPlans
+  },
+  { 
+    id: 'community-activities', 
+    label: 'Community Integration', 
+    icon: MapPin, 
+    permission: canViewProfile // Changed from canViewPlans
+  },
+  { 
+    id: 'rights-agreements', 
+    label: 'Rights & Agreements', 
+    icon: FileText, 
+    permission: canViewProfile // Changed from canViewPlans
+  },
+  { 
+    id: 'risks', 
+    label: 'Risk Management', 
+    icon: Shield, 
+    permission: canViewProfile // Changed - anyone can view
+  },
+  { 
+    id: 'alerts', 
+    label: 'Alerts & Restrictions', 
+    icon: AlertTriangle, 
+    permission: canViewProfile // Changed - anyone can view
+  }
 ].filter(tab => tab.permission);
-
-
 
   return (
    <div className=" bg-slate-950 p-6  max-h-[600px] overflow-y-auto ">
