@@ -115,49 +115,11 @@ useEffect(() => {
 const canUserEditNote = (note) => {
   if (!note || !userProfile) return false;
   
-  // Full access roles can edit anything
   if (hasPermission(PERMISSIONS.FULL_ACCESS)) return true;
   if (hasPermission(PERMISSIONS.ADMIN)) return true;
-  if (userProfile.role_id === 'ExecDirector') return true;
-  if (userProfile.role_id === 'SystemAdmin') return true;
-  if (userProfile.role_id === 'QDDP') return true;
-  
-  // Billing Staff - VIEW ONLY (cannot edit)
-  if (userProfile.role_id === 'BillingStaff') {
-    console.log('❌ Billing Staff - view only, cannot edit');
-    return false;
-  }
-  
-  // House Manager - Can edit all DD notes
-  if (userProfile.role_id === 'HouseManager_DD') {
-    console.log('✅ House Manager - can edit all DD notes');
-    return true;
-  }
-  
-  // MAS Nurse - Can edit all DD notes
-  if (userProfile.role_id === 'MAS_Nurse') {
-    console.log('✅ MAS Nurse - can edit all DD notes');
-    return true;
-  }
-  
-  // DSP - Can ONLY edit their own notes within 24 hours
-  if (userProfile.role_id === 'DSP_DD') {
-    if (note.created_by === userProfile.fullname) {
-      const noteDate = new Date(note.timestamp);
-      const now = new Date();
-      const hoursDiff = (now - noteDate) / (1000 * 60 * 60);
-      const canEdit = hoursDiff <= 24;
-      console.log(`DSP edit check: own note=${note.created_by === userProfile.fullname}, hours=${hoursDiff.toFixed(1)}, canEdit=${canEdit}`);
-      return canEdit;
-    }
-    console.log('❌ DSP - can only edit own notes within 24 hours');
-    return false;
-  }
-  
-  // Intake Coordinator - Can edit
-  if (userProfile.role_id === 'IntakeCoordinator') {
-    return true;
-  }
+  if (userProfile.role_id === 'BillingStaff') return false;
+  if (hasPermission(PERMISSIONS.DAILY_NOTES_APPROVE)) return true;
+  if (hasPermission(PERMISSIONS.DAILY_NOTES_EDIT)) return true;
   
   return false;
 };
@@ -2797,3 +2759,4 @@ const fetchIndividual = async () => {
 };
 
 export default DailyNotesPage;
+

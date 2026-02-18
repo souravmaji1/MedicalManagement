@@ -13,6 +13,7 @@ import {
   Briefcase, UserCheck, ClipboardList
 } from 'lucide-react';
 
+
 const supabase = createClient(
   'https://bbikcxalypttfgrlxstf.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJiaWtjeGFseXB0dGZncmx4c3RmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MzcxODcwOCwiZXhwIjoyMDY5Mjk0NzA4fQ.4BLQyvPA0eB745Sfdn2Tl4oCDRTzNhLXrJ8Os8wOXfs'
@@ -42,26 +43,83 @@ const rolesByDivision = {
         'analytics_view'
       ]
     },
-    { 
-      id: 'QDDP', 
-      name: 'QDDP/Program Director', 
-      permissions: [
-        'dashboard_admin',
-        'individuals_admin',
-        'medications_admin',
-        'incidents_admin',
-        'billing_report_admin',
-        'staff_admin',
-        'data_privacy_admin',
-        'report_admin',
-        'foresight_engine_admin',
-        'user_foresight_admin',
-        'billing_admin',
-        'analytics_admin',
-        'plans', 'edit_plans', 'view_plans',
-        'hcbs_dashboard'
-      ]
-    },
+   { 
+  id: 'DSP_DD', 
+  name: 'Direct Support Professional (DSP)', 
+  permissions: [
+    'dashboard_view',
+    'individuals_view', 'individuals_edit',
+   'daily_notes_view', 'daily_notes_create', 'daily_notes_edit', 'daily_notes_delete',  // ✅ ADDED
+    'medications_view', 'medications_edit', 'mar',
+    'incidents_view', 'incidents_edit', 'incidents',
+    'view_plans'
+  ]
+},
+{ 
+  id: 'HouseManager_DD', 
+  name: 'House Manager', 
+  permissions: [
+    'dashboard_view', 'dashboard_edit',
+    'individuals_view', 'individuals_edit',
+    'daily_notes_view', 'daily_notes_create', 'daily_notes_edit', 'daily_notes_delete',  // ✅ ADDED
+    'medications_view', 'medications_edit',
+    'incidents_view', 'incidents_edit',
+    'staff_admin',
+    'report_view', 'report_edit',
+    'analytics_view',
+    'view_plans'
+  ]
+},
+{ 
+  id: 'MAS_Nurse', 
+  name: 'MAS Nurse', 
+  permissions: [
+    'dashboard_view', 'dashboard_edit',
+    'individuals_view', 'individuals_edit',
+    'daily_notes_view', 'daily_notes_create', 'daily_notes_edit', 'daily_notes_delete',  // ✅ ADDED
+    'medications_admin', 'mar_full', 'approve_mar',
+    'incidents_view', 'incidents_edit',
+    'report_view', 'report_edit',
+    'analytics_view',
+    'view_plans'
+  ]
+},
+{ 
+  id: 'BillingStaff', 
+  name: 'Billing Staff', 
+  permissions: [
+    'dashboard_view',
+    'individuals_view',
+    'daily_notes_view',  // ✅ ADDED - view only, no create/edit/delete
+    'incidents_view',
+    'billing_report_admin',
+    'report_admin',
+    'billing_admin',
+    'analytics_admin',
+    'view_plans'
+  ]
+},
+{ 
+  id: 'QDDP', 
+  name: 'QDDP/Program Director', 
+  permissions: [
+    'dashboard_admin',
+    'individuals_admin',
+    'daily_notes_view', 'daily_notes_create', 'daily_notes_edit', 'daily_notes_delete', 'daily_notes_approve',  // ✅ ADDED
+    'medications_admin',
+    'incidents_admin',
+    'billing_report_admin',
+    'staff_admin',
+    'data_privacy_admin',
+    'report_admin',
+    'foresight_engine_admin',
+    'user_foresight_admin',
+    'billing_admin',
+    'analytics_admin',
+    'plans', 'edit_plans', 'view_plans',
+    'hcbs_dashboard'
+  ]
+},
   
     { 
       id: 'IntakeCoordinator', 
@@ -77,58 +135,11 @@ const rolesByDivision = {
         'analytics_view'
       ]
     },
-       { 
-      id: 'DSP_DD', 
-      name: 'Direct Support Professional (DSP)', 
-      permissions: [
-        'dashboard_view',
-        'individuals_view', 'individuals_edit',
-        'medications_view', 'medications_edit', 'mar',
-        'incidents_view', 'incidents_edit', 'incidents',
-        'view_plans'  // ADD THIS
-      ]
-    },
-    { 
-      id: 'HouseManager_DD', 
-      name: 'House Manager', 
-      permissions: [
-        'dashboard_view', 'dashboard_edit',
-        'individuals_view', 'individuals_edit',
-        'medications_view', 'medications_edit',
-        'incidents_view', 'incidents_edit',
-        'staff_admin',
-        'report_view', 'report_edit',
-        'analytics_view',
-        'view_plans'  // ADD THIS
-      ]
-    },
-    { 
-      id: 'MAS_Nurse', 
-      name: 'MAS Nurse', 
-      permissions: [
-        'dashboard_view', 'dashboard_edit',
-        'individuals_view', 'individuals_edit',
-        'medications_admin', 'mar_full', 'approve_mar',
-        'incidents_view', 'incidents_edit',
-        'report_view', 'report_edit',
-        'analytics_view',
-        'view_plans'  // ADD THIS
-      ]
-    },
-    { 
-      id: 'BillingStaff', 
-      name: 'Billing Staff', 
-      permissions: [
-        'dashboard_view',
-        'individuals_view',
-        'incidents_view',
-        'billing_report_admin',
-        'report_admin',
-        'billing_admin',
-        'analytics_admin',
-        'view_plans'  // ADD THIS
-      ]
-    },
+   
+ 
+    
+    
+    
     { 
       id: 'SystemAdmin', 
       name: 'System Administrator', 
