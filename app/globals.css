@@ -41,32 +41,39 @@
       --chart-4: 43 74% 66%;
       --chart-5: 27 87% 67%;
     }
-  .dark {
-        --background: 0 0% 3.9%;
-        --foreground: 0 0% 98%;
-        --card: 0 0% 3.9%;
-        --card-foreground: 0 0% 98%;
-        --popover: 0 0% 3.9%;
-        --popover-foreground: 0 0% 98%;
-        --primary: 0 0% 98%;
-        --primary-foreground: 0 0% 9%;
-        --secondary: 0 0% 14.9%;
-        --secondary-foreground: 0 0% 98%;
-        --muted: 0 0% 14.9%;
-        --muted-foreground: 0 0% 63.9%;
-        --accent: 0 0% 14.9%;
-        --accent-foreground: 0 0% 98%;
-        --destructive: 0 62.8% 30.6%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 14.9%;
-        --input: 0 0% 14.9%;
-        --ring: 0 0% 83.1%;
-        --chart-1: 220 70% 50%;
-        --chart-2: 160 60% 45%;
-        --chart-3: 30 80% 55%;
-        --chart-4: 280 65% 60%;
-        --chart-5: 340 75% 55%;
-    }
+ /* Dark mode (default) */
+.dark {
+  --bg-primary: #020617;      /* slate-950 */
+  --bg-secondary: #0f172a;    /* slate-900 */
+  --bg-card: #1e293b;         /* slate-800 */
+  --bg-card-hover: #334155;   /* slate-700 */
+  --text-primary: #ffffff;
+  --text-secondary: #94a3b8;  /* slate-400 */
+  --text-muted: #64748b;      /* slate-500 */
+  --border-color: #334155;    /* slate-700 */
+  --border-subtle: rgba(51,65,85,0.5);
+  --navbar-bg: linear-gradient(to right, #0f172a, #0f172a, rgba(6,78,59,0.2));
+  --sidebar-bg: linear-gradient(to bottom, #0f172a, #0f172a, rgba(6,78,59,0.1));
+  --input-bg: #020617;
+  --modal-bg: #1e293b;
+}
+
+/* Light mode */
+.light {
+  --bg-primary: #f8fafc;      /* slate-50 */
+  --bg-secondary: #f1f5f9;    /* slate-100 */
+  --bg-card: #ffffff;
+  --bg-card-hover: #f1f5f9;
+  --text-primary: #0f172a;    /* slate-900 */
+  --text-secondary: #475569;  /* slate-600 */
+  --text-muted: #94a3b8;      /* slate-400 */
+  --border-color: #e2e8f0;    /* slate-200 */
+  --border-subtle: rgba(226,232,240,0.8);
+  --navbar-bg: linear-gradient(to right, #f8fafc, #f8fafc, rgba(209,250,229,0.3));
+  --sidebar-bg: linear-gradient(to bottom, #f8fafc, #f8fafc, rgba(209,250,229,0.1));
+  --input-bg: #ffffff;
+  --modal-bg: #ffffff;
+}
   }
 
   @layer utilities {

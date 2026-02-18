@@ -1761,12 +1761,7 @@ const fetchIndividual = async () => {
                             <p className="text-sm font-semibold text-white">{note.activityType}</p>
                           </div>
                         )}
-                        <div className="bg-slate-800/50 rounded-lg p-3">
-                          <p className="text-xs text-slate-400 mb-1">Entry Method</p>
-                          <p className="text-sm font-semibold text-white">
-                            {note.entryMode === 'ai' ? 'AI-Assisted' : 'Manual'}
-                          </p>
-                        </div>
+                       
                         <div className="bg-slate-800/50 rounded-lg p-3">
                           <p className="text-xs text-slate-400 mb-1">Community</p>
                           <p className="text-sm font-semibold text-white">
