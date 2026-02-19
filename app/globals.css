@@ -58,22 +58,91 @@
   --modal-bg: #1e293b;
 }
 
-/* Light mode */
-.light {
-  --bg-primary: #f8fafc;      /* slate-50 */
-  --bg-secondary: #f1f5f9;    /* slate-100 */
+/* In your globals.css */
+
+/* ===== LIGHT MODE OVERRIDES ===== */
+.light-mode {
+  --bg-primary: #f0fdf4;
+  --bg-secondary: #ffffff;
   --bg-card: #ffffff;
-  --bg-card-hover: #f1f5f9;
-  --text-primary: #0f172a;    /* slate-900 */
-  --text-secondary: #475569;  /* slate-600 */
-  --text-muted: #94a3b8;      /* slate-400 */
-  --border-color: #e2e8f0;    /* slate-200 */
-  --border-subtle: rgba(226,232,240,0.8);
-  --navbar-bg: linear-gradient(to right, #f8fafc, #f8fafc, rgba(209,250,229,0.3));
-  --sidebar-bg: linear-gradient(to bottom, #f8fafc, #f8fafc, rgba(209,250,229,0.1));
-  --input-bg: #ffffff;
-  --modal-bg: #ffffff;
+  --bg-hover: #f1f5f9;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+  --sidebar-bg: #ffffff;
+  --navbar-bg: #ffffff;
 }
+
+/* Navbar */
+.light-mode .navbar {
+  background: linear-gradient(to right, #ffffff, #f0fdf4) !important;
+  border-bottom: 1px solid #d1fae5 !important;
+}
+
+/* Sidebar */
+.light-mode .sidebar {
+  background: linear-gradient(to bottom, #ffffff, #f0fdf4) !important;
+  border-right: 1px solid #d1fae5 !important;
+}
+
+/* Main backgrounds */
+.light-mode .bg-slate-950 { background-color: #f8fafc !important; }
+.light-mode .bg-slate-900 { background-color: #ffffff !important; }
+.light-mode .bg-slate-800 { background-color: #f1f5f9 !important; }
+.light-mode .bg-slate-800\/50 { background-color: rgba(241, 245, 249, 0.8) !important; }
+.light-mode .bg-slate-900\/50 { background-color: rgba(255, 255, 255, 0.8) !important; }
+.light-mode .bg-slate-900\/95 { background-color: rgba(255, 255, 255, 0.95) !important; }
+
+/* Text colors */
+.light-mode .text-white { color: #0f172a !important; }
+.light-mode .text-slate-300 { color: #334155 !important; }
+.light-mode .text-slate-400 { color: #475569 !important; }
+.light-mode .text-slate-500 { color: #64748b !important; }
+
+/* Borders */
+.light-mode .border-slate-700 { border-color: #e2e8f0 !important; }
+.light-mode .border-slate-700\/50 { border-color: rgba(226, 232, 240, 0.8) !important; }
+.light-mode .border-slate-800 { border-color: #e2e8f0 !important; }
+.light-mode .border-slate-800\/50 { border-color: rgba(226, 232, 240, 0.5) !important; }
+
+/* Inputs and form elements */
+.light-mode input, .light-mode textarea, .light-mode select {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+.light-mode input::placeholder, .light-mode textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Cards and panels */
+.light-mode .bg-gradient-to-br.from-slate-800\/50 {
+  background: linear-gradient(to bottom right, rgba(241,245,249,0.9), rgba(255,255,255,0.9)) !important;
+}
+
+/* Table rows */
+.light-mode tr:hover { background-color: #f0fdf4 !important; }
+.light-mode thead { background-color: rgba(255,255,255,0.95) !important; }
+
+/* Sidebar menu items */
+.light-mode .text-slate-400.hover\:text-white:hover { color: #0f172a !important; }
+.light-mode button.hover\:bg-white\/5:hover { background-color: #f0fdf4 !important; }
+
+/* Scrollbar in light mode */
+.light-mode ::-webkit-scrollbar-track { background: #f1f5f9; }
+.light-mode ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+.light-mode ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* Kbd shortcut chip */
+.light-mode kbd {
+  background-color: #e2e8f0 !important;
+  color: #64748b !important;
+}
+
+/* System status badge */
+.light-mode .text-slate-300.font-semibold { color: #334155 !important; }
+
   }
 
   @layer utilities {

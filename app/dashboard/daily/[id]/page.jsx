@@ -1157,7 +1157,7 @@ const fetchIndividual = async () => {
     return colors[mood] || 'text-slate-400';
   };
 
-  const printDailyNote = (note) => {
+  const printilyNote = (note) => {
     if (!note) {
       alert('No note selected to print');
       return;
@@ -1435,6 +1435,237 @@ const fetchIndividual = async () => {
     printWindow.document.close();
   };
 
+  const printDailyNote = (note) => {
+    if (!note || !note.date) {
+      alert('No note selected or missing date information');
+      return;
+    }
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Please allow pop-ups to print notes');
+      return;
+    }
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Daily Service Note - ${new Date(note.date).toLocaleDateString()}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; padding: 40px; color: #1a1a1a; background: white; }
+          .header { border-bottom: 3px solid #10b981; padding-bottom: 20px; margin-bottom: 30px; }
+          .header h1 { color: #10b981; font-size: 28px; margin-bottom: 10px; }
+          .header-info { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
+          .header-info-item { font-size: 14px; }
+          .header-info-item strong { color: #4b5563; }
+          .section { margin-bottom: 25px; page-break-inside: avoid; }
+          .section-title { background: #f3f4f6; padding: 10px 15px; border-left: 4px solid #10b981; font-weight: bold; font-size: 16px; margin-bottom: 15px; color: #1f2937; }
+          .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+          .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
+          .field { margin-bottom: 12px; }
+          .field-label { font-size: 12px; color: #6b7280; margin-bottom: 4px; font-weight: 600; }
+          .field-value { font-size: 14px; color: #1f2937; padding: 8px; background: #f9fafb; border-radius: 4px; border: 1px solid #e5e7eb; }
+          .narrative-box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 15px; white-space: pre-wrap; line-height: 1.6; font-size: 14px; }
+          .badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; margin-right: 8px; margin-bottom: 5px; }
+          .badge-ai { background: #e9d5ff; color: #7c3aed; }
+          .badge-manual { background: #dbeafe; color: #2563eb; }
+          .badge-approved { background: #d1fae5; color: #059669; }
+          .badge-warning { background: #fee2e2; color: #dc2626; }
+          .badge-tag { background: #e5e7eb; color: #374151; display: inline-block; padding: 3px 8px; border-radius: 8px; font-size: 12px; margin: 2px; }
+          .footer { margin-top: 40px; padding-top: 20px; border-top: 2px solid #e5e7eb; font-size: 12px; color: #6b7280; text-align: center; }
+          .checkbox-yes { color: #059669; font-weight: bold; }
+          .checkbox-no { color: #6b7280; }
+          @media print { body { padding: 20px; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Daily Service Note</h1>
+          <div style="margin-top: 10px;">
+            ${note.entryMode === 'ai' ? '<span class="badge badge-ai">🪄 AI-Assisted</span>' : '<span class="badge badge-manual">📝 Manual Entry</span>'}
+            ${note.approved ? '<span class="badge badge-approved">✓ Approved</span>' : ''}
+            ${note.documentationStatus ? `<span class="badge" style="background:#e0f2fe;color:#0369a1;">${note.documentationStatus}</span>` : ''}
+            ${note.qaScore !== undefined ? `<span class="badge" style="background:${note.qaScore >= 90 ? '#d1fae5' : note.qaScore >= 75 ? '#fef3c7' : '#fee2e2'};color:${note.qaScore >= 90 ? '#059669' : note.qaScore >= 75 ? '#d97706' : '#dc2626'};">QA Score: ${note.qaScore}/100</span>` : ''}
+          </div>
+          <div class="header-info">
+            <div class="header-info-item"><strong>Individual:</strong> ${individual?.firstname || 'N/A'} ${individual?.lastname || ''}</div>
+            <div class="header-info-item"><strong>Individual ID:</strong> ${individual?.individualid || 'N/A'}</div>
+            <div class="header-info-item"><strong>Date:</strong> ${new Date(note.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+            <div class="header-info-item"><strong>Shift:</strong> ${note.shift || 'N/A'}</div>
+            <div class="header-info-item"><strong>Staff Name:</strong> ${note.staffname || 'N/A'}</div>
+            <div class="header-info-item"><strong>Staff Role:</strong> ${note.staffRole || note.created_by_role || 'N/A'}</div>
+            <div class="header-info-item"><strong>Time In:</strong> ${note.shiftTimeIn || 'N/A'}</div>
+            <div class="header-info-item"><strong>Time Out:</strong> ${note.shiftTimeOut || 'N/A'}</div>
+            <div class="header-info-item"><strong>Entry Method:</strong> ${note.entryMode === 'ai' ? 'AI-Assisted (ScribeAssist)' : 'Manual'}</div>
+            ${note.billingCode ? `<div class="header-info-item"><strong>Billing Code:</strong> ${note.billingCode}</div>` : ''}
+            ${note.recordId ? `<div class="header-info-item"><strong>Record ID:</strong> ${note.recordId}</div>` : ''}
+          </div>
+        </div>
+
+        ${note.description ? `
+        <div class="section">
+          <div class="section-title">📝 Activity Description</div>
+          <div class="narrative-box">${note.description}</div>
+        </div>` : ''}
+
+        ${note.activityType ? `
+        <div class="section">
+          <div class="section-title">🎯 Activity Type</div>
+          <div class="field-value">${note.activityType}</div>
+        </div>` : ''}
+
+        ${note.narrative ? `
+        <div class="section">
+          <div class="section-title">💬 Clinical Documentation</div>
+          <div class="narrative-box">${note.narrative}</div>
+        </div>` : ''}
+
+        <div class="section">
+          <div class="section-title">💊 Health & Wellness</div>
+          <div class="grid-3">
+            <div class="field"><div class="field-label">Mood</div><div class="field-value">${note.mood || 'N/A'}</div></div>
+            <div class="field"><div class="field-label">Appetite</div><div class="field-value">${note.appetite || 'N/A'}</div></div>
+            <div class="field"><div class="field-label">Sleep Quality</div><div class="field-value">${note.sleep || 'N/A'}</div></div>
+          </div>
+          ${note.healthChanges ? `<div class="field"><div class="field-label">Health Changes</div><div class="narrative-box">${note.healthChanges}</div></div>` : ''}
+          ${note.noChangesBaseline ? `<div class="field"><div class="field-value">✓ No changes from baseline noted</div></div>` : ''}
+        </div>
+
+        ${note.entryMode !== 'ai' ? `
+        <div class="section">
+          <div class="section-title">🏠 Activities of Daily Living (ADLs)</div>
+          <div class="grid-3">
+            <div class="field"><div class="field-label">Bathing</div><div class="field-value">${note.bathing || 'N/A'}</div></div>
+            <div class="field"><div class="field-label">Dressing</div><div class="field-value">${note.dressing || 'N/A'}</div></div>
+            <div class="field"><div class="field-label">Grooming</div><div class="field-value">${note.grooming || 'N/A'}</div></div>
+            <div class="field"><div class="field-label">Toileting</div><div class="field-value">${note.toileting || 'N/A'}</div></div>
+            <div class="field"><div class="field-label">Eating</div><div class="field-value">${note.eating || 'N/A'}</div></div>
+            <div class="field"><div class="field-label">Mobility</div><div class="field-value">${note.mobility || 'N/A'}</div></div>
+          </div>
+        </div>` : ''}
+
+        <div class="section">
+          <div class="section-title">🎯 ISP Linkage</div>
+          <div class="grid-2">
+            <div class="field"><div class="field-label">ISP Goal Addressed</div><div class="field-value">${note.ispGoalAddressed ? '<span class="checkbox-yes">✓ Yes</span>' : '<span class="checkbox-no">No</span>'}</div></div>
+            ${note.selectedGoalDomain ? `<div class="field"><div class="field-label">Goal Domain</div><div class="field-value">${note.selectedGoalDomain}</div></div>` : ''}
+          </div>
+          ${note.ispGoalAddressed && note.selectedIspGoalId ? (() => {
+            const goal = individual?.goals?.find(g => g.id === note.selectedIspGoalId);
+            return goal ? `<div class="field"><div class="field-label">Selected ISP Goal</div><div class="field-value">${goal.description}</div></div>` : '';
+          })() : ''}
+          ${note.ispGoalsNarrative ? `<div class="field"><div class="field-label">ISP Goals Narrative</div><div class="narrative-box">${note.ispGoalsNarrative}</div></div>` : ''}
+        </div>
+
+        <div class="section">
+          <div class="section-title">✅ Choice & Autonomy (HCBS)</div>
+          <div class="grid-2">
+            <div class="field"><div class="field-label">Choice Offered</div><div class="field-value">${note.choiceOffered ? '<span class="checkbox-yes">✓ Yes</span>' : '<span class="checkbox-no">No</span>'}</div></div>
+            <div class="field"><div class="field-label">Choice Honored</div><div class="field-value">${note.choiceHonored ? '<span class="checkbox-yes">✓ Yes</span>' : '<span class="checkbox-no">No</span>'}</div></div>
+          </div>
+          ${note.choiceExercisedDescription ? `<div class="field"><div class="field-label">Choice Exercised Description</div><div class="narrative-box">${note.choiceExercisedDescription}</div></div>` : ''}
+          ${note.choiceAutonomyNarrative ? `<div class="field"><div class="field-label">Choice & Autonomy Narrative</div><div class="narrative-box">${note.choiceAutonomyNarrative}</div></div>` : ''}
+        </div>
+
+        <div class="section">
+          <div class="section-title">🗺️ Community Activities</div>
+          <div class="field"><div class="field-label">Community Outing</div><div class="field-value">${note.communityouting ? '<span class="checkbox-yes">✓ Yes</span>' : '<span class="checkbox-no">No</span>'}</div></div>
+          ${note.communityouting ? `
+          <div class="grid-2">
+            ${note.outinglocation ? `<div class="field"><div class="field-label">Location</div><div class="field-value">${note.outinglocation}</div></div>` : ''}
+            ${note.outingpurpose ? `<div class="field"><div class="field-label">Purpose</div><div class="field-value">${note.outingpurpose}</div></div>` : ''}
+            ${note.participationlevel ? `<div class="field"><div class="field-label">Participation Level</div><div class="field-value">${note.participationlevel}</div></div>` : ''}
+          </div>` : ''}
+        </div>
+
+        ${note.entryMode !== 'ai' && note.activities?.length > 0 ? `
+        <div class="section">
+          <div class="section-title">⭐ Daily Activities</div>
+          <div>${note.activities.map(a => `<span class="badge-tag">${a}</span>`).join('')}</div>
+          ${note.activitydetails ? `<div class="field" style="margin-top:10px;"><div class="field-label">Activity Details</div><div class="narrative-box">${note.activitydetails}</div></div>` : ''}
+        </div>` : ''}
+
+        ${note.entryMode !== 'ai' && (note.livingSkills?.length > 0 || note.livingSkillsNarrative) ? `
+        <div class="section">
+          <div class="section-title">🏡 Independent Living Skills</div>
+          ${note.livingSkills?.length > 0 ? `<div>${note.livingSkills.map(s => `<span class="badge-tag">${s}</span>`).join('')}</div>` : ''}
+          ${note.livingSkillsNarrative ? `<div class="field" style="margin-top:10px;"><div class="narrative-box">${note.livingSkillsNarrative}</div></div>` : ''}
+        </div>` : ''}
+
+        ${note.entryMode !== 'ai' && (note.behaviors?.length > 0 || note.behaviordetails) ? `
+        <div class="section">
+          <div class="section-title">🧠 Behaviors Observed</div>
+          ${note.behaviors?.length > 0 ? `<div>${note.behaviors.map(b => `<span class="badge-tag">${b}</span>`).join('')}</div>` : ''}
+          ${note.behaviordetails ? `<div class="field" style="margin-top:10px;"><div class="field-label">Details</div><div class="narrative-box">${note.behaviordetails}</div></div>` : ''}
+          ${note.behaviortriggers ? `<div class="field"><div class="field-label">Triggers</div><div class="narrative-box">${note.behaviortriggers}</div></div>` : ''}
+          ${note.behaviorinterventions ? `<div class="field"><div class="field-label">Interventions</div><div class="narrative-box">${note.behaviorinterventions}</div></div>` : ''}
+        </div>` : ''}
+
+        <div class="section">
+          <div class="section-title">💊 Medication Administration</div>
+          <div class="field"><div class="field-label">Medications Administered</div><div class="field-value">${note.medicationsAdministered || 'N/A'}</div></div>
+          ${note.medicationsAdministered === 'No' && note.medicationsNotAdministeredReason ? `<div class="field"><div class="field-label">Reason Not Administered</div><div class="field-value">${note.medicationsNotAdministeredReason}</div></div>` : ''}
+          ${note.medicationRefusals ? `<div class="field"><div class="field-label">Medication Refusals</div><div class="field-value">${note.medicationRefusals}</div></div>` : ''}
+          ${note.sideEffectsObserved ? `<div class="field"><div class="field-label">Side Effects Observed</div><div class="field-value">${note.sideEffectsObserved}</div></div>` : ''}
+          ${note.prnMedications?.length > 0 ? `
+          <div class="field"><div class="field-label">PRN Medications</div>
+            ${note.prnMedications.map(prn => `
+              <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:10px;margin-top:6px;">
+                <strong>${prn.medication}</strong> — ${prn.amount} at ${prn.time}<br/>
+                Reason: ${prn.reason} | Outcome: ${prn.outcome}
+              </div>`).join('')}
+          </div>` : ''}
+        </div>
+
+        <div class="section">
+          <div class="section-title">⚠️ Safety & Incidents</div>
+          <div class="field"><div class="field-label">Safety Issues</div><div class="field-value">${note.safetyIssues ? '<span class="checkbox-yes">⚠️ Yes — Review Required</span>' : '<span class="checkbox-no">No issues reported</span>'}</div></div>
+          ${note.safetyNarrative ? `<div class="field"><div class="field-label">Safety Details</div><div class="narrative-box">${note.safetyNarrative}</div></div>` : ''}
+          ${note.incidentreported ? `<div class="field"><div class="field-label">Incident Reported</div><div class="field-value badge-warning">⚠️ Yes</div></div>` : ''}
+          ${note.incidentdetails ? `<div class="field"><div class="field-label">Incident Details</div><div class="narrative-box">${note.incidentdetails}</div></div>` : ''}
+          <div class="field"><div class="field-label">Incident Report Status</div><div class="field-value">${note.incidentReportCompleted || 'N/A'}</div></div>
+        </div>
+
+        ${note.additionalSupportsNarrative ? `
+        <div class="section">
+          <div class="section-title">🤝 Additional Supports</div>
+          <div class="narrative-box">${note.additionalSupportsNarrative}</div>
+        </div>` : ''}
+
+        ${note.transportation ? `
+        <div class="section">
+          <div class="section-title">🚗 Transportation</div>
+          <div class="field-value">${note.transportation}</div>
+        </div>` : ''}
+
+        ${note.electronicSignature ? `
+        <div class="section">
+          <div class="section-title">📝 Electronic Signature</div>
+          <div class="grid-2">
+            <div class="field"><div class="field-label">Signed By</div><div class="field-value">${note.electronicSignature}</div></div>
+            <div class="field"><div class="field-label">Date Signed</div><div class="field-value">${note.dateSigned ? new Date(note.dateSigned).toLocaleString() : 'N/A'}</div></div>
+            <div class="field"><div class="field-label">Documentation Status</div><div class="field-value">${note.documentationStatus || 'N/A'}</div></div>
+            ${note.approved_by ? `<div class="field"><div class="field-label">Approved By</div><div class="field-value">${note.approved_by}</div></div>` : ''}
+          </div>
+        </div>` : ''}
+
+        <div class="footer">
+          <p>Document created on ${note.timestamp ? new Date(note.timestamp).toLocaleString() : 'N/A'}</p>
+          ${note.last_edited ? `<p>Last edited on ${new Date(note.last_edited).toLocaleString()} by ${note.last_edited_by || 'N/A'}</p>` : ''}
+          <p style="margin-top: 10px;">Printed on ${new Date().toLocaleString()}</p>
+        </div>
+
+        <script>window.onload = function() { window.print(); };</script>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   if (!profileLoading && !canViewDailyNotes) {
     return (
       <div className="flex items-center justify-center h-screen bg-slate-950">
@@ -1544,7 +1775,7 @@ const fetchIndividual = async () => {
                 {dailyNotes.filter(n => n.entryMode === 'ai').length}
               </span>
             </div>
-            <p className="text-slate-300 text-sm font-semibold">AI-Assisted</p>
+            <p className="text-slate-300 text-sm font-semibold">Scribe Assist</p>
           </div>
           <div className="bg-gradient-to-br from-blue-600/20 to-indigo-500/20 border border-blue-500/30 rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">
@@ -2637,95 +2868,365 @@ const fetchIndividual = async () => {
 
             <ScrollArea className="h-[calc(90vh-160px)]">
               <div className="p-6 space-y-6">
-                {/* Entry Mode Badge */}
-                <div className="flex items-center gap-2">
-                  {selectedNote.entryMode === 'ai' ? (
-                    <span className="px-3 py-1 bg-purple-500/20 text-purple-400 text-xs rounded-full font-bold border border-purple-500/30 flex items-center gap-1">
-                      <Wand2 size={12} />
-                      AI-Assisted Entry
-                    </span>
-                  ) : (
-                    <span className="px-3 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full font-bold border border-blue-500/30 flex items-center gap-1">
-                      <FileText size={12} />
-                      Manual Entry
-                    </span>
-                  )}
-                  {selectedNote.qaScore !== undefined && (
-                    <span className={`px-3 py-1 text-xs rounded-full font-bold border ${
-                      selectedNote.qaScore >= 90 ? 'bg-green-500/20 text-green-400 border-green-500/30' :
-                      selectedNote.qaScore >= 75 ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :
-                      'bg-red-500/20 text-red-400 border-red-500/30'
-                    }`}>
-                      QA: {selectedNote.qaScore}
-                    </span>
-                  )}
-                </div>
+  {/* Entry Mode Badge */}
+  <div className="flex items-center gap-2 flex-wrap">
+    {selectedNote.entryMode === 'ai' ? (
+      <span className="px-3 py-1 bg-purple-500/20 text-purple-400 text-xs rounded-full font-bold border border-purple-500/30 flex items-center gap-1">
+        <Wand2 size={12} /> AI-Assisted Entry
+      </span>
+    ) : (
+      <span className="px-3 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full font-bold border border-blue-500/30 flex items-center gap-1">
+        <FileText size={12} /> Manual Entry
+      </span>
+    )}
+    {selectedNote.documentationStatus && (
+      <span className="px-3 py-1 bg-cyan-500/20 text-cyan-400 text-xs rounded-full font-bold border border-cyan-500/30">
+        {selectedNote.documentationStatus}
+      </span>
+    )}
+    {selectedNote.approved && (
+      <span className="px-3 py-1 bg-green-500/20 text-green-400 text-xs rounded-full font-bold border border-green-500/30">
+        ✓ Approved
+      </span>
+    )}
+    {selectedNote.qaScore !== undefined && (
+      <span className={`px-3 py-1 text-xs rounded-full font-bold border ${
+        selectedNote.qaScore >= 90 ? 'bg-green-500/20 text-green-400 border-green-500/30' :
+        selectedNote.qaScore >= 75 ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :
+        'bg-red-500/20 text-red-400 border-red-500/30'
+      }`}>
+        QA: {selectedNote.qaScore}/100
+      </span>
+    )}
+  </div>
 
-                {/* Rest of the view modal content - shift details, health, etc. */}
-                <div>
-                  <h4 className="text-lg font-bold text-emerald-400 mb-3">Shift Details</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div className="bg-slate-800/50 rounded-lg p-3">
-                      <p className="text-xs text-slate-400 mb-1">Shift</p>
-                      <p className="text-white font-semibold">{selectedNote.shift}</p>
-                    </div>
-                    <div className="bg-slate-800/50 rounded-lg p-3">
-                      <p className="text-xs text-slate-400 mb-1">Staff</p>
-                      <p className="text-white font-semibold">{selectedNote.staffname}</p>
-                    </div>
-                    <div className="bg-slate-800/50 rounded-lg p-3">
-                      <p className="text-xs text-slate-400 mb-1">Time In</p>
-                      <p className="text-white font-semibold">{selectedNote.shiftTimeIn || 'N/A'}</p>
-                    </div>
-                    <div className="bg-slate-800/50 rounded-lg p-3">
-                      <p className="text-xs text-slate-400 mb-1">Time Out</p>
-                      <p className="text-white font-semibold">{selectedNote.shiftTimeOut || 'N/A'}</p>
-                    </div>
-                  </div>
-                </div>
+  {/* Shift Details */}
+  <div>
+    <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2"><Clock size={18} /> Shift Details</h4>
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="bg-slate-800/50 rounded-lg p-3"><p className="text-xs text-slate-400 mb-1">Shift</p><p className="text-white font-semibold">{selectedNote.shift || 'N/A'}</p></div>
+      <div className="bg-slate-800/50 rounded-lg p-3"><p className="text-xs text-slate-400 mb-1">Staff</p><p className="text-white font-semibold">{selectedNote.staffname || 'N/A'}</p></div>
+      <div className="bg-slate-800/50 rounded-lg p-3"><p className="text-xs text-slate-400 mb-1">Time In</p><p className="text-white font-semibold">{selectedNote.shiftTimeIn || 'N/A'}</p></div>
+      <div className="bg-slate-800/50 rounded-lg p-3"><p className="text-xs text-slate-400 mb-1">Time Out</p><p className="text-white font-semibold">{selectedNote.shiftTimeOut || 'N/A'}</p></div>
+    </div>
+    {selectedNote.billingCode && (
+      <div className="mt-3 bg-slate-800/50 rounded-lg p-3 inline-block">
+        <p className="text-xs text-slate-400 mb-1">Billing Code</p>
+        <p className="text-white font-semibold">{selectedNote.billingCode}</p>
+      </div>
+    )}
+  </div>
 
-                {selectedNote.description && (
-                  <div>
-                    <h4 className="text-lg font-bold text-emerald-400 mb-3">Activity Description</h4>
-                    <div className="bg-slate-800/50 rounded-lg p-4">
-                      <p className="text-slate-300 text-sm whitespace-pre-wrap">{selectedNote.description}</p>
-                    </div>
-                  </div>
-                )}
+  {/* Activity Description */}
+  {selectedNote.description && (
+    <div>
+      <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2"><FileText size={18} /> Activity Description</h4>
+      <div className="bg-slate-800/50 rounded-lg p-4">
+        <p className="text-slate-300 text-sm whitespace-pre-wrap">{selectedNote.description}</p>
+      </div>
+    </div>
+  )}
 
-                {selectedNote.narrative && (
-                  <div>
-                    <h4 className="text-lg font-bold text-emerald-400 mb-3">Clinical Documentation</h4>
-                    <div className="bg-slate-800/50 rounded-lg p-4">
-                      <p className="text-slate-300 text-sm whitespace-pre-wrap">{selectedNote.narrative}</p>
-                    </div>
-                  </div>
-                )}
+  {/* Activity Type */}
+  {selectedNote.activityType && (
+    <div>
+      <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2"><Target size={18} /> Activity Type</h4>
+      <span className="px-3 py-2 bg-emerald-500/20 text-emerald-400 rounded-lg font-semibold text-sm border border-emerald-500/30">
+        {selectedNote.activityType}
+      </span>
+    </div>
+  )}
 
-                <div>
-                  <h4 className="text-lg font-bold text-emerald-400 mb-3">Health & Wellness</h4>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="bg-slate-800/50 rounded-lg p-3">
-                      <p className="text-xs text-slate-400 mb-1">Mood</p>
-                      <p className="text-white font-semibold">{selectedNote.mood}</p>
-                    </div>
-                    <div className="bg-slate-800/50 rounded-lg p-3">
-                      <p className="text-xs text-slate-400 mb-1">Appetite</p>
-                      <p className="text-white font-semibold">{selectedNote.appetite}</p>
-                    </div>
-                    <div className="bg-slate-800/50 rounded-lg p-3">
-                      <p className="text-xs text-slate-400 mb-1">Sleep</p>
-                      <p className="text-white font-semibold">{selectedNote.sleep}</p>
-                    </div>
-                  </div>
-                </div>
+  {/* Clinical Documentation */}
+  {selectedNote.narrative && (
+    <div>
+      <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2"><MessageSquare size={18} /> Clinical Documentation</h4>
+      <div className="bg-slate-800/50 rounded-lg p-4">
+        <p className="text-slate-300 text-sm whitespace-pre-wrap">{selectedNote.narrative}</p>
+      </div>
+    </div>
+  )}
 
-                <div className="text-center pt-4 border-t border-slate-700">
-                  <p className="text-xs text-slate-500">
-                    Documented on {new Date(selectedNote.timestamp).toLocaleString()} • Entry Method: {selectedNote.entryMode === 'ai' ? 'AI-Assisted' : 'Manual'}
-                  </p>
-                </div>
-              </div>
+  {/* ADLs - Manual mode only */}
+  {selectedNote.entryMode !== 'ai' && (
+    <div>
+      <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2"><Activity size={18} /> Activities of Daily Living</h4>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        {[
+          { key: 'bathing', label: 'Bathing' },
+          { key: 'dressing', label: 'Dressing' },
+          { key: 'grooming', label: 'Grooming' },
+          { key: 'toileting', label: 'Toileting' },
+          { key: 'eating', label: 'Eating' },
+          { key: 'mobility', label: 'Mobility' }
+        ].map(adl => (
+          <div key={adl.key} className="bg-slate-800/50 rounded-lg p-3">
+            <p className="text-xs text-slate-400 mb-1">{adl.label}</p>
+            <p className="text-white font-semibold">{selectedNote[adl.key] || 'N/A'}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )}
+
+  {/* ISP Linkage */}
+  <div>
+    <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2"><Target size={18} /> ISP Linkage</h4>
+    <div className="grid grid-cols-2 gap-3 mb-3">
+      <div className="bg-slate-800/50 rounded-lg p-3">
+        <p className="text-xs text-slate-400 mb-1">ISP Goal Addressed</p>
+        <p className={`font-semibold ${selectedNote.ispGoalAddressed ? 'text-green-400' : 'text-slate-400'}`}>
+          {selectedNote.ispGoalAddressed ? '✓ Yes' : 'No'}
+        </p>
+      </div>
+      {selectedNote.selectedGoalDomain && (
+        <div className="bg-slate-800/50 rounded-lg p-3">
+          <p className="text-xs text-slate-400 mb-1">Goal Domain</p>
+          <p className="text-white font-semibold">{selectedNote.selectedGoalDomain}</p>
+        </div>
+      )}
+    </div>
+    {selectedNote.ispGoalAddressed && selectedNote.selectedIspGoalId && (() => {
+      const goal = individual?.goals?.find(g => g.id === selectedNote.selectedIspGoalId);
+      return goal ? (
+        <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3 mb-3">
+          <p className="text-xs text-slate-400 mb-1">Selected ISP Goal</p>
+          <p className="text-blue-300 font-semibold text-sm">{goal.description}</p>
+        </div>
+      ) : null;
+    })()}
+    {selectedNote.ispGoalsNarrative && (
+      <div className="bg-slate-800/50 rounded-lg p-4">
+        <p className="text-xs text-slate-400 mb-2">ISP Goals Narrative</p>
+        <p className="text-slate-300 text-sm whitespace-pre-wrap">{selectedNote.ispGoalsNarrative}</p>
+      </div>
+    )}
+  </div>
+
+  {/* Choice & Autonomy */}
+  <div>
+    <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2"><CheckSquare size={18} /> Choice & Autonomy (HCBS)</h4>
+    <div className="grid grid-cols-2 gap-3 mb-3">
+      <div className="bg-slate-800/50 rounded-lg p-3">
+        <p className="text-xs text-slate-400 mb-1">Choice Offered</p>
+        <p className={`font-semibold ${selectedNote.choiceOffered ? 'text-green-400' : 'text-slate-400'}`}>
+          {selectedNote.choiceOffered ? '✓ Yes' : 'No'}
+        </p>
+      </div>
+      <div className="bg-slate-800/50 rounded-lg p-3">
+        <p className="text-xs text-slate-400 mb-1">Choice Honored</p>
+        <p className={`font-semibold ${selectedNote.choiceHonored ? 'text-green-400' : 'text-slate-400'}`}>
+          {selectedNote.choiceHonored ? '✓ Yes' : 'No'}
+        </p>
+      </div>
+    </div>
+    {selectedNote.choiceExercisedDescription && (
+      <div className="bg-slate-800/50 rounded-lg p-4 mb-3">
+        <p className="text-xs text-slate-400 mb-2">Choice Exercised Description</p>
+        <p className="text-slate-300 text-sm">{selectedNote.choiceExercisedDescription}</p>
+      </div>
+    )}
+    {selectedNote.choiceAutonomyNarrative && (
+      <div className="bg-slate-800/50 rounded-lg p-4">
+        <p className="text-xs text-slate-400 mb-2">Choice & Autonomy Narrative</p>
+        <p className="text-slate-300 text-sm">{selectedNote.choiceAutonomyNarrative}</p>
+      </div>
+    )}
+  </div>
+
+  {/* Community Outing */}
+  <div>
+    <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2"><MapPin size={18} /> Community Activities</h4>
+    <div className="bg-slate-800/50 rounded-lg p-3 mb-3">
+      <p className="text-xs text-slate-400 mb-1">Community Outing</p>
+      <p className={`font-semibold ${selectedNote.communityouting ? 'text-green-400' : 'text-slate-400'}`}>
+        {selectedNote.communityouting ? '✓ Yes' : 'No'}
+      </p>
+    </div>
+    {selectedNote.communityouting && (
+      <div className="grid grid-cols-2 gap-3">
+        {selectedNote.outinglocation && <div className="bg-slate-800/50 rounded-lg p-3"><p className="text-xs text-slate-400 mb-1">Location</p><p className="text-white font-semibold">{selectedNote.outinglocation}</p></div>}
+        {selectedNote.outingpurpose && <div className="bg-slate-800/50 rounded-lg p-3"><p className="text-xs text-slate-400 mb-1">Purpose</p><p className="text-white font-semibold">{selectedNote.outingpurpose}</p></div>}
+        {selectedNote.participationlevel && <div className="bg-slate-800/50 rounded-lg p-3"><p className="text-xs text-slate-400 mb-1">Participation Level</p><p className="text-white font-semibold">{selectedNote.participationlevel}</p></div>}
+      </div>
+    )}
+  </div>
+
+  {/* Activities - Manual mode */}
+  {selectedNote.entryMode !== 'ai' && selectedNote.activities?.length > 0 && (
+    <div>
+      <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2"><Sparkles size={18} /> Daily Activities</h4>
+      <div className="flex flex-wrap gap-2 mb-3">
+        {selectedNote.activities.map(a => (
+          <span key={a} className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-bold border border-emerald-500/30">{a}</span>
+        ))}
+      </div>
+      {selectedNote.activitydetails && (
+        <div className="bg-slate-800/50 rounded-lg p-4">
+          <p className="text-xs text-slate-400 mb-2">Activity Details</p>
+          <p className="text-slate-300 text-sm">{selectedNote.activitydetails}</p>
+        </div>
+      )}
+    </div>
+  )}
+
+  {/* Living Skills - Manual mode */}
+  {selectedNote.entryMode !== 'ai' && (selectedNote.livingSkills?.length > 0 || selectedNote.livingSkillsNarrative) && (
+    <div>
+      <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2"><HomeIcon size={18} /> Independent Living Skills</h4>
+      {selectedNote.livingSkills?.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-3">
+          {selectedNote.livingSkills.map(s => (
+            <span key={s} className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs font-bold border border-blue-500/30">{s}</span>
+          ))}
+        </div>
+      )}
+      {selectedNote.livingSkillsNarrative && (
+        <div className="bg-slate-800/50 rounded-lg p-4">
+          <p className="text-slate-300 text-sm">{selectedNote.livingSkillsNarrative}</p>
+        </div>
+      )}
+    </div>
+  )}
+
+  {/* Behaviors - Manual mode */}
+  {selectedNote.entryMode !== 'ai' && (selectedNote.behaviors?.length > 0 || selectedNote.behaviordetails) && (
+    <div>
+      <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2"><Brain size={18} /> Behaviors Observed</h4>
+      {selectedNote.behaviors?.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-3">
+          {selectedNote.behaviors.map(b => (
+            <span key={b} className="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-full text-xs font-bold border border-purple-500/30">{b}</span>
+          ))}
+        </div>
+      )}
+      {selectedNote.behaviordetails && <div className="bg-slate-800/50 rounded-lg p-3 mb-2"><p className="text-xs text-slate-400 mb-1">Details</p><p className="text-slate-300 text-sm">{selectedNote.behaviordetails}</p></div>}
+      {selectedNote.behaviortriggers && <div className="bg-slate-800/50 rounded-lg p-3 mb-2"><p className="text-xs text-slate-400 mb-1">Triggers</p><p className="text-slate-300 text-sm">{selectedNote.behaviortriggers}</p></div>}
+      {selectedNote.behaviorinterventions && <div className="bg-slate-800/50 rounded-lg p-3"><p className="text-xs text-slate-400 mb-1">Interventions</p><p className="text-slate-300 text-sm">{selectedNote.behaviorinterventions}</p></div>}
+    </div>
+  )}
+
+  {/* Health & Wellness */}
+  <div>
+    <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2"><Heart size={18} /> Health & Wellness</h4>
+    <div className="grid grid-cols-3 gap-3">
+      <div className="bg-slate-800/50 rounded-lg p-3"><p className="text-xs text-slate-400 mb-1">Mood</p><p className="text-white font-semibold">{selectedNote.mood || 'N/A'}</p></div>
+      <div className="bg-slate-800/50 rounded-lg p-3"><p className="text-xs text-slate-400 mb-1">Appetite</p><p className="text-white font-semibold">{selectedNote.appetite || 'N/A'}</p></div>
+      <div className="bg-slate-800/50 rounded-lg p-3"><p className="text-xs text-slate-400 mb-1">Sleep</p><p className="text-white font-semibold">{selectedNote.sleep || 'N/A'}</p></div>
+    </div>
+    {selectedNote.healthChanges && (
+      <div className="mt-3 bg-slate-800/50 rounded-lg p-4">
+        <p className="text-xs text-slate-400 mb-2">Health Changes</p>
+        <p className="text-slate-300 text-sm">{selectedNote.healthChanges}</p>
+      </div>
+    )}
+    {selectedNote.noChangesBaseline && (
+      <div className="mt-3 bg-green-900/20 border border-green-500/30 rounded-lg p-3">
+        <p className="text-green-400 text-sm font-semibold">✓ No changes from baseline noted</p>
+      </div>
+    )}
+  </div>
+
+  {/* Medication */}
+  <div>
+    <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2"><Bell size={18} /> Medication Administration</h4>
+    <div className="bg-slate-800/50 rounded-lg p-3 mb-3">
+      <p className="text-xs text-slate-400 mb-1">Medications Administered</p>
+      <p className={`font-semibold ${selectedNote.medicationsAdministered === 'Yes' ? 'text-green-400' : 'text-orange-400'}`}>
+        {selectedNote.medicationsAdministered || 'N/A'}
+      </p>
+    </div>
+    {selectedNote.medicationsAdministered === 'No' && selectedNote.medicationsNotAdministeredReason && (
+      <div className="bg-slate-800/50 rounded-lg p-3 mb-3"><p className="text-xs text-slate-400 mb-1">Reason Not Administered</p><p className="text-slate-300 text-sm">{selectedNote.medicationsNotAdministeredReason}</p></div>
+    )}
+    {selectedNote.medicationRefusals && (
+      <div className="bg-slate-800/50 rounded-lg p-3 mb-3"><p className="text-xs text-slate-400 mb-1">Medication Refusals</p><p className="text-slate-300 text-sm">{selectedNote.medicationRefusals}</p></div>
+    )}
+    {selectedNote.sideEffectsObserved && (
+      <div className="bg-slate-800/50 rounded-lg p-3 mb-3"><p className="text-xs text-slate-400 mb-1">Side Effects Observed</p><p className="text-slate-300 text-sm">{selectedNote.sideEffectsObserved}</p></div>
+    )}
+    {selectedNote.prnMedications?.length > 0 && (
+      <div>
+        <p className="text-xs text-slate-400 mb-2">PRN Medications</p>
+        {selectedNote.prnMedications.map(prn => (
+          <div key={prn.id} className="bg-slate-800/50 rounded-lg p-3 mb-2 text-sm">
+            <p className="text-white font-semibold">{prn.medication} — {prn.amount} at {prn.time}</p>
+            <p className="text-slate-400">Reason: {prn.reason} | Outcome: {prn.outcome}</p>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+
+  {/* Safety */}
+  <div>
+    <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2"><AlertCircle size={18} /> Safety & Incidents</h4>
+    <div className="bg-slate-800/50 rounded-lg p-3 mb-3">
+      <p className="text-xs text-slate-400 mb-1">Safety Issues</p>
+      <p className={`font-semibold ${selectedNote.safetyIssues ? 'text-red-400' : 'text-slate-400'}`}>
+        {selectedNote.safetyIssues ? '⚠️ Yes — Review Required' : 'No issues reported'}
+      </p>
+    </div>
+    {selectedNote.safetyNarrative && (
+      <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 mb-3">
+        <p className="text-xs text-slate-400 mb-2">Safety Details</p>
+        <p className="text-slate-300 text-sm">{selectedNote.safetyNarrative}</p>
+      </div>
+    )}
+    {selectedNote.incidentreported && (
+      <div className="bg-orange-900/20 border border-orange-500/30 rounded-lg p-3 mb-3">
+        <p className="text-orange-400 font-semibold text-sm">⚠️ Incident Reported</p>
+        {selectedNote.incidentdetails && <p className="text-slate-300 text-sm mt-1">{selectedNote.incidentdetails}</p>}
+      </div>
+    )}
+    <div className="bg-slate-800/50 rounded-lg p-3">
+      <p className="text-xs text-slate-400 mb-1">Incident Report Status</p>
+      <p className="text-white font-semibold">{selectedNote.incidentReportCompleted || 'N/A'}</p>
+    </div>
+  </div>
+
+  {/* Additional Supports */}
+  {selectedNote.additionalSupportsNarrative && (
+    <div>
+      <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2"><Users size={18} /> Additional Supports</h4>
+      <div className="bg-slate-800/50 rounded-lg p-4">
+        <p className="text-slate-300 text-sm">{selectedNote.additionalSupportsNarrative}</p>
+      </div>
+    </div>
+  )}
+
+  {/* Transportation */}
+  {selectedNote.transportation && (
+    <div>
+      <h4 className="text-lg font-bold text-emerald-400 mb-3">🚗 Transportation</h4>
+      <div className="bg-slate-800/50 rounded-lg p-3">
+        <p className="text-white font-semibold">{selectedNote.transportation}</p>
+      </div>
+    </div>
+  )}
+
+  {/* Signature */}
+  {selectedNote.electronicSignature && (
+    <div>
+      <h4 className="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2"><ClipboardCheck size={18} /> Electronic Signature</h4>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-slate-800/50 rounded-lg p-3"><p className="text-xs text-slate-400 mb-1">Signed By</p><p className="text-white font-semibold">{selectedNote.electronicSignature}</p></div>
+        <div className="bg-slate-800/50 rounded-lg p-3"><p className="text-xs text-slate-400 mb-1">Date Signed</p><p className="text-white font-semibold">{selectedNote.dateSigned ? new Date(selectedNote.dateSigned).toLocaleString() : 'N/A'}</p></div>
+        <div className="bg-slate-800/50 rounded-lg p-3"><p className="text-xs text-slate-400 mb-1">Documentation Status</p><p className="text-white font-semibold">{selectedNote.documentationStatus || 'N/A'}</p></div>
+        {selectedNote.approved_by && <div className="bg-slate-800/50 rounded-lg p-3"><p className="text-xs text-slate-400 mb-1">Approved By</p><p className="text-white font-semibold">{selectedNote.approved_by}</p></div>}
+      </div>
+    </div>
+  )}
+
+  <div className="text-center pt-4 border-t border-slate-700">
+    <p className="text-xs text-slate-500">
+      Documented on {new Date(selectedNote.timestamp).toLocaleString()} • Entry Method: {selectedNote.entryMode === 'ai' ? 'AI-Assisted' : 'Manual'}
+    </p>
+    {selectedNote.last_edited && (
+      <p className="text-xs text-slate-600 mt-1">Last edited: {new Date(selectedNote.last_edited).toLocaleString()} by {selectedNote.last_edited_by}</p>
+    )}
+  </div>
+</div>
             </ScrollArea>
 
             <div className="p-6 border-t border-slate-700 flex justify-end gap-3">

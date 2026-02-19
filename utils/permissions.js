@@ -198,9 +198,9 @@ export const MODULE_PERMISSIONS = {
   admin: PERMISSIONS.STAFF_ADMIN
 },
    // ADD THIS - Plans module for HCBS Dashboard
-  plans: {
-    view: PERMISSIONS.PLANS_VIEW,
-    edit: PERMISSIONS.PLANS_EDIT,
-    admin: PERMISSIONS.PLANS_EDIT  // Use PLANS_EDIT as the highest level since there's no PLANS_ADMIN
-  }
+ plans: {
+  view: 'view_plans',
+  edit: 'edit_plans',
+  admin: 'edit_plans'
+}
 };

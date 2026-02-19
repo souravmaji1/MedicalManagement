@@ -12,7 +12,9 @@ import {
   ChevronDown, ChevronRight, Menu, X, RefreshCw, CheckCircle, Stethoscope,
   Briefcase, UserCheck, ClipboardList
 } from 'lucide-react';
-
+// At top of layout.js
+import ThemeToggle from '../../components/themeToggle';
+import { useTheme } from '../../contexts/themeContext';
 
 const supabase = createClient(
   'https://bbikcxalypttfgrlxstf.supabase.co',
@@ -352,7 +354,8 @@ export default function DashboardLayout({ children }) {
   const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
   const [switchingRole, setSwitchingRole] = useState(false);
   const [selectedDivision, setSelectedDivision] = useState('DD');
-
+// Inside DashboardLayout component, add:
+const { isDark } = useTheme();
   // Check if user has role switching privileges
   const canSwitchRoles = user && (
     PRIVILEGED_USERS.includes(user.id) || 
@@ -424,8 +427,13 @@ export default function DashboardLayout({ children }) {
   
 
 
-  const NavBar = () => (
-    <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-900/20 backdrop-blur-xl border-b border-slate-800/50 px-6 py-4 flex items-center justify-between sticky top-0 z-40 shadow-2xl">
+ const NavBar = () => (
+  <div className={`backdrop-blur-xl border-b px-6 py-4 flex items-center justify-between sticky top-0 z-40 shadow-2xl ${
+    isDark
+      ? 'bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-900/20 border-slate-800/50'
+      : 'bg-gradient-to-r from-white via-white to-emerald-50 border-emerald-100'
+  }`}>
+     
       <div className="flex items-center gap-4">
         <button 
           onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -450,21 +458,31 @@ export default function DashboardLayout({ children }) {
       </div>
       
       <div className="flex items-center gap-4">
-        <div className="hidden md:flex items-center gap-3 bg-slate-800/50 backdrop-blur-sm rounded-2xl px-5 py-2.5 w-96 border border-slate-700/50 hover:border-emerald-500/50 transition-all duration-300">
-          <Search size={18} className="text-emerald-400" />
-          <input 
-            type="text" 
-            placeholder="Search anything..." 
-            className="bg-transparent border-none outline-none text-sm text-white w-full placeholder:text-slate-500"
-          />
-          <kbd className="px-2 py-0.5 text-xs bg-slate-700 rounded text-slate-400 font-mono">⌘K</kbd>
-        </div>
+       
+<div className={`hidden md:flex items-center gap-3 backdrop-blur-sm rounded-2xl px-5 py-2.5 w-96 border transition-all duration-300 ${
+  isDark
+    ? 'bg-slate-800/50 border-slate-700/50 hover:border-emerald-500/50'
+    : 'bg-slate-100 border-slate-200 hover:border-emerald-400'
+}`}>
+  <Search size={18} className="text-emerald-500" />
+  <input
+    type="text"
+    placeholder="Search anything..."
+    className={`bg-transparent border-none outline-none text-sm w-full ${
+      isDark ? 'text-white placeholder:text-slate-500' : 'text-slate-800 placeholder:text-slate-400'
+    }`}
+  />
+  <kbd className={`px-2 py-0.5 text-xs rounded font-mono ${
+    isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-200 text-slate-500'
+  }`}>⌘K</kbd>
+</div>
         
         <button className="relative p-2.5 hover:bg-white/10 rounded-xl transition-all duration-300 hover:scale-105 group">
           <Bell size={20} className="text-slate-300 group-hover:text-emerald-400 transition-colors" />
           <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-gradient-to-r from-lime-500 to-green-600 rounded-full animate-pulse shadow-lg shadow-green-500/50"></span>
         </button>
         
+<ThemeToggle />
         <div className="relative flex items-center gap-3 pl-4 border-l border-slate-700/50">
           <div 
             onClick={() => canSwitchRoles && setShowRoleSwitcher(!showRoleSwitcher)}
@@ -583,12 +601,18 @@ export default function DashboardLayout({ children }) {
             </div>
           )}
         </div>
+
       </div>
     </div>
   );
 
-  const Sidebar = () => (
-    <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-50 w-72 bg-gradient-to-b from-slate-900 via-slate-900 to-emerald-900/10 border-r border-slate-800/50 transition-all duration-300 flex flex-col backdrop-blur-xl h-screen`}>
+ const Sidebar = () => (
+  <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-50 w-72 border-r transition-all duration-300 flex flex-col backdrop-blur-xl h-screen ${
+    isDark
+      ? 'bg-gradient-to-b from-slate-900 via-slate-900 to-emerald-900/10 border-slate-800/50'
+      : 'bg-gradient-to-b from-white via-white to-emerald-50 border-emerald-100'
+  }`}>
+     
       <div className="p-6 border-b border-slate-800/50 flex-shrink-0">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2 text-sm">
@@ -648,11 +672,13 @@ export default function DashboardLayout({ children }) {
                 router.push(item.path);
                 if (window.innerWidth < 1024) setSidebarOpen(false);
               }}
-              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl mb-2 transition-all duration-300 group relative overflow-hidden ${
-                isActive 
-                  ? 'bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow-lg shadow-emerald-500/50 scale-105' 
-                  : 'text-slate-400 hover:bg-white/5 hover:text-white hover:scale-105'
-              }`}
+             className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl mb-2 transition-all duration-300 group relative overflow-hidden ${
+  isActive
+    ? 'bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow-lg shadow-emerald-500/50 scale-105'
+    : isDark
+      ? 'text-slate-400 hover:bg-white/5 hover:text-white hover:scale-105'
+      : 'text-slate-600 hover:bg-emerald-50 hover:text-slate-900 hover:scale-105'
+}`}
             >
               {isActive && (
                 <div className="absolute inset-0 bg-gradient-to-r from-green-400/20 to-emerald-500/20 animate-pulse"></div>

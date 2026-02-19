@@ -7,7 +7,7 @@ import { Aclonica, Kanit, Mulish } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import { UserProfileProvider } from "../contexts/userProfileContext";
-
+import { ThemeProvider } from "../contexts/themeContext";
 const unbounded = Aclonica({
   subsets: ["latin"],
   variable: "--font-aclonica",
@@ -57,11 +57,11 @@ export default function RootLayout({ children }) {
         <title>{siteConfig.name}</title>
       </head>
       <body className={kanit.className}>
-     
+     <ThemeProvider>
           <div className="">
             {children}
           </div>
-   
+   </ThemeProvider>
       </body>
     </html>
     </UserProfileProvider>

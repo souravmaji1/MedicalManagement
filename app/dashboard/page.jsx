@@ -120,7 +120,7 @@ const canRefreshData = canViewHCBS; // Anyone who can view can refresh
     }
   }, [selectedIndividual, dateRange]);
 
-  const fetchIndividuals = async () => {
+  const fetchIdividuals = async () => {
     try {
       setLoading(true);
       
@@ -141,6 +141,35 @@ const canRefreshData = canViewHCBS; // Anyone who can view can refresh
       setLoading(false);
     }
   };
+
+  const fetchIndividuals = async () => {
+  try {
+    setLoading(true);
+    
+    let query = supabase
+      .from('individuals')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    // DSP sees only individuals at their assigned home/facility
+    if (userProfile?.role_id === 'DSP_DD') {
+      query = query.eq('homeassignment', userProfile.facility);
+    }
+
+    // House Manager sees ALL individuals but limited to 4 records
+    if (userProfile?.role_id === 'HouseManager_DD') {
+      query = query.limit(4);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    setIndividuals(data || []);
+  } catch (error) {
+    console.error('Error fetching individuals:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const calculateComplianceData = () => {
     if (!selectedIndividual) return;

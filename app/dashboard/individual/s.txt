@@ -73,317 +73,8 @@ const IndividualProfilePage = () => {
 
   
 
-  const [ispMode, setIspMode] = useState('manual'); // 'manual' | 'scribeassist'
-const [scribeAssistForm, setScribeAssistForm] = useState({
-  // Section A: Individual Profile
-  cognitive_level: '',
-  communication_level: '',
-  guardian: false,
-  living_arrangement: '',
-  institutional_history: false,
   
-  // Section B: Functional Limitations
-  adl_flags: {
-    full_assist_bathing: false,
-    prompting_hygiene: false,
-    cannot_cook: false,
-    cannot_manage_medications: false,
-    requires_supervision_safety: false
-  },
-  iadl_flags: {
-    cannot_budget: false,
-    cannot_use_transport: false,
-    vulnerable_exploitation: false,
-    poor_decision_making: false
-  },
-  behavioral_flags: {
-    elopement: false,
-    aggression: false,
-    anxiety: false,
-    property_destruction: false,
-    self_injury: false,
-    psychiatric_hospitalization: false
-  },
-  
-  // Section C: Medical Oversight
-  rn_oversight: false,
-  chronic_conditions: '',
-  medication_count: '',
-  noncompliance_history: false,
-  
-  // Section D: Community Needs
-  community_frequency: '',
-  community_barriers: '',
-  transportation_method: '',
-  vocational_status: '',
-  
-  // Section E: Risk Level
-  risk_level: 'Moderate',
-  
-  // Observed Examples (for uniqueness engine)
-  adl_example: '',
-  behavior_example: '',
-  community_example: '',
-  strengths_preferences: ''
-});
-const [scribeAssistLoading, setScribeAssistLoading] = useState(false);
-const [scribeAssistError, setScribeAssistError] = useState('');
-const [scribeAssistGenerated, setScribeAssistGenerated] = useState(false);
 
-
-const generateWithScribeAssist = async () => {
-  setScribeAssistLoading(true);
-  setScribeAssistError('');
-
-  try {
-    const adlCount = Object.values(scribeAssistForm.adl_flags).filter(Boolean).length;
-    const behaviorFlagsPresent = Object.values(scribeAssistForm.behavioral_flags).some(Boolean);
-    const selectedBehaviors = Object.entries(scribeAssistForm.behavioral_flags)
-      .filter(([_, v]) => v).map(([k]) => k.replace(/_/g, ' '));
-    const selectedADLs = Object.entries(scribeAssistForm.adl_flags)
-      .filter(([_, v]) => v).map(([k]) => k.replace(/_/g, ' '));
-    const selectedIADLs = Object.entries(scribeAssistForm.iadl_flags)
-      .filter(([_, v]) => v).map(([k]) => k.replace(/_/g, ' '));
-
-    const needs24hrSupervision =
-      adlCount >= 4 ||
-      (scribeAssistForm.behavioral_flags.elopement && scribeAssistForm.adl_flags.cannot_manage_medications) ||
-      scribeAssistForm.risk_level === 'High';
-
-    const prompt = `You are a 20-year experienced QDDP in Alabama Residential Habilitation.
-Generate a medically necessary, defensible ISP compliant with ADMH and Alabama Medicaid.
-Tie all goals to functional deficits. Insert level-of-care justification. Avoid revenue-maximization language.
-Ensure no service overlap language is included. Insert audit-protection compliance statements.
-Use professional clinical tone. Output structured ISP data as JSON only.
-
-INDIVIDUAL DATA:
-Name: ${formData.firstname} ${formData.lastname}
-DOB: ${formData.dateofbirth}
-Medicaid ID: ${formData.medicaidnumber}
-Primary Diagnosis: ${formData.primarydiagnosis}
-Cognitive Level: ${scribeAssistForm.cognitive_level}
-Communication Level: ${scribeAssistForm.communication_level}
-Guardian Present: ${scribeAssistForm.guardian ? 'Yes' : 'No'}
-Living Arrangement: ${scribeAssistForm.living_arrangement}
-Institutional History: ${scribeAssistForm.institutional_history ? 'Yes' : 'No'}
-
-ADL DEFICITS (${adlCount} total): ${selectedADLs.join(', ') || 'None selected'}
-IADL DEFICITS: ${selectedIADLs.join(', ') || 'None selected'}
-BEHAVIORAL FLAGS: ${selectedBehaviors.join(', ') || 'None'}
-RN Oversight Required: ${scribeAssistForm.rn_oversight ? 'Yes' : 'No'}
-Chronic Conditions: ${scribeAssistForm.chronic_conditions}
-Medication Count: ${scribeAssistForm.medication_count}
-Medication Noncompliance History: ${scribeAssistForm.noncompliance_history ? 'Yes' : 'No'}
-Risk Level: ${scribeAssistForm.risk_level}
-Community Access Frequency: ${scribeAssistForm.community_frequency}
-Community Barriers: ${scribeAssistForm.community_barriers}
-Transportation: ${scribeAssistForm.transportation_method}
-Vocational Status: ${scribeAssistForm.vocational_status}
-24-Hour Supervision Indicated: ${needs24hrSupervision ? 'Yes' : 'No'}
-
-OBSERVED EXAMPLES (for individualization):
-ADL Example: ${scribeAssistForm.adl_example || 'Not provided'}
-Behavior Example: ${scribeAssistForm.behavior_example || 'Not provided'}
-Community Example: ${scribeAssistForm.community_example || 'Not provided'}
-Strengths/Preferences: ${scribeAssistForm.strengths_preferences || 'Not provided'}
-
-Generate a JSON object with these exact keys. Return ONLY valid JSON. No markdown. No explanation. No code blocks.
-
-{
-  "important_to": "3-4 sentences about what is important TO the individual in their own voice",
-  "important_for": "3-4 sentences about what is important FOR the individual regarding health, safety, support needs",
-  "strengths_interests": "2-3 sentences about strengths, interests, abilities",
-  "isp_effective_start": "${new Date().toISOString().split('T')[0]}",
-  "isp_effective_end": "${new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}",
-  "isp_next_review": "${new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}",
-  "level_of_care_justification": "Full paragraph justifying level of care tied to ${adlCount} ADL impairments and ${scribeAssistForm.risk_level} risk level${needs24hrSupervision ? ', including 24-hour supervision justification' : ''}",
-  "rights_restrictions_notes": "Rights restrictions documentation or None at this time with HCBS compliance statement",
-  "risk_mitigation_strategies": "Specific risk mitigation strategies for: ${selectedBehaviors.join(', ') || 'standard precautions'}",
-  "community_integration_plan": "Community integration plan for frequency ${scribeAssistForm.community_frequency} addressing barriers: ${scribeAssistForm.community_barriers || 'none identified'}",
-  "transportation_method": "${scribeAssistForm.transportation_method || 'To be determined'}",
-  "community_barriers": "${scribeAssistForm.community_barriers || 'None identified'}",
-  "behavior_support_summary": "${behaviorFlagsPresent ? 'Detailed behavior support summary for: ' + selectedBehaviors.join(', ') : 'No significant behavioral concerns at this time. Standard positive support strategies will be utilized.'}",
-  "abc_data_required": ${behaviorFlagsPresent},
-  "health_wellness_summary": "Health and wellness narrative for ${scribeAssistForm.chronic_conditions || 'current health needs'} managing ${scribeAssistForm.medication_count || '0'} medications",
-  "seizure_history": false,
-  "medication_monitoring": "${scribeAssistForm.noncompliance_history ? 'Enhanced monitoring protocol required due to documented noncompliance history' : 'Standard medication monitoring procedures apply'}",
-  "qddp_case_manager": "${formData.qddp_case_manager || 'To be assigned'}",
-  "funding_source": "Community Waiver Program (CWP) - H2023 Residential Habilitation",
-  "staff_training_requirements": ["ISP Review and Acknowledgment", "HCBS Rights and Dignity Training", "Person-Centered Planning"${scribeAssistForm.adl_flags.cannot_manage_medications ? ', "Medication Administration Training"' : ''}${behaviorFlagsPresent ? ', "Behavior Support Strategies", "Emergency Procedures"' : ''}],
-  "isp_outcomes": [
-    {
-      "id": "outcome_1",
-      "section_number": 3,
-      "individual_words": "Goal statement in individual voice based on their top ADL deficit: ${selectedADLs[0] || 'community independence'}",
-      "why_important": "Clinical rationale for this outcome tied to functional deficit and HCBS values",
-      "hcbs_alignment": ["Autonomy", "Independence", "Self-Determination"],
-      "objectives": [
-        {
-          "id": "obj_1_1",
-          "objective_number": 1,
-          "description": "Measurable objective with baseline and target for ${selectedADLs[0] || 'community participation'}",
-          "criteria": "4 out of 5 opportunities over 8 consecutive weeks",
-          "teaching_strategies": "Evidence-based teaching strategies appropriate to cognitive level ${scribeAssistForm.cognitive_level}",
-          "data_collection": "Data collection method with frequency and documentation format",
-          "review_criteria": "Quarterly review criteria and mastery definition"
-        }
-      ]
-    }${selectedADLs.length > 1 ? `,
-    {
-      "id": "outcome_2",
-      "section_number": 4,
-      "individual_words": "Goal statement in individual voice based on second ADL deficit: ${selectedADLs[1]}",
-      "why_important": "Clinical rationale for second outcome tied to functional deficit",
-      "hcbs_alignment": ["Independence", "Choice", "Health & Wellness"],
-      "objectives": [
-        {
-          "id": "obj_2_1",
-          "objective_number": 1,
-          "description": "Measurable objective for ${selectedADLs[1]}",
-          "criteria": "3 out of 4 opportunities over 6 consecutive weeks",
-          "teaching_strategies": "Task analysis and graduated prompting hierarchy",
-          "data_collection": "Prompt level data recorded per occurrence with weekly summary",
-          "review_criteria": "Reviewed quarterly; mastered when criteria met for 4 consecutive weeks"
-        }
-      ]
-    }` : ''}${behaviorFlagsPresent ? `,
-    {
-      "id": "outcome_behavior",
-      "section_number": ${selectedADLs.length > 1 ? 5 : 4},
-      "individual_words": "I want to feel calm and in control when things are hard for me",
-      "why_important": "Behavioral regulation supports the individual's safety, dignity, and community integration",
-      "hcbs_alignment": ["Safety", "Community Integration", "Self-Determination"],
-      "objectives": [
-        {
-          "id": "obj_beh_1",
-          "objective_number": 1,
-          "description": "Individual will utilize coping strategies when experiencing ${selectedBehaviors[0]} with decreasing staff intervention",
-          "criteria": "Successful use of coping strategy in 3 out of 4 observed incidents over 8 weeks",
-          "teaching_strategies": "Proactive de-escalation, visual coping menu, co-regulation with staff",
-          "data_collection": "ABC data form completed per incident; frequency and intensity tracking",
-          "review_criteria": "Reviewed quarterly by behavior specialist; adjust strategies as needed"
-        }
-      ]
-    }` : ''}
-  ],
-  "compliance_statement": "This plan is developed in accordance with ADMH Residential Standards, Medicaid Waiver Service Definitions, and HCBS Settings Rule requirements. Units will not exceed 96 per calendar day. No overlapping service codes will be billed. Staff assignments are cross-verified through timekeeping records. Service intensity is based on documented functional assessment and is reviewed quarterly for medical necessity and utilization appropriateness.",
-  "service_structure": "${needs24hrSupervision ? 'Day Shift: Direct supervision and individualized habilitation support. Evening Shift: Continued habilitation programming and safety monitoring. Overnight: Awake staff providing continuous monitoring for safety and medical needs. No service time blocks overlap.' : 'Day Shift: Individualized habilitation support and skill-building activities. Evening Shift: ADL support and community reintegration programming. Overnight: Monitoring staff available upon need. No service time blocks overlap.'}"
-}`;
-
-    // --- Groq API call with streaming ---
-    const GROQ_API_KEY = process.env.NEXT_PUBLIC_GROQ_API_KEY;
-
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer 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`
-      },
-      body: JSON.stringify({
-        model: 'moonshotai/kimi-k2-instruct-0905',
-        temperature: 0.6,
-        max_completion_tokens: 4096,
-        top_p: 1,
-        stream: true,
-        stop: null,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a 20-year experienced QDDP in Alabama Residential Habilitation. You always return valid JSON only. No markdown, no explanation, no code blocks. Only the raw JSON object.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ]
-      })
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Groq API error ${response.status}: ${errText}`);
-    }
-
-    // --- Read the SSE stream and accumulate the full text ---
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder('utf-8');
-    let fullText = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = chunk.split('\n');
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed === 'data: [DONE]') continue;
-        if (!trimmed.startsWith('data: ')) continue;
-
-        try {
-          const json = JSON.parse(trimmed.slice(6));
-          const delta = json.choices?.[0]?.delta?.content;
-          if (delta) fullText += delta;
-        } catch {
-          // skip malformed SSE lines
-        }
-      }
-    }
-
-    // --- Parse the accumulated JSON ---
-    let parsed;
-    try {
-      const cleaned = fullText
-        .replace(/```json/g, '')
-        .replace(/```/g, '')
-        .trim();
-      parsed = JSON.parse(cleaned);
-    } catch (parseErr) {
-      console.error('Raw response:', fullText);
-      throw new Error('ScribeAssist returned invalid JSON. Please try again.');
-    }
-
-    // --- Merge generated data into formData ---
-    setFormData(prev => ({
-      ...prev,
-      important_to:               parsed.important_to               || prev.important_to,
-      important_for:              parsed.important_for              || prev.important_for,
-      strengths_interests:        parsed.strengths_interests        || prev.strengths_interests,
-      isp_effective_start:        parsed.isp_effective_start        || prev.isp_effective_start,
-      isp_effective_end:          parsed.isp_effective_end          || prev.isp_effective_end,
-      isp_next_review:            parsed.isp_next_review            || prev.isp_next_review,
-      rights_restrictions_notes:  parsed.rights_restrictions_notes  || prev.rights_restrictions_notes,
-      risk_mitigation_strategies: parsed.risk_mitigation_strategies || prev.risk_mitigation_strategies,
-      community_integration_plan: parsed.community_integration_plan || prev.community_integration_plan,
-      transportation_method:      parsed.transportation_method      || prev.transportation_method,
-      community_barriers:         parsed.community_barriers         || prev.community_barriers,
-      behavior_support_summary:   parsed.behavior_support_summary   || prev.behavior_support_summary,
-      abc_data_required:          parsed.abc_data_required          ?? prev.abc_data_required,
-      health_wellness_summary:    parsed.health_wellness_summary    || prev.health_wellness_summary,
-      seizure_history:            parsed.seizure_history            ?? prev.seizure_history,
-      medication_monitoring:      parsed.medication_monitoring      || prev.medication_monitoring,
-      qddp_case_manager:          parsed.qddp_case_manager          || prev.qddp_case_manager,
-      funding_source:             parsed.funding_source             || prev.funding_source,
-      staff_training_requirements: parsed.staff_training_requirements?.length
-                                    ? parsed.staff_training_requirements
-                                    : prev.staff_training_requirements,
-      isp_outcomes: parsed.isp_outcomes?.length
-                      ? parsed.isp_outcomes
-                      : prev.isp_outcomes,
-    }));
-
-    setScribeAssistGenerated(true);
-    setIspMode('manual');
-    alert('✅ ScribeAssist has generated your ISP! Review and edit as needed, then save.');
-
-  } catch (err) {
-    console.error('ScribeAssist error:', err);
-    setScribeAssistError(err.message || 'Generation failed. Please try again.');
-  } finally {
-    setScribeAssistLoading(false);
-  }
-};
 
 
 
@@ -714,7 +405,7 @@ useEffect(() => {
     fetchCommunityActivities(individual.id);
     fetchChoiceAcknowledgments(individual.id);
   }
-}, [individual?.id]);
+}, [individual]);
 
 // Handle Community Activity Entry
 
@@ -775,7 +466,7 @@ const parseJSONData = (data) => {
 };
 
 // Fix for fetchCommunityActivities
-const fetchCommuniActivities = async (individualId) => {
+const fetchCommunityActivities = async (individualId) => {
   try {
     const { data, error } = await supabase
       .from('individuals')
@@ -799,27 +490,8 @@ const fetchCommuniActivities = async (individualId) => {
   }
 };
 
-const fetchCommunityActivities = async (individualId) => {
-  try {
-    const { data, error } = await supabase
-      .from('individuals')
-      .select('community_activity_log')
-      .eq('id', individualId)
-      .single();
-    
-    if (error) throw error;
-    
-    const activities = parseJSONData(data?.community_activity_log) || [];
-    setCommunityActivities(activities);
-    // REMOVE the setIndividual call here — it caused the infinite loop
-  } catch (error) {
-    console.error('Error fetching community activities:', error);
-    setCommunityActivities([]);
-  }
-};
-
 // Fix for fetchChoiceAcknowledgments
-const fetchChoiceAckledgments = async (individualId) => {
+const fetchChoiceAcknowledgments = async (individualId) => {
   try {
     const { data, error } = await supabase
       .from('individuals')
@@ -837,25 +509,6 @@ const fetchChoiceAckledgments = async (individualId) => {
       ...prev,
       choice_acknowledgments: acknowledgments
     }));
-  } catch (error) {
-    console.error('Error fetching choice acknowledgments:', error);
-    setChoiceAcknowledgments([]);
-  }
-};
-
-const fetchChoiceAcknowledgments = async (individualId) => {
-  try {
-    const { data, error } = await supabase
-      .from('individuals')
-      .select('choice_acknowledgments')
-      .eq('id', individualId)
-      .single();
-    
-    if (error) throw error;
-    
-    const acknowledgments = parseJSONData(data?.choice_acknowledgments) || [];
-    setChoiceAcknowledgments(acknowledgments);
-    // REMOVE the setIndividual call here — it caused the infinite loop
   } catch (error) {
     console.error('Error fetching choice acknowledgments:', error);
     setChoiceAcknowledgments([]);
@@ -2528,7 +2181,8 @@ Edit Profile
 
 
 
- {activeTab === 'isp' && (
+          {/* ISP Tab - NEW */}
+{activeTab === 'isp' && (
   <div className="space-y-6">
     {!canViewPlans ? (
       <div className="text-center py-16">
@@ -2538,1230 +2192,879 @@ Edit Profile
       </div>
     ) : (
       <>
-        {/* MODE SELECTOR */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-lg font-bold text-white">ISP Builder Mode</h3>
-              <p className="text-sm text-slate-400">Choose how you want to build or edit this ISP</p>
-            </div>
-            {scribeAssistGenerated && (
-              <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full text-xs font-bold">
-                ✓ ScribeAssist Generated
-              </span>
-            )}
-          </div>
+        {/* Section 1: Individual Information */}
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+          <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+            <FileText className="text-indigo-400" size={24} />
+            Section 1 — Individual Information
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <button
-              onClick={() => setIspMode('manual')}
-              className={`flex items-center gap-4 p-5 rounded-xl border-2 transition-all text-left ${
-                ispMode === 'manual'
-                  ? 'border-emerald-500 bg-emerald-500/10'
-                  : 'border-slate-600 bg-slate-800/30 hover:border-slate-500'
-              }`}
-            >
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                ispMode === 'manual' ? 'bg-emerald-600' : 'bg-slate-700'
-              }`}>
-                <Edit2 className="text-white" size={22} />
-              </div>
-              <div>
-                <p className={`text-base font-bold mb-1 ${ispMode === 'manual' ? 'text-emerald-400' : 'text-white'}`}>
-                  Manual Entry
-                </p>
-                <p className="text-xs text-slate-400">
-                  Type and edit all ISP fields directly. Full control over every section.
-                </p>
-              </div>
-            </button>
-
-            <button
-              onClick={() => setIspMode('scribeassist')}
-              className={`flex items-center gap-4 p-5 rounded-xl border-2 transition-all text-left ${
-                ispMode === 'scribeassist'
-                  ? 'border-indigo-500 bg-indigo-500/10'
-                  : 'border-slate-600 bg-slate-800/30 hover:border-slate-500'
-              }`}
-            >
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                ispMode === 'scribeassist' ? 'bg-indigo-600' : 'bg-slate-700'
-              }`}>
-                <Activity className="text-white" size={22} />
-              </div>
-              <div>
-                <p className={`text-base font-bold mb-1 ${ispMode === 'scribeassist' ? 'text-indigo-400' : 'text-white'}`}>
-                  ScribeAssist AI
-                </p>
-                <p className="text-xs text-slate-400">
-                  Answer structured questions. AI generates compliant, individualized ISP narrative.
-                </p>
-              </div>
-            </button>
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">Funding Source</label>
+              <input
+                type="text"
+                name="funding_source"
+                value={formData.funding_source}
+                onChange={handleInputChange}
+                disabled={!isEditing || !canEditPlans}
+                placeholder="e.g., Community Waiver Program (CWP)"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">QDDP / Case Manager</label>
+              <input
+                type="text"
+                name="qddp_case_manager"
+                value={formData.qddp_case_manager}
+                onChange={handleInputChange}
+                disabled={!isEditing || !canEditPlans}
+                placeholder="Name, QDDP"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">ISP Effective Start Date</label>
+              <input
+                type="date"
+                name="isp_effective_start"
+                value={formData.isp_effective_start}
+                onChange={handleInputChange}
+                disabled={!isEditing || !canEditPlans}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">ISP Effective End Date</label>
+              <input
+                type="date"
+                name="isp_effective_end"
+                value={formData.isp_effective_end}
+                onChange={handleInputChange}
+                disabled={!isEditing || !canEditPlans}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">Next Review Date</label>
+              <input
+                type="date"
+                name="isp_next_review"
+                value={formData.isp_next_review}
+                onChange={handleInputChange}
+                disabled={!isEditing || !canEditPlans}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 transition-all"
+              />
+            </div>
           </div>
         </div>
 
-        {/* ── SCRIBEASSIST MODE ── */}
-        {ispMode === 'scribeassist' && (
-          <div className="space-y-6">
-
-            {/* Section A */}
-            <div className="bg-slate-800/50 border border-indigo-500/30 rounded-xl p-6">
-              <h3 className="text-xl font-bold text-indigo-400 mb-4 flex items-center gap-2">
-                <User size={20} />
-                Section A — Individual Clinical Profile
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Cognitive Level</label>
-                  <select
-                    value={scribeAssistForm.cognitive_level}
-                    onChange={e => setScribeAssistForm(p => ({...p, cognitive_level: e.target.value}))}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-all"
-                  >
-                    <option value="">Select...</option>
-                    <option>Mild ID</option>
-                    <option>Moderate ID</option>
-                    <option>Severe ID</option>
-                    <option>Profound ID</option>
-                    <option>Borderline</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Communication Level</label>
-                  <select
-                    value={scribeAssistForm.communication_level}
-                    onChange={e => setScribeAssistForm(p => ({...p, communication_level: e.target.value}))}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-all"
-                  >
-                    <option value="">Select...</option>
-                    <option>Verbal - Full sentences</option>
-                    <option>Verbal - Single words/phrases</option>
-                    <option>AAC device dependent</option>
-                    <option>Gestures/pointing</option>
-                    <option>Nonverbal</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Living Arrangement</label>
-                  <input
-                    type="text"
-                    value={scribeAssistForm.living_arrangement}
-                    onChange={e => setScribeAssistForm(p => ({...p, living_arrangement: e.target.value}))}
-                    placeholder="e.g., Group home - 4 bed, Host home"
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Risk Assessment Level</label>
-                  <select
-                    value={scribeAssistForm.risk_level}
-                    onChange={e => setScribeAssistForm(p => ({...p, risk_level: e.target.value}))}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-all"
-                  >
-                    <option>Low</option>
-                    <option>Moderate</option>
-                    <option>High</option>
-                  </select>
-                </div>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="sa_guardian"
-                    checked={scribeAssistForm.guardian}
-                    onChange={e => setScribeAssistForm(p => ({...p, guardian: e.target.checked}))}
-                    className="w-5 h-5 rounded border-slate-600 text-indigo-500"
-                  />
-                  <label htmlFor="sa_guardian" className="text-slate-300">Guardian Present</label>
-                </div>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="sa_inst"
-                    checked={scribeAssistForm.institutional_history}
-                    onChange={e => setScribeAssistForm(p => ({...p, institutional_history: e.target.checked}))}
-                    className="w-5 h-5 rounded border-slate-600 text-indigo-500"
-                  />
-                  <label htmlFor="sa_inst" className="text-slate-300">History of Institutional Placement</label>
-                </div>
-              </div>
+        {/* Section 2: Person-Centered Information */}
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+          <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+            <User className="text-purple-400" size={24} />
+            Section 2 — Person-Centered Information
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">
+                What Is Important TO the Individual
+                <span className="text-xs text-slate-500 ml-2">(In their own words)</span>
+              </label>
+              <textarea
+                name="important_to"
+                value={formData.important_to}
+                onChange={handleInputChange}
+                disabled={!isEditing || !canEditPlans}
+                rows="4"
+                placeholder="What does the individual want? Their preferences, desires, and choices..."
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 disabled:opacity-50 transition-all resize-none"
+              />
             </div>
-
-            {/* Section B */}
-            <div className="bg-slate-800/50 border border-indigo-500/30 rounded-xl p-6">
-              <h3 className="text-xl font-bold text-indigo-400 mb-4 flex items-center gap-2">
-                <Activity size={20} />
-                Section B — Functional Limitations
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <h4 className="text-white font-bold mb-3 text-sm uppercase tracking-wide">ADL Deficits</h4>
-                  <div className="space-y-2">
-                    {[
-                      ['full_assist_bathing','Needs full assistance bathing'],
-                      ['prompting_hygiene','Needs prompting for hygiene'],
-                      ['cannot_cook','Cannot cook independently'],
-                      ['cannot_manage_medications','Cannot manage medications'],
-                      ['requires_supervision_safety','Requires supervision for safety']
-                    ].map(([key, label]) => (
-                      <div key={key} className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          id={`adl_${key}`}
-                          checked={scribeAssistForm.adl_flags[key]}
-                          onChange={e => setScribeAssistForm(p => ({...p, adl_flags: {...p.adl_flags, [key]: e.target.checked}}))}
-                          className="w-4 h-4 rounded border-slate-600 text-indigo-500"
-                        />
-                        <label htmlFor={`adl_${key}`} className="text-sm text-slate-300">{label}</label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <h4 className="text-white font-bold mb-3 text-sm uppercase tracking-wide">IADL Deficits</h4>
-                  <div className="space-y-2">
-                    {[
-                      ['cannot_budget','Cannot budget'],
-                      ['cannot_use_transport','Cannot use public transport'],
-                      ['vulnerable_exploitation','Vulnerable to exploitation'],
-                      ['poor_decision_making','Poor decision-making']
-                    ].map(([key, label]) => (
-                      <div key={key} className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          id={`iadl_${key}`}
-                          checked={scribeAssistForm.iadl_flags[key]}
-                          onChange={e => setScribeAssistForm(p => ({...p, iadl_flags: {...p.iadl_flags, [key]: e.target.checked}}))}
-                          className="w-4 h-4 rounded border-slate-600 text-indigo-500"
-                        />
-                        <label htmlFor={`iadl_${key}`} className="text-sm text-slate-300">{label}</label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <h4 className="text-white font-bold mb-3 text-sm uppercase tracking-wide">Behavioral</h4>
-                  <div className="space-y-2">
-                    {[
-                      ['elopement','Elopement history'],
-                      ['aggression','Aggression'],
-                      ['anxiety','Anxiety episodes'],
-                      ['property_destruction','Property destruction'],
-                      ['self_injury','Self-injury'],
-                      ['psychiatric_hospitalization','Psychiatric hospitalization history']
-                    ].map(([key, label]) => (
-                      <div key={key} className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          id={`beh_${key}`}
-                          checked={scribeAssistForm.behavioral_flags[key]}
-                          onChange={e => setScribeAssistForm(p => ({...p, behavioral_flags: {...p.behavioral_flags, [key]: e.target.checked}}))}
-                          className="w-4 h-4 rounded border-slate-600 text-indigo-500"
-                        />
-                        <label htmlFor={`beh_${key}`} className="text-sm text-slate-300">{label}</label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* ADL count indicator */}
-              {(() => {
-                const adlCount = Object.values(scribeAssistForm.adl_flags).filter(Boolean).length;
-                return adlCount >= 4 ? (
-                  <div className="mt-4 p-3 bg-orange-900/30 border border-orange-500/40 rounded-lg flex items-center gap-2">
-                    <AlertTriangle className="text-orange-400 flex-shrink-0" size={16} />
-                    <p className="text-sm text-orange-300">
-                      {adlCount} ADL deficits selected — 24-hour supervision justification will be auto-generated (Rule 1)
-                    </p>
-                  </div>
-                ) : (
-                  <div className="mt-4 p-3 bg-slate-900/30 border border-slate-700 rounded-lg">
-                    <p className="text-sm text-slate-400">
-                      ADL deficits selected: <span className="text-white font-bold">{adlCount}/5</span>
-                      <span className="text-slate-500 ml-2">(4+ triggers 24-hour supervision justification)</span>
-                    </p>
-                  </div>
-                );
-              })()}
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">
+                What Is Important FOR the Individual
+                <span className="text-xs text-slate-500 ml-2">(Health, safety, and support needs)</span>
+              </label>
+              <textarea
+                name="important_for"
+                value={formData.important_for}
+                onChange={handleInputChange}
+                disabled={!isEditing || !canEditPlans}
+                rows="4"
+                placeholder="What does the individual need for health, safety, and well-being..."
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 disabled:opacity-50 transition-all resize-none"
+              />
             </div>
-
-            {/* Section C */}
-            <div className="bg-slate-800/50 border border-indigo-500/30 rounded-xl p-6">
-              <h3 className="text-xl font-bold text-indigo-400 mb-4 flex items-center gap-2">
-                <Heart size={20} />
-                Section C — Medical Oversight
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="sa_rn"
-                    checked={scribeAssistForm.rn_oversight}
-                    onChange={e => setScribeAssistForm(p => ({...p, rn_oversight: e.target.checked}))}
-                    className="w-5 h-5 rounded border-slate-600 text-indigo-500"
-                  />
-                  <label htmlFor="sa_rn" className="text-slate-300 font-medium">RN Oversight Required</label>
-                </div>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="sa_noncompliance"
-                    checked={scribeAssistForm.noncompliance_history}
-                    onChange={e => setScribeAssistForm(p => ({...p, noncompliance_history: e.target.checked}))}
-                    className="w-5 h-5 rounded border-slate-600 text-indigo-500"
-                  />
-                  <label htmlFor="sa_noncompliance" className="text-slate-300 font-medium">History of Med Noncompliance</label>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Chronic Conditions</label>
-                  <input
-                    type="text"
-                    value={scribeAssistForm.chronic_conditions}
-                    onChange={e => setScribeAssistForm(p => ({...p, chronic_conditions: e.target.value}))}
-                    placeholder="e.g., Hypertension, Diabetes Type 2, Epilepsy"
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Medication Count</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={scribeAssistForm.medication_count}
-                    onChange={e => setScribeAssistForm(p => ({...p, medication_count: e.target.value}))}
-                    placeholder="e.g., 5"
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-all"
-                  />
-                </div>
-                {scribeAssistForm.rn_oversight && (
-                  <div className="md:col-span-2 p-3 bg-blue-900/20 border border-blue-500/30 rounded-lg">
-                    <p className="text-sm text-blue-300 flex items-center gap-2">
-                      <Info size={14} />
-                      RN section will be added with separate billing block language per Rule 3
-                    </p>
-                  </div>
-                )}
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">
+                Strengths, Interests, and Skills
+              </label>
+              <textarea
+                name="strengths_interests"
+                value={formData.strengths_interests}
+                onChange={handleInputChange}
+                disabled={!isEditing || !canEditPlans}
+                rows="4"
+                placeholder="List the individual's strengths, interests, abilities, and skills..."
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 disabled:opacity-50 transition-all resize-none"
+              />
             </div>
+          </div>
+        </div>
 
-            {/* Section D */}
-            <div className="bg-slate-800/50 border border-indigo-500/30 rounded-xl p-6">
-              <h3 className="text-xl font-bold text-indigo-400 mb-4 flex items-center gap-2">
-                <MapPin size={20} />
-                Section D — Community Needs
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Community Access Frequency</label>
-                  <select
-                    value={scribeAssistForm.community_frequency}
-                    onChange={e => setScribeAssistForm(p => ({...p, community_frequency: e.target.value}))}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-all"
-                  >
-                    <option value="">Select...</option>
-                    <option>Daily</option>
-                    <option>3-4 times per week</option>
-                    <option>1-2 times per week</option>
-                    <option>Monthly</option>
-                    <option>As tolerated</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Transportation Method</label>
-                  <input
-                    type="text"
-                    value={scribeAssistForm.transportation_method}
-                    onChange={e => setScribeAssistForm(p => ({...p, transportation_method: e.target.value}))}
-                    placeholder="e.g., Staff vehicle, Public transit, Family"
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Barriers to Community Participation</label>
-                  <input
-                    type="text"
-                    value={scribeAssistForm.community_barriers}
-                    onChange={e => setScribeAssistForm(p => ({...p, community_barriers: e.target.value}))}
-                    placeholder="e.g., Anxiety in crowds, Physical limitations"
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Employment / Vocational Status</label>
-                  <select
-                    value={scribeAssistForm.vocational_status}
-                    onChange={e => setScribeAssistForm(p => ({...p, vocational_status: e.target.value}))}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-all"
-                  >
-                    <option value="">Select...</option>
-                    <option>Employed - competitive integrated</option>
-                    <option>Sheltered workshop</option>
-                    <option>Day program</option>
-                    <option>Not employed - exploring options</option>
-                    <option>Not applicable</option>
-                  </select>
-                </div>
-              </div>
-            </div>
+        {/* Section 3, 4, 5: ISP Outcomes - Add after Section 2 and before Section 6 */}
+<div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+  <div className="flex items-center justify-between mb-4">
+    <h3 className="text-2xl font-bold text-white flex items-center gap-2">
+      <Target className="text-emerald-400" size={24} />
+      Sections 3-5 — ISP Outcomes
+    </h3>
+    {isEditing && canEditPlans && (
+      <button
+        onClick={() => {
+          const newOutcome = {
+            id: Date.now().toString(),
+            section_number: formData.isp_outcomes?.length + 3 || 3,
+            outcome_statement: '',
+            individual_words: '',
+            why_important: '',
+            hcbs_alignment: [],
+            objectives: [],
+            created_by: userProfile.fullname,
+            created_date: new Date().toISOString()
+          };
+          setFormData(prev => ({
+            ...prev,
+            isp_outcomes: [...(prev.isp_outcomes || []), newOutcome]
+          }));
+        }}
+        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition-all"
+      >
+        <Plus size={16} />
+        Add ISP Outcome
+      </button>
+    )}
+  </div>
 
-            {/* Individualization Examples */}
-            <div className="bg-slate-800/50 border border-yellow-500/30 rounded-xl p-6">
-              <h3 className="text-xl font-bold text-yellow-400 mb-1 flex items-center gap-2">
-                <Info size={20} />
-                Individualization Examples
-              </h3>
-              <p className="text-sm text-slate-400 mb-4">
-                Specific observed examples make the ISP unique and audit-resistant. Minimum 10 individualized facts required per ADMH standards.
-              </p>
-              <div className="grid grid-cols-1 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    ADL Observed Example
-                    <span className="text-xs text-slate-500 ml-2">(specific, documented observation)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={scribeAssistForm.adl_example}
-                    onChange={e => setScribeAssistForm(p => ({...p, adl_example: e.target.value}))}
-                    placeholder='e.g., "Requires 6 verbal prompts to initiate shower; turns off water before rinsing"'
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-yellow-500 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Behavior Observed Example
-                    <span className="text-xs text-slate-500 ml-2">(specific incident or pattern)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={scribeAssistForm.behavior_example}
-                    onChange={e => setScribeAssistForm(p => ({...p, behavior_example: e.target.value}))}
-                    placeholder='e.g., "Left store aisle 3 times during last outing; becomes dysregulated in loud environments"'
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-yellow-500 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Community Observed Example
-                    <span className="text-xs text-slate-500 ml-2">(real observation from outings)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={scribeAssistForm.community_example}
-                    onChange={e => setScribeAssistForm(p => ({...p, community_example: e.target.value}))}
-                    placeholder='e.g., "Overstimulated in crowds; prefers morning outings when stores are quieter"'
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-yellow-500 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Strengths &amp; Preferences
-                    <span className="text-xs text-slate-500 ml-2">(person-centered, in their voice)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={scribeAssistForm.strengths_preferences}
-                    onChange={e => setScribeAssistForm(p => ({...p, strengths_preferences: e.target.value}))}
-                    placeholder='e.g., "Enjoys music, responds well to visual schedules, loves gardening, proud of cooking skills"'
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-yellow-500 transition-all"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Compliance preview badges */}
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
-              <h4 className="text-sm font-bold text-slate-300 mb-3">Auto-Generated Compliance Language (Preview)</h4>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  '✔ No overlapping service time blocks',
-                  '✔ Units ≤ 96/calendar day',
-                  '✔ Staff cross-verification language',
-                  '✔ Quarterly medical necessity review',
-                  '✔ HCBS Settings Rule compliance',
-                  '✔ Least restrictive environment',
-                  scribeAssistForm.rn_oversight ? '✔ RN separate billing block' : null,
-                  Object.values(scribeAssistForm.behavioral_flags).some(Boolean) ? '✔ Behavior specialist time separation' : null,
-                  Object.values(scribeAssistForm.adl_flags).filter(Boolean).length >= 4 ? '✔ 24-hr supervision justification' : null,
-                ].filter(Boolean).map((badge, i) => (
-                  <span key={i} className="px-2 py-1 bg-emerald-900/30 border border-emerald-500/30 text-emerald-400 text-xs rounded-full">
-                    {badge}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Error */}
-            {scribeAssistError && (
-              <div className="bg-red-900/30 border border-red-500/50 rounded-xl p-4 flex items-center gap-3">
-                <AlertCircle className="text-red-400 flex-shrink-0" size={20} />
-                <p className="text-red-300 text-sm">{scribeAssistError}</p>
-              </div>
-            )}
-
-            {/* Generate Button */}
-            <button
-              onClick={generateWithScribeAssist}
-              disabled={scribeAssistLoading || !canEditPlans}
-              className="w-full flex items-center justify-center gap-3 py-5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl font-bold text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/30"
-            >
-              {scribeAssistLoading ? (
-                <>
-                  <Loader2 size={24} className="animate-spin" />
-                  ScribeAssist is generating your ISP...
-                </>
-              ) : (
-                <>
-                  <Activity size={24} />
-                  Generate ISP with ScribeAssist
-                </>
-              )}
-            </button>
-
-            {scribeAssistLoading && (
-              <div className="bg-indigo-900/20 border border-indigo-500/30 rounded-xl p-4 text-center">
-                <p className="text-indigo-300 text-sm">Generating individualized, ADMH-compliant ISP narrative...</p>
-                <p className="text-slate-500 text-xs mt-1">Applying Rules Engine · Building Goals · Inserting Compliance Language</p>
-              </div>
+  {(!formData.isp_outcomes || formData.isp_outcomes.length === 0) ? (
+    <div className="text-center py-8 text-slate-400">
+      <Target className="w-12 h-12 mx-auto mb-3 text-slate-600" />
+      <p>No ISP outcomes defined yet</p>
+      <p className="text-sm text-slate-500 mt-2">Add outcomes with objectives, teaching strategies, and data collection methods</p>
+    </div>
+  ) : (
+    <div className="space-y-6">
+      {formData.isp_outcomes.map((outcome, outcomeIndex) => (
+        <div key={outcome.id} className="bg-slate-900/50 border border-emerald-500/30 rounded-lg p-6">
+          {/* Outcome Header */}
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-xl font-bold text-emerald-400">
+              Section {outcome.section_number} — Outcome {outcomeIndex + 1}
+            </h4>
+            {isEditing && canEditPlans && (
+              <button
+                onClick={() => {
+                  if (confirm('Are you sure you want to delete this ISP outcome and all its objectives?')) {
+                    setFormData(prev => ({
+                      ...prev,
+                      isp_outcomes: prev.isp_outcomes.filter((_, i) => i !== outcomeIndex)
+                    }));
+                  }
+                }}
+                className="text-red-400 hover:text-red-300 transition-colors"
+              >
+                <Trash2 size={20} />
+              </button>
             )}
           </div>
-        )}
 
-        {/* ── MANUAL MODE ── */}
-        {ispMode === 'manual' && (
-          <>
-            {/* Section 1 */}
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-              <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-                <FileText className="text-indigo-400" size={24} />
-                Section 1 — Individual Information
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-2">Funding Source</label>
-                  <input
-                    type="text"
-                    name="funding_source"
-                    value={formData.funding_source}
-                    onChange={handleInputChange}
-                    disabled={!isEditing || !canEditPlans}
-                    placeholder="e.g., Community Waiver Program (CWP)"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-2">QDDP / Case Manager</label>
-                  <input
-                    type="text"
-                    name="qddp_case_manager"
-                    value={formData.qddp_case_manager}
-                    onChange={handleInputChange}
-                    disabled={!isEditing || !canEditPlans}
-                    placeholder="Name, QDDP"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-2">ISP Effective Start Date</label>
-                  <input
-                    type="date"
-                    name="isp_effective_start"
-                    value={formData.isp_effective_start}
-                    onChange={handleInputChange}
-                    disabled={!isEditing || !canEditPlans}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-2">ISP Effective End Date</label>
-                  <input
-                    type="date"
-                    name="isp_effective_end"
-                    value={formData.isp_effective_end}
-                    onChange={handleInputChange}
-                    disabled={!isEditing || !canEditPlans}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-2">Next Review Date</label>
-                  <input
-                    type="date"
-                    name="isp_next_review"
-                    value={formData.isp_next_review}
-                    onChange={handleInputChange}
-                    disabled={!isEditing || !canEditPlans}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50 transition-all"
-                  />
-                </div>
-              </div>
+          {/* Outcome Statement */}
+          <div className="space-y-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">
+                Outcome Statement (In Individual's Words)
+              </label>
+              <input
+                type="text"
+                value={outcome.individual_words}
+                onChange={(e) => {
+                  if (!isEditing || !canEditPlans) return;
+                  setFormData(prev => ({
+                    ...prev,
+                    isp_outcomes: prev.isp_outcomes.map((o, i) => 
+                      i === outcomeIndex ? { ...o, individual_words: e.target.value } : o
+                    )
+                  }));
+                }}
+                disabled={!isEditing || !canEditPlans}
+                placeholder='e.g., "I want to get ready by myself in the morning"'
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50 transition-all"
+              />
             </div>
 
-            {/* Section 2 */}
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-              <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-                <User className="text-purple-400" size={24} />
-                Section 2 — Person-Centered Information
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-2">
-                    What Is Important TO the Individual
-                    <span className="text-xs text-slate-500 ml-2">(In their own words)</span>
-                  </label>
-                  <textarea
-                    name="important_to"
-                    value={formData.important_to}
-                    onChange={handleInputChange}
-                    disabled={!isEditing || !canEditPlans}
-                    rows="4"
-                    placeholder="What does the individual want? Their preferences, desires, and choices..."
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 disabled:opacity-50 transition-all resize-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-2">
-                    What Is Important FOR the Individual
-                    <span className="text-xs text-slate-500 ml-2">(Health, safety, and support needs)</span>
-                  </label>
-                  <textarea
-                    name="important_for"
-                    value={formData.important_for}
-                    onChange={handleInputChange}
-                    disabled={!isEditing || !canEditPlans}
-                    rows="4"
-                    placeholder="What does the individual need for health, safety, and well-being..."
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 disabled:opacity-50 transition-all resize-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-2">Strengths, Interests, and Skills</label>
-                  <textarea
-                    name="strengths_interests"
-                    value={formData.strengths_interests}
-                    onChange={handleInputChange}
-                    disabled={!isEditing || !canEditPlans}
-                    rows="4"
-                    placeholder="List the individual's strengths, interests, abilities, and skills..."
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 disabled:opacity-50 transition-all resize-none"
-                  />
-                </div>
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">
+                Why This Outcome Is Important
+              </label>
+              <textarea
+                value={outcome.why_important}
+                onChange={(e) => {
+                  if (!isEditing || !canEditPlans) return;
+                  setFormData(prev => ({
+                    ...prev,
+                    isp_outcomes: prev.isp_outcomes.map((o, i) => 
+                      i === outcomeIndex ? { ...o, why_important: e.target.value } : o
+                    )
+                  }));
+                }}
+                disabled={!isEditing || !canEditPlans}
+                rows="3"
+                placeholder="Explain the significance and impact of this outcome..."
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50 transition-all resize-none"
+              />
             </div>
 
-            {/* Sections 3-5: ISP Outcomes */}
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-2xl font-bold text-white flex items-center gap-2">
-                  <Target className="text-emerald-400" size={24} />
-                  Sections 3–5 — ISP Outcomes
-                </h3>
-                {isEditing && canEditPlans && (
-                  <button
-                    onClick={() => {
-                      const newOutcome = {
-                        id: Date.now().toString(),
-                        section_number: (formData.isp_outcomes?.length || 0) + 3,
-                        individual_words: '',
-                        why_important: '',
-                        hcbs_alignment: [],
-                        objectives: [],
-                        created_by: userProfile.fullname,
-                        created_date: new Date().toISOString()
-                      };
-                      setFormData(prev => ({
-                        ...prev,
-                        isp_outcomes: [...(prev.isp_outcomes || []), newOutcome]
-                      }));
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition-all"
-                  >
-                    <Plus size={16} />
-                    Add ISP Outcome
-                  </button>
-                )}
-              </div>
-
-              {(!formData.isp_outcomes || formData.isp_outcomes.length === 0) ? (
-                <div className="text-center py-8 text-slate-400">
-                  <Target className="w-12 h-12 mx-auto mb-3 text-slate-600" />
-                  <p>No ISP outcomes defined yet</p>
-                  <p className="text-sm text-slate-500 mt-1">Add outcomes with objectives, teaching strategies, and data collection methods</p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {formData.isp_outcomes.map((outcome, outcomeIndex) => (
-                    <div key={outcome.id} className="bg-slate-900/50 border border-emerald-500/30 rounded-lg p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-xl font-bold text-emerald-400">
-                          Section {outcome.section_number} — Outcome {outcomeIndex + 1}
-                        </h4>
-                        {isEditing && canEditPlans && (
-                          <button
-                            onClick={() => {
-                              if (confirm('Delete this ISP outcome and all its objectives?')) {
-                                setFormData(prev => ({
-                                  ...prev,
-                                  isp_outcomes: prev.isp_outcomes.filter((_, i) => i !== outcomeIndex)
-                                }));
-                              }
-                            }}
-                            className="text-red-400 hover:text-red-300 transition-colors"
-                          >
-                            <Trash2 size={20} />
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="space-y-4 mb-6">
-                        <div>
-                          <label className="block text-sm font-medium text-slate-400 mb-2">Outcome Statement (In Individual's Words)</label>
-                          <input
-                            type="text"
-                            value={outcome.individual_words}
-                            onChange={e => {
-                              if (!isEditing || !canEditPlans) return;
-                              setFormData(prev => ({
-                                ...prev,
-                                isp_outcomes: prev.isp_outcomes.map((o, i) =>
-                                  i === outcomeIndex ? {...o, individual_words: e.target.value} : o
-                                )
-                              }));
-                            }}
-                            disabled={!isEditing || !canEditPlans}
-                            placeholder='"I want to get ready by myself in the morning"'
-                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50 transition-all"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-slate-400 mb-2">Why This Outcome Is Important</label>
-                          <textarea
-                            value={outcome.why_important}
-                            onChange={e => {
-                              if (!isEditing || !canEditPlans) return;
-                              setFormData(prev => ({
-                                ...prev,
-                                isp_outcomes: prev.isp_outcomes.map((o, i) =>
-                                  i === outcomeIndex ? {...o, why_important: e.target.value} : o
-                                )
-                              }));
-                            }}
-                            disabled={!isEditing || !canEditPlans}
-                            rows="3"
-                            placeholder="Explain the significance and impact of this outcome..."
-                            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 disabled:opacity-50 transition-all resize-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-slate-400 mb-3">HCBS Alignment</label>
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                            {['Autonomy','Independence','Privacy & Dignity','Informed Choice','Community Integration','Choice','Social Relationships','Self-Determination','Health & Wellness','Safety'].map(alignment => (
-                              <div key={alignment} className="flex items-center gap-2">
-                                <input
-                                  type="checkbox"
-                                  id={`align_${outcomeIndex}_${alignment.replace(/\s+/g,'_')}`}
-                                  checked={outcome.hcbs_alignment?.includes(alignment)}
-                                  onChange={e => {
-                                    if (!isEditing || !canEditPlans) return;
-                                    setFormData(prev => ({
-                                      ...prev,
-                                      isp_outcomes: prev.isp_outcomes.map((o, i) => {
-                                        if (i !== outcomeIndex) return o;
-                                        return {
-                                          ...o,
-                                          hcbs_alignment: e.target.checked
-                                            ? [...(o.hcbs_alignment || []), alignment]
-                                            : (o.hcbs_alignment || []).filter(a => a !== alignment)
-                                        };
-                                      })
-                                    }));
-                                  }}
-                                  disabled={!isEditing || !canEditPlans}
-                                  className="w-4 h-4 rounded border-slate-600 text-emerald-500 disabled:opacity-50"
-                                />
-                                <label htmlFor={`align_${outcomeIndex}_${alignment.replace(/\s+/g,'_')}`} className="text-sm text-slate-300">{alignment}</label>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Objectives */}
-                      <div className="border-t border-slate-700 pt-6">
-                        <div className="flex items-center justify-between mb-4">
-                          <h5 className="text-lg font-bold text-white">Objectives</h5>
-                          {isEditing && canEditPlans && (
-                            <button
-                              onClick={() => {
-                                const newObj = {
-                                  id: Date.now().toString(),
-                                  objective_number: (outcome.objectives?.length || 0) + 1,
-                                  description: '',
-                                  criteria: '',
-                                  teaching_strategies: '',
-                                  data_collection: '',
-                                  review_criteria: ''
-                                };
-                                setFormData(prev => ({
-                                  ...prev,
-                                  isp_outcomes: prev.isp_outcomes.map((o, i) =>
-                                    i === outcomeIndex ? {...o, objectives: [...(o.objectives || []), newObj]} : o
-                                  )
-                                }));
-                              }}
-                              className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg font-semibold transition-all"
-                            >
-                              <Plus size={14} />
-                              Add Objective
-                            </button>
-                          )}
-                        </div>
-
-                        {(!outcome.objectives || outcome.objectives.length === 0) ? (
-                          <div className="text-center py-6 bg-slate-800/30 rounded-lg border border-slate-700">
-                            <p className="text-sm text-slate-500">No objectives added yet</p>
-                          </div>
-                        ) : (
-                          <div className="space-y-4">
-                            {outcome.objectives.map((objective, objIndex) => (
-                              <div key={objective.id} className="bg-slate-800/50 border border-slate-600 rounded-lg p-4">
-                                <div className="flex items-center justify-between mb-3">
-                                  <h6 className="text-md font-semibold text-blue-400">
-                                    Objective {outcome.section_number}.{objective.objective_number}
-                                  </h6>
-                                  {isEditing && canEditPlans && (
-                                    <button
-                                      onClick={() => {
-                                        if (confirm('Delete this objective?')) {
-                                          setFormData(prev => ({
-                                            ...prev,
-                                            isp_outcomes: prev.isp_outcomes.map((o, i) =>
-                                              i === outcomeIndex
-                                                ? {...o, objectives: o.objectives.filter((_, j) => j !== objIndex)}
-                                                : o
-                                            )
-                                          }));
-                                        }
-                                      }}
-                                      className="text-red-400 hover:text-red-300 transition-colors"
-                                    >
-                                      <X size={16} />
-                                    </button>
-                                  )}
-                                </div>
-                                <div className="space-y-3">
-                                  {[
-                                    ['description','Objective Description','e.g., Individual will brush teeth using verbal prompts only...','textarea'],
-                                    ['criteria','Success Criteria','e.g., 4 out of 5 opportunities over 8 consecutive weeks','input'],
-                                    ['teaching_strategies','Teaching Strategies','e.g., Verbal prompting, modeling, positive reinforcement...','textarea'],
-                                    ['data_collection','Data Collection Method','e.g., Prompt level used, completion %, narrative description...','textarea'],
-                                    ['review_criteria','Review & Mastery Criteria','e.g., Reviewed quarterly; mastered when criteria met for 4 consecutive weeks','input']
-                                  ].map(([field, lbl, ph, type]) => (
-                                    <div key={field}>
-                                      <label className="block text-xs font-medium text-slate-400 mb-1">{lbl}</label>
-                                      {type === 'textarea' ? (
-                                        <textarea
-                                          value={objective[field]}
-                                          onChange={e => {
-                                            if (!isEditing || !canEditPlans) return;
-                                            setFormData(prev => ({
-                                              ...prev,
-                                              isp_outcomes: prev.isp_outcomes.map((o, i) => {
-                                                if (i !== outcomeIndex) return o;
-                                                return {
-                                                  ...o,
-                                                  objectives: o.objectives.map((obj, j) =>
-                                                    j === objIndex ? {...obj, [field]: e.target.value} : obj
-                                                  )
-                                                };
-                                              })
-                                            }));
-                                          }}
-                                          disabled={!isEditing || !canEditPlans}
-                                          rows="2"
-                                          placeholder={ph}
-                                          className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all resize-none"
-                                        />
-                                      ) : (
-                                        <input
-                                          type="text"
-                                          value={objective[field]}
-                                          onChange={e => {
-                                            if (!isEditing || !canEditPlans) return;
-                                            setFormData(prev => ({
-                                              ...prev,
-                                              isp_outcomes: prev.isp_outcomes.map((o, i) => {
-                                                if (i !== outcomeIndex) return o;
-                                                return {
-                                                  ...o,
-                                                  objectives: o.objectives.map((obj, j) =>
-                                                    j === objIndex ? {...obj, [field]: e.target.value} : obj
-                                                  )
-                                                };
-                                              })
-                                            }));
-                                          }}
-                                          disabled={!isEditing || !canEditPlans}
-                                          placeholder={ph}
-                                          className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all"
-                                        />
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Section 6: Rights, Risk & Restrictions */}
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-              <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-                <Shield className="text-orange-400" size={24} />
-                Section 6 — Rights, Risk, and Restrictions
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-2">Rights Restrictions</label>
-                  <textarea
-                    name="rights_restrictions_notes"
-                    value={formData.rights_restrictions_notes}
-                    onChange={handleInputChange}
-                    disabled={!isEditing || !canEditPlans}
-                    rows="3"
-                    placeholder="Document any rights restrictions or note 'None at this time'"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-orange-500 disabled:opacity-50 transition-all resize-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-2">Risk Mitigation Strategies</label>
-                  <textarea
-                    name="risk_mitigation_strategies"
-                    value={formData.risk_mitigation_strategies}
-                    onChange={handleInputChange}
-                    disabled={!isEditing || !canEditPlans}
-                    rows="4"
-                    placeholder="Describe strategies to mitigate identified risks..."
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-orange-500 disabled:opacity-50 transition-all resize-none"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Section 7: Community Integration */}
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-              <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-                <Users className="text-blue-400" size={24} />
-                Section 7 — Community Integration Plan
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-2">Community Integration Plan</label>
-                  <textarea
-                    name="community_integration_plan"
-                    value={formData.community_integration_plan}
-                    onChange={handleInputChange}
-                    disabled={!isEditing || !canEditPlans}
-                    rows="4"
-                    placeholder="Describe community participation activities, outings, and integration opportunities..."
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all resize-none"
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-400 mb-2">Transportation Method</label>
-                    <input
-                      type="text"
-                      name="transportation_method"
-                      value={formData.transportation_method}
-                      onChange={handleInputChange}
-                      disabled={!isEditing || !canEditPlans}
-                      placeholder="e.g., Provided by staff, Public transit, Family"
-                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-400 mb-2">Community Barriers</label>
-                    <input
-                      type="text"
-                      name="community_barriers"
-                      value={formData.community_barriers}
-                      onChange={handleInputChange}
-                      disabled={!isEditing || !canEditPlans}
-                      placeholder="e.g., Anxiety, Physical limitations, Transportation"
-                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Section 8: Behavior Support */}
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-              <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-                <Activity className="text-yellow-400" size={24} />
-                Section 8 — Behavior Support Summary
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-2">Behavior Support Summary</label>
-                  <textarea
-                    name="behavior_support_summary"
-                    value={formData.behavior_support_summary}
-                    onChange={handleInputChange}
-                    disabled={!isEditing || !canEditPlans}
-                    rows="4"
-                    placeholder="Describe behavioral patterns, triggers, and support strategies..."
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-yellow-500 disabled:opacity-50 transition-all resize-none"
-                  />
-                </div>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="abc_data_required"
-                    checked={formData.abc_data_required}
-                    onChange={e => setFormData(prev => ({...prev, abc_data_required: e.target.checked}))}
-                    disabled={!isEditing || !canEditPlans}
-                    className="w-5 h-5 rounded border-slate-600 text-yellow-500 disabled:opacity-50"
-                  />
-                  <label htmlFor="abc_data_required" className="text-sm font-medium text-slate-300">
-                    ABC Data Collection Required
-                  </label>
-                </div>
-                {formData.abc_data_required && (
-                  <div className="p-3 bg-yellow-900/20 border border-yellow-500/30 rounded-lg">
-                    <p className="text-sm text-yellow-300 flex items-center gap-2">
-                      <Info size={14} />
-                      Behavior specialist consultation will be noted as occurring in separate scheduled time blocks (Rule 3 compliance)
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Section 9: Health & Wellness */}
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-              <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-                <Heart className="text-red-400" size={24} />
-                Section 9 — Health &amp; Wellness Summary
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-2">Health &amp; Wellness Summary</label>
-                  <textarea
-                    name="health_wellness_summary"
-                    value={formData.health_wellness_summary}
-                    onChange={handleInputChange}
-                    disabled={!isEditing || !canEditPlans}
-                    rows="4"
-                    placeholder="Describe current health status, medications, medical needs, and monitoring requirements..."
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500 disabled:opacity-50 transition-all resize-none"
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-center gap-3">
+            {/* HCBS Alignment */}
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-3">
+                HCBS Alignment
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {['Autonomy', 'Independence', 'Privacy & Dignity', 'Informed Choice', 'Community Integration', 'Choice', 'Social Relationships', 'Self-Determination', 'Health & Wellness', 'Safety'].map(alignment => (
+                  <div key={alignment} className="flex items-center gap-2">
                     <input
                       type="checkbox"
-                      id="seizure_history"
-                      checked={formData.seizure_history}
-                      onChange={e => setFormData(prev => ({...prev, seizure_history: e.target.checked}))}
-                      disabled={!isEditing || !canEditPlans}
-                      className="w-5 h-5 rounded border-slate-600 text-red-500 disabled:opacity-50"
-                    />
-                    <label htmlFor="seizure_history" className="text-sm font-medium text-slate-300">Seizure History</label>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-400 mb-2">Medication Monitoring Notes</label>
-                    <input
-                      type="text"
-                      name="medication_monitoring"
-                      value={formData.medication_monitoring}
-                      onChange={handleInputChange}
-                      disabled={!isEditing || !canEditPlans}
-                      placeholder="Special monitoring requirements..."
-                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500 disabled:opacity-50 transition-all"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Section 10: Staff Training */}
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-              <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-                <Award className="text-emerald-400" size={24} />
-                Section 10 — Staff Training Requirements
-              </h3>
-              <div className="space-y-3">
-                {[
-                  'ISP Review and Acknowledgment',
-                  'Behavior Support Strategies',
-                  'HCBS Rights and Dignity Training',
-                  'Medication Administration Training',
-                  'Emergency Procedures',
-                  'Person-Centered Planning'
-                ].map(training => (
-                  <div key={training} className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      id={`tr_${training.replace(/\s+/g,'_').toLowerCase()}`}
-                      checked={formData.staff_training_requirements?.includes(training)}
-                      onChange={e => {
+                      id={`alignment_${outcomeIndex}_${alignment.replace(/\s+/g, '_')}`}
+                      checked={outcome.hcbs_alignment?.includes(alignment)}
+                      onChange={(e) => {
                         if (!isEditing || !canEditPlans) return;
                         setFormData(prev => ({
                           ...prev,
-                          staff_training_requirements: e.target.checked
-                            ? [...(prev.staff_training_requirements || []), training]
-                            : (prev.staff_training_requirements || []).filter(t => t !== training)
+                          isp_outcomes: prev.isp_outcomes.map((o, i) => {
+                            if (i !== outcomeIndex) return o;
+                            return {
+                              ...o,
+                              hcbs_alignment: e.target.checked
+                                ? [...(o.hcbs_alignment || []), alignment]
+                                : (o.hcbs_alignment || []).filter(a => a !== alignment)
+                            };
+                          })
                         }));
                       }}
                       disabled={!isEditing || !canEditPlans}
-                      className="w-5 h-5 rounded border-slate-600 text-emerald-500 disabled:opacity-50"
+                      className="w-4 h-4 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-800 disabled:opacity-50"
                     />
-                    <label htmlFor={`tr_${training.replace(/\s+/g,'_').toLowerCase()}`} className="text-sm font-medium text-slate-300">
-                      {training}
+                    <label 
+                      htmlFor={`alignment_${outcomeIndex}_${alignment.replace(/\s+/g, '_')}`}
+                      className="text-sm text-slate-300"
+                    >
+                      {alignment}
                     </label>
                   </div>
                 ))}
               </div>
             </div>
+          </div>
 
-            {/* Section 11: Quarterly Reviews */}
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-2xl font-bold text-white flex items-center gap-2">
-                  <Calendar className="text-cyan-400" size={24} />
-                  Section 11 — Quarterly Review Summary
-                </h3>
-                {isEditing && canEditPlans && (
-                  <button
-                    onClick={() => {
-                      const newReview = {
-                        id: Date.now().toString(),
-                        quarter: '',
-                        reviewed_by: userProfile.fullname,
-                        review_date: new Date().toISOString().split('T')[0],
-                        progress_summary: '',
-                        revisions_needed: ''
-                      };
-                      setFormData(prev => ({
-                        ...prev,
-                        quarterly_reviews: [...(prev.quarterly_reviews || []), newReview]
-                      }));
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-semibold transition-all"
-                  >
-                    <Plus size={16} />
-                    Add Quarterly Review
-                  </button>
-                )}
-              </div>
-
-              {(!formData.quarterly_reviews || formData.quarterly_reviews.length === 0) ? (
-                <div className="text-center py-8 text-slate-400">
-                  <Calendar className="w-12 h-12 mx-auto mb-3 text-slate-600" />
-                  <p>No quarterly reviews recorded yet</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {formData.quarterly_reviews.map((review, index) => (
-                    <div key={review.id} className="bg-slate-900/50 border border-slate-700 rounded-lg p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                        {[
-                          ['quarter','Quarter','text','e.g., Q1 2025'],
-                          ['reviewed_by','Reviewed By','text',''],
-                          ['review_date','Review Date','date','']
-                        ].map(([field, lbl, type, ph]) => (
-                          <div key={field}>
-                            <label className="block text-sm font-medium text-slate-400 mb-2">{lbl}</label>
-                            <input
-                              type={type}
-                              value={review[field]}
-                              onChange={e => {
-                                if (!isEditing || !canEditPlans) return;
-                                setFormData(prev => ({
-                                  ...prev,
-                                  quarterly_reviews: prev.quarterly_reviews.map((r, i) =>
-                                    i === index ? {...r, [field]: e.target.value} : r
-                                  )
-                                }));
-                              }}
-                              disabled={!isEditing || !canEditPlans}
-                              placeholder={ph}
-                              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-500 disabled:opacity-50 transition-all"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                      <div className="space-y-4">
-                        {[
-                          ['progress_summary','Progress Summary','Summarize progress toward outcomes and goals...'],
-                          ['revisions_needed','Revisions Needed','Document any needed revisions or note "None at this time"']
-                        ].map(([field, lbl, ph]) => (
-                          <div key={field}>
-                            <label className="block text-sm font-medium text-slate-400 mb-2">{lbl}</label>
-                            <textarea
-                              value={review[field]}
-                              onChange={e => {
-                                if (!isEditing || !canEditPlans) return;
-                                setFormData(prev => ({
-                                  ...prev,
-                                  quarterly_reviews: prev.quarterly_reviews.map((r, i) =>
-                                    i === index ? {...r, [field]: e.target.value} : r
-                                  )
-                                }));
-                              }}
-                              disabled={!isEditing || !canEditPlans}
-                              rows="3"
-                              placeholder={ph}
-                              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-500 disabled:opacity-50 transition-all resize-none"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                      {isEditing && canEditPlans && (
-                        <button
-                          onClick={() => {
-                            if (confirm('Delete this quarterly review?')) {
-                              setFormData(prev => ({
-                                ...prev,
-                                quarterly_reviews: prev.quarterly_reviews.filter((_, i) => i !== index)
-                              }));
-                            }
-                          }}
-                          className="mt-4 px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg font-semibold transition-all flex items-center gap-2"
-                        >
-                          <Trash2 size={16} />
-                          Delete Review
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
+          {/* Objectives */}
+          <div className="border-t border-slate-700 pt-6">
+            <div className="flex items-center justify-between mb-4">
+              <h5 className="text-lg font-bold text-white">Objectives</h5>
+              {isEditing && canEditPlans && (
+                <button
+                  onClick={() => {
+                    const newObjective = {
+                      id: Date.now().toString(),
+                      objective_number: (outcome.objectives?.length || 0) + 1,
+                      description: '',
+                      criteria: '',
+                      teaching_strategies: '',
+                      data_collection: '',
+                      review_criteria: ''
+                    };
+                    setFormData(prev => ({
+                      ...prev,
+                      isp_outcomes: prev.isp_outcomes.map((o, i) => 
+                        i === outcomeIndex 
+                          ? { ...o, objectives: [...(o.objectives || []), newObjective] }
+                          : o
+                      )
+                    }));
+                  }}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg font-semibold transition-all"
+                >
+                  <Plus size={14} />
+                  Add Objective
+                </button>
               )}
             </div>
 
-            {/* Compliance Footer */}
-            <div className="bg-slate-900/50 border border-slate-600 rounded-xl p-4">
-              <h4 className="text-sm font-bold text-slate-400 mb-2 flex items-center gap-2">
-                <CheckCircle size={14} className="text-emerald-400" />
-                ADMH Compliance Statement (Auto-included on save)
-              </h4>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                This plan is developed in accordance with ADMH Residential Standards, Medicaid Waiver Service Definitions,
-                and HCBS Settings Rule requirements. Units will not exceed 96 per calendar day. No overlapping service codes
-                will be billed. Staff assignments are cross-verified through timekeeping records. Service intensity is based
-                on documented functional assessment and is reviewed quarterly for medical necessity and utilization appropriateness.
-              </p>
+            {(!outcome.objectives || outcome.objectives.length === 0) ? (
+              <div className="text-center py-6 bg-slate-800/30 rounded-lg border border-slate-700">
+                <FileText className="w-10 h-10 text-slate-600 mx-auto mb-2" />
+                <p className="text-sm text-slate-500">No objectives added yet</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {outcome.objectives.map((objective, objIndex) => (
+                  <div key={objective.id} className="bg-slate-800/50 border border-slate-600 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h6 className="text-md font-semibold text-blue-400">
+                        Objective {outcome.section_number}.{objective.objective_number}
+                      </h6>
+                      {isEditing && canEditPlans && (
+                        <button
+                          onClick={() => {
+                            if (confirm('Are you sure you want to delete this objective?')) {
+                              setFormData(prev => ({
+                                ...prev,
+                                isp_outcomes: prev.isp_outcomes.map((o, i) => 
+                                  i === outcomeIndex 
+                                    ? { ...o, objectives: o.objectives.filter((_, j) => j !== objIndex) }
+                                    : o
+                                )
+                              }));
+                            }
+                          }}
+                          className="text-red-400 hover:text-red-300 transition-colors"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">
+                          Objective Description
+                        </label>
+                        <textarea
+                          value={objective.description}
+                          onChange={(e) => {
+                            if (!isEditing || !canEditPlans) return;
+                            setFormData(prev => ({
+                              ...prev,
+                              isp_outcomes: prev.isp_outcomes.map((o, i) => {
+                                if (i !== outcomeIndex) return o;
+                                return {
+                                  ...o,
+                                  objectives: o.objectives.map((obj, j) => 
+                                    j === objIndex ? { ...obj, description: e.target.value } : obj
+                                  )
+                                };
+                              })
+                            }));
+                          }}
+                          disabled={!isEditing || !canEditPlans}
+                          rows="2"
+                          placeholder="e.g., John will brush his teeth using verbal prompts only..."
+                          className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all resize-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">
+                          Success Criteria
+                        </label>
+                        <input
+                          type="text"
+                          value={objective.criteria}
+                          onChange={(e) => {
+                            if (!isEditing || !canEditPlans) return;
+                            setFormData(prev => ({
+                              ...prev,
+                              isp_outcomes: prev.isp_outcomes.map((o, i) => {
+                                if (i !== outcomeIndex) return o;
+                                return {
+                                  ...o,
+                                  objectives: o.objectives.map((obj, j) => 
+                                    j === objIndex ? { ...obj, criteria: e.target.value } : obj
+                                  )
+                                };
+                              })
+                            }));
+                          }}
+                          disabled={!isEditing || !canEditPlans}
+                          placeholder="e.g., 4 out of 5 opportunities over 8 consecutive weeks"
+                          className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">
+                          Teaching Strategies
+                        </label>
+                        <textarea
+                          value={objective.teaching_strategies}
+                          onChange={(e) => {
+                            if (!isEditing || !canEditPlans) return;
+                            setFormData(prev => ({
+                              ...prev,
+                              isp_outcomes: prev.isp_outcomes.map((o, i) => {
+                                if (i !== outcomeIndex) return o;
+                                return {
+                                  ...o,
+                                  objectives: o.objectives.map((obj, j) => 
+                                    j === objIndex ? { ...obj, teaching_strategies: e.target.value } : obj
+                                  )
+                                };
+                              })
+                            }));
+                          }}
+                          disabled={!isEditing || !canEditPlans}
+                          rows="2"
+                          placeholder="e.g., Verbal prompting, modeling when needed, positive reinforcement..."
+                          className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all resize-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">
+                          Data Collection Method
+                        </label>
+                        <textarea
+                          value={objective.data_collection}
+                          onChange={(e) => {
+                            if (!isEditing || !canEditPlans) return;
+                            setFormData(prev => ({
+                              ...prev,
+                              isp_outcomes: prev.isp_outcomes.map((o, i) => {
+                                if (i !== outcomeIndex) return o;
+                                return {
+                                  ...o,
+                                  objectives: o.objectives.map((obj, j) => 
+                                    j === objIndex ? { ...obj, data_collection: e.target.value } : obj
+                                  )
+                                };
+                              })
+                            }));
+                          }}
+                          disabled={!isEditing || !canEditPlans}
+                          rows="2"
+                          placeholder="e.g., Prompt level used, completion percentage, narrative description..."
+                          className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all resize-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">
+                          Review & Mastery Criteria
+                        </label>
+                        <input
+                          type="text"
+                          value={objective.review_criteria}
+                          onChange={(e) => {
+                            if (!isEditing || !canEditPlans) return;
+                            setFormData(prev => ({
+                              ...prev,
+                              isp_outcomes: prev.isp_outcomes.map((o, i) => {
+                                if (i !== outcomeIndex) return o;
+                                return {
+                                  ...o,
+                                  objectives: o.objectives.map((obj, j) => 
+                                    j === objIndex ? { ...obj, review_criteria: e.target.value } : obj
+                                  )
+                                };
+                              })
+                            }));
+                          }}
+                          disabled={!isEditing || !canEditPlans}
+                          placeholder="e.g., Reviewed quarterly; mastered when criteria met for 4 consecutive weeks"
+                          className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  )}
+</div>
+
+        {/* Section 6: Rights, Risk, and Restrictions */}
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+          <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+            <Shield className="text-orange-400" size={24} />
+            Section 6 — Rights, Risk, and Restrictions
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">
+                Rights Restrictions
+              </label>
+              <textarea
+                name="rights_restrictions_notes"
+                value={formData.rights_restrictions_notes}
+                onChange={handleInputChange}
+                disabled={!isEditing || !canEditPlans}
+                rows="3"
+                placeholder="Document any rights restrictions or note 'None at this time'"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-orange-500 disabled:opacity-50 transition-all resize-none"
+              />
             </div>
-          </>
-        )}
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">
+                Risk Mitigation Strategies
+              </label>
+              <textarea
+                name="risk_mitigation_strategies"
+                value={formData.risk_mitigation_strategies}
+                onChange={handleInputChange}
+                disabled={!isEditing || !canEditPlans}
+                rows="4"
+                placeholder="Describe strategies to mitigate identified risks (e.g., predictable routines, advance notice of changes, quiet space available...)"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-orange-500 disabled:opacity-50 transition-all resize-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Section 7: Community Integration Plan */}
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+          <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+            <Users className="text-blue-400" size={24} />
+            Section 7 — Community Integration Plan
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">
+                Community Integration Plan
+              </label>
+              <textarea
+                name="community_integration_plan"
+                value={formData.community_integration_plan}
+                onChange={handleInputChange}
+                disabled={!isEditing || !canEditPlans}
+                rows="4"
+                placeholder="Describe community participation activities, outings, and integration opportunities..."
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all resize-none"
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-2">Transportation Method</label>
+                <input
+                  type="text"
+                  name="transportation_method"
+                  value={formData.transportation_method}
+                  onChange={handleInputChange}
+                  disabled={!isEditing || !canEditPlans}
+                  placeholder="e.g., Provided by staff, Public transit, Family"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-2">Community Barriers</label>
+                <input
+                  type="text"
+                  name="community_barriers"
+                  value={formData.community_barriers}
+                  onChange={handleInputChange}
+                  disabled={!isEditing || !canEditPlans}
+                  placeholder="e.g., Anxiety, Physical limitations, Transportation"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 disabled:opacity-50 transition-all"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 8: Behavior Support Summary */}
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+          <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+            <Activity className="text-yellow-400" size={24} />
+            Section 8 — Behavior Support Summary
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">
+                Behavior Support Summary
+              </label>
+              <textarea
+                name="behavior_support_summary"
+                value={formData.behavior_support_summary}
+                onChange={handleInputChange}
+                disabled={!isEditing || !canEditPlans}
+                rows="4"
+                placeholder="Describe behavioral patterns, triggers, and support strategies..."
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-yellow-500 disabled:opacity-50 transition-all resize-none"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="abc_data_required"
+                name="abc_data_required"
+                checked={formData.abc_data_required}
+                onChange={(e) => setFormData(prev => ({ ...prev, abc_data_required: e.target.checked }))}
+                disabled={!isEditing || !canEditPlans}
+                className="w-5 h-5 rounded border-slate-600 text-yellow-500 focus:ring-yellow-500 focus:ring-offset-slate-800 disabled:opacity-50"
+              />
+              <label htmlFor="abc_data_required" className="text-sm font-medium text-slate-300">
+                ABC Data Collection Required
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 9: Health & Wellness Summary */}
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+          <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+            <Heart className="text-red-400" size={24} />
+            Section 9 — Health & Wellness Summary
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-2">
+                Health & Wellness Summary
+              </label>
+              <textarea
+                name="health_wellness_summary"
+                value={formData.health_wellness_summary}
+                onChange={handleInputChange}
+                disabled={!isEditing || !canEditPlans}
+                rows="4"
+                placeholder="Describe current health status, medications, medical needs, and monitoring requirements..."
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500 disabled:opacity-50 transition-all resize-none"
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="seizure_history"
+                  name="seizure_history"
+                  checked={formData.seizure_history}
+                  onChange={(e) => setFormData(prev => ({ ...prev, seizure_history: e.target.checked }))}
+                  disabled={!isEditing || !canEditPlans}
+                  className="w-5 h-5 rounded border-slate-600 text-red-500 focus:ring-red-500 focus:ring-offset-slate-800 disabled:opacity-50"
+                />
+                <label htmlFor="seizure_history" className="text-sm font-medium text-slate-300">
+                  Seizure History
+                </label>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-400 mb-2">Medication Monitoring Notes</label>
+                <input
+                  type="text"
+                  name="medication_monitoring"
+                  value={formData.medication_monitoring}
+                  onChange={handleInputChange}
+                  disabled={!isEditing || !canEditPlans}
+                  placeholder="Special monitoring requirements..."
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500 disabled:opacity-50 transition-all"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 10: Staff Training Requirements */}
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+          <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+            <Award className="text-emerald-400" size={24} />
+            Section 10 — Staff Training Requirements
+          </h3>
+          <div className="space-y-3">
+            {[
+              'ISP Review and Acknowledgment',
+              'Behavior Support Strategies',
+              'HCBS Rights and Dignity Training',
+              'Medication Administration Training',
+              'Emergency Procedures',
+              'Person-Centered Planning'
+            ].map((training) => (
+              <div key={training} className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id={`training_${training.replace(/\s+/g, '_').toLowerCase()}`}
+                  checked={formData.staff_training_requirements?.includes(training)}
+                  onChange={(e) => {
+                    if (!isEditing || !canEditPlans) return;
+                    setFormData(prev => ({
+                      ...prev,
+                      staff_training_requirements: e.target.checked
+                        ? [...(prev.staff_training_requirements || []), training]
+                        : (prev.staff_training_requirements || []).filter(t => t !== training)
+                    }));
+                  }}
+                  disabled={!isEditing || !canEditPlans}
+                  className="w-5 h-5 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-800 disabled:opacity-50"
+                />
+                <label 
+                  htmlFor={`training_${training.replace(/\s+/g, '_').toLowerCase()}`}
+                  className="text-sm font-medium text-slate-300"
+                >
+                  {training}
+                </label>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Section 11: Quarterly Review Summary */}
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-2xl font-bold text-white flex items-center gap-2">
+              <Calendar className="text-cyan-400" size={24} />
+              Section 11 — Quarterly Review Summary
+            </h3>
+            {isEditing && canEditPlans && (
+              <button
+                onClick={() => {
+                  const newReview = {
+                    id: Date.now().toString(),
+                    quarter: '',
+                    reviewed_by: userProfile.fullname,
+                    review_date: new Date().toISOString().split('T')[0],
+                    progress_summary: '',
+                    revisions_needed: ''
+                  };
+                  setFormData(prev => ({
+                    ...prev,
+                    quarterly_reviews: [...(prev.quarterly_reviews || []), newReview]
+                  }));
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-semibold transition-all"
+              >
+                <Plus size={16} />
+                Add Quarterly Review
+              </button>
+            )}
+          </div>
+
+          {(!formData.quarterly_reviews || formData.quarterly_reviews.length === 0) ? (
+            <div className="text-center py-8 text-slate-400">
+              <Calendar className="w-12 h-12 mx-auto mb-3 text-slate-600" />
+              <p>No quarterly reviews recorded yet</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {formData.quarterly_reviews.map((review, index) => (
+                <div key={review.id} className="bg-slate-900/50 border border-slate-700 rounded-lg p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-400 mb-2">Quarter</label>
+                      <input
+                        type="text"
+                        value={review.quarter}
+                        onChange={(e) => {
+                          if (!isEditing || !canEditPlans) return;
+                          setFormData(prev => ({
+                            ...prev,
+                            quarterly_reviews: prev.quarterly_reviews.map((r, i) => 
+                              i === index ? { ...r, quarter: e.target.value } : r
+                            )
+                          }));
+                        }}
+                        disabled={!isEditing || !canEditPlans}
+                        placeholder="e.g., Q1 2025"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-500 disabled:opacity-50 transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-400 mb-2">Reviewed By</label>
+                      <input
+                        type="text"
+                        value={review.reviewed_by}
+                        onChange={(e) => {
+                          if (!isEditing || !canEditPlans) return;
+                          setFormData(prev => ({
+                            ...prev,
+                            quarterly_reviews: prev.quarterly_reviews.map((r, i) => 
+                              i === index ? { ...r, reviewed_by: e.target.value } : r
+                            )
+                          }));
+                        }}
+                        disabled={!isEditing || !canEditPlans}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-500 disabled:opacity-50 transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-400 mb-2">Review Date</label>
+                      <input
+                        type="date"
+                        value={review.review_date}
+                        onChange={(e) => {
+                          if (!isEditing || !canEditPlans) return;
+                          setFormData(prev => ({
+                            ...prev,
+                            quarterly_reviews: prev.quarterly_reviews.map((r, i) => 
+                              i === index ? { ...r, review_date: e.target.value } : r
+                            )
+                          }));
+                        }}
+                        disabled={!isEditing || !canEditPlans}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-500 disabled:opacity-50 transition-all"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-400 mb-2">Progress Summary</label>
+                      <textarea
+                        value={review.progress_summary}
+                        onChange={(e) => {
+                          if (!isEditing || !canEditPlans) return;
+                          setFormData(prev => ({
+                            ...prev,
+                            quarterly_reviews: prev.quarterly_reviews.map((r, i) => 
+                              i === index ? { ...r, progress_summary: e.target.value } : r
+                            )
+                          }));
+                        }}
+                        disabled={!isEditing || !canEditPlans}
+                        rows="3"
+                        placeholder="Summarize progress toward outcomes and goals..."
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-500 disabled:opacity-50 transition-all resize-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-400 mb-2">Revisions Needed</label>
+                      <textarea
+                        value={review.revisions_needed}
+                        onChange={(e) => {
+                          if (!isEditing || !canEditPlans) return;
+                          setFormData(prev => ({
+                            ...prev,
+                            quarterly_reviews: prev.quarterly_reviews.map((r, i) => 
+                              i === index ? { ...r, revisions_needed: e.target.value } : r
+                            )
+                          }));
+                        }}
+                        disabled={!isEditing || !canEditPlans}
+                        rows="2"
+                        placeholder="Document any needed revisions or note 'None at this time'"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-500 disabled:opacity-50 transition-all resize-none"
+                      />
+                    </div>
+                  </div>
+                  {isEditing && canEditPlans && (
+                    <button
+                      onClick={() => {
+                        if (confirm('Are you sure you want to delete this quarterly review?')) {
+                          setFormData(prev => ({
+                            ...prev,
+                            quarterly_reviews: prev.quarterly_reviews.filter((_, i) => i !== index)
+                          }));
+                        }
+                      }}
+                      className="mt-4 px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg font-semibold transition-all flex items-center gap-2"
+                    >
+                      <Trash2 size={16} />
+                      Delete Review
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </>
     )}
   </div>
