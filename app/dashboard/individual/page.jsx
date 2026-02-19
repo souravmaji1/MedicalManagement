@@ -15,11 +15,11 @@ import { useUser } from '@clerk/nextjs';
 import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '../../../contexts/userProfileContext';
-import { PERMISSIONS } from '../../../utils/permissions';
-import { UserButton } from '@clerk/nextjs';
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
 import { getModuleAccessLevel, MODULE_PERMISSIONS, ACCESS_LEVELS } from '../../../utils/permissions';
  // Add these imports at the top with other lucide-react icons
+import { useTheme } from '../../../contexts/themeContext';
 
 
 const supabase = createClient(
@@ -42,7 +42,7 @@ const [sortDirection, setSortDirection] = useState('asc'); // 'asc' or 'desc'
   const [filterStatus, setFilterStatus] = useState('all');
   const [showFilterMenu, setShowFilterMenu] = useState(false);
 
-
+const { isDark } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentPage, setCurrentPage] = useState('individual');
 
@@ -698,68 +698,7 @@ if (!canEditIndividuals) {
   const reviewIndividuals = individuals.filter(ind => ind.status === 'Review').length;
   const inactiveIndividuals = individuals.filter(ind => ind.status === 'Inactive').length;
 
-  // NavBar Component
-  const NavBar = () => (
-    <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-900/20 backdrop-blur-xl border-b border-slate-800/50 px-6 py-4 flex items-center justify-between sticky top-0 z-40 shadow-2xl">
-      <div className="flex items-center gap-4">
-        <button 
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="lg:hidden p-2 hover:bg-white/10 rounded-xl transition-all duration-300 hover:scale-105"
-        >
-          {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className="w-12 h-12 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/50 animate-pulse">
-              <Activity className="text-white" size={26} />
-            </div>
-            <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-900 animate-pulse"></div>
-          </div>
-          <div>
-            <h1 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-500">
-              CareBridge Pro
-            </h1>
-            <p className="text-xs text-slate-400 font-medium tracking-wide">IPMS Aligned EMR</p>
-          </div>
-        </div>
-      </div>
-      
-      <div className="flex items-center gap-4">
-        <div className="hidden md:flex items-center gap-3 bg-slate-800/50 backdrop-blur-sm rounded-2xl px-5 py-2.5 w-96 border border-slate-700/50 hover:border-emerald-500/50 transition-all duration-300">
-          <Search size={18} className="text-emerald-400" />
-          <input 
-            type="text" 
-            placeholder="Search anything..." 
-            className="bg-transparent border-none outline-none text-sm text-white w-full placeholder:text-slate-500"
-          />
-          <kbd className="px-2 py-0.5 text-xs bg-slate-700 rounded text-slate-400 font-mono">⌘K</kbd>
-        </div>
-        
-        <button className="relative p-2.5 hover:bg-white/10 rounded-xl transition-all duration-300 hover:scale-105 group">
-          <Bell size={20} className="text-slate-300 group-hover:text-emerald-400 transition-colors" />
-          <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-gradient-to-r from-lime-500 to-green-600 rounded-full animate-pulse shadow-lg shadow-green-500/50"></span>
-        </button>
-        
-        <div className="flex items-center gap-3 pl-4 border-l border-slate-700/50 cursor-pointer hover:bg-white/5 rounded-xl p-2 transition-all duration-300 group">
-          <div className="text-right hidden sm:block">
-            <p className="text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors">
-              {userProfile?.fullname || 'User'}
-            </p>
-            <p className="text-xs text-slate-400 font-medium">
-              {userProfile?.role_name || 'Staff'} • Online
-            </p>
-          </div>
-          <div className="relative">
-            <div className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-emerald-500/50">
-              <UserButton afterSignOutUrl="/" />
-            </div>
-            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-900"></div>
-          </div>
-          <ChevronDown size={16} className="text-slate-400 group-hover:text-emerald-400 transition-colors" />
-        </div>
-      </div>
-    </div>
-  );
+  
 
   
 
@@ -1175,11 +1114,16 @@ const TableRow = ({ individual, idx }) => {
                     <div className="relative z-10">
                       <div className="flex items-start justify-between mb-4">
                         <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300 ${
-                          filterStatus === 'all' 
-                            ? 'bg-gradient-to-br from-emerald-600 to-teal-500 animate-pulse' 
-                            : 'bg-gradient-to-br from-slate-700 to-slate-800'
-                        }`}>
+  filterStatus === 'all' 
+    ? 'bg-gradient-to-br from-emerald-600 to-teal-500 animate-pulse' 
+    : isDark 
+      ? 'bg-gradient-to-br from-slate-700 to-slate-800'
+      : 'bg-gradient-to-br from-emerald-100 to-teal-100 border border-emerald-200'
+}`}
+                        
+                        >
                           <Users className={filterStatus === 'all' ? 'text-white' : 'text-slate-400'} size={26} />
+                          
                         </div>
                         <div className="flex items-center gap-1">
                           <TrendingUp className="text-green-400" size={18} />
@@ -1216,10 +1160,14 @@ const TableRow = ({ individual, idx }) => {
                     <div className="relative z-10">
                       <div className="flex items-start justify-between mb-4">
                         <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300 ${
-                          filterStatus === 'Active' 
-                            ? 'bg-gradient-to-br from-green-400 to-emerald-500 animate-pulse' 
-                            : 'bg-gradient-to-br from-slate-700 to-slate-800'
-                        }`}>
+  filterStatus === 'Active' 
+    ? 'bg-gradient-to-br from-green-400 to-emerald-500 animate-pulse' 
+    : isDark 
+      ? 'bg-gradient-to-br from-slate-700 to-slate-800'
+      : 'bg-gradient-to-br from-green-100 to-emerald-100 border border-green-200'
+}`}
+                        
+                        >
                           <CheckCircle className={filterStatus === 'Active' ? 'text-white' : 'text-slate-400'} size={26} />
                         </div>
                         <div className="flex items-center gap-1">
@@ -1251,7 +1199,14 @@ const TableRow = ({ individual, idx }) => {
                     <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-lime-500 to-green-600 opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-all duration-300"></div>
                     <div className="relative z-10">
                       <div className="flex items-start justify-between mb-4">
-                        <div className="w-14 h-14 bg-gradient-to-br from-slate-700 to-slate-800 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300">
+                        <div 
+                       className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300 ${
+  isDark 
+    ? 'bg-gradient-to-br from-slate-700 to-slate-800'
+    : 'bg-gradient-to-br from-lime-100 to-green-100 border border-lime-200'
+}`}
+                        >
+                          
                           <Brain className="text-slate-400" size={26} />
                         </div>
                         <div className="flex items-center gap-1">
@@ -1287,10 +1242,14 @@ const TableRow = ({ individual, idx }) => {
                     <div className="relative z-10">
                       <div className="flex items-start justify-between mb-4">
                         <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300 ${
-                          filterStatus === 'Review' 
-                            ? 'bg-gradient-to-br from-amber-500 to-yellow-500 animate-pulse' 
-                            : 'bg-gradient-to-br from-slate-700 to-slate-800'
-                        }`}>
+  filterStatus === 'Review' 
+    ? 'bg-gradient-to-br from-amber-500 to-yellow-500 animate-pulse' 
+    : isDark 
+      ? 'bg-gradient-to-br from-slate-700 to-slate-800'
+      : 'bg-gradient-to-br from-amber-100 to-yellow-100 border border-amber-200'
+}`}
+                        
+                        >
                           <AlertCircle className={filterStatus === 'Review' ? 'text-white' : 'text-slate-400'} size={26} />
                         </div>
                         <div className="flex items-center gap-1">

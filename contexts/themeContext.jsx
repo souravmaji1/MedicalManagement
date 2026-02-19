@@ -40,3 +40,4 @@ export const useTheme = () => {
   // Returns default dark theme instead of throwing if used outside provider
   return useContext(ThemeContext);
 };
+

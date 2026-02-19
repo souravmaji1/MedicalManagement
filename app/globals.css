@@ -140,6 +140,39 @@
   color: #64748b !important;
 }
 
+
+/* Button icon backgrounds in light mode */
+.light-mode button.hover\:bg-white\/10 {
+  background-color: transparent !important;
+}
+
+.light-mode button.hover\:bg-white\/10:hover {
+  background-color: #f0fdf4 !important;
+}
+
+/* Icon colors in light mode - make them visible */
+.light-mode .text-slate-300 {
+  color: #475569 !important;
+}
+
+/* Badge/pill access level indicators (ADMIN, VIEW, EDIT tags in sidebar) */
+.light-mode .bg-slate-700.text-slate-400 {
+  background-color: #d1fae5 !important;
+  color: #065f46 !important;
+  border: 1px solid #6ee7b7 !important;
+}
+
+/* Any dark rounded button containers */
+.light-mode .bg-slate-800\/50.border.border-slate-700\/50 {
+  background-color: #ffffff !important;
+  border-color: #d1fae5 !important;
+}
+
+/* Notification bell dot */
+.light-mode .bg-gradient-to-r.from-lime-500 {
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.5) !important;
+}
+
 /* System status badge */
 .light-mode .text-slate-300.font-semibold { color: #334155 !important; }
 
@@ -207,3 +240,5 @@
 .animate-scroll:hover {
   animation-play-state: paused;
 }
+
+

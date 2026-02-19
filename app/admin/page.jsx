@@ -7,7 +7,7 @@ import {
   ChevronDown, Loader2, UserCog, CheckCircle, AlertCircle,
   Mail, Phone, Building2, Award, RefreshCw, Plus, Eye,
   Activity, Zap, Star, TrendingUp, Lock, Unlock,
-  UserPlus, Settings, BarChart3, Globe, Sparkles
+  UserPlus, Settings, BarChart3, Globe, Sparkles, MapPin, Home
 } from 'lucide-react';
 import { ScrollArea } from "../../components/ui/scroll-area";
 
@@ -16,7 +16,6 @@ const supabase = createClient(
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJiaWtjeGFseXB0dGZncmx4c3RmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MzcxODcwOCwiZXhwIjoyMDY5Mjk0NzA4fQ.4BLQyvPA0eB745Sfdn2Tl4oCDRTzNhLXrJ8Os8wOXfs'
 );
 
-// Complete role definitions with all permissions
 const rolesByDivision = {
   DD: [
     { 
@@ -275,7 +274,6 @@ const rolesByDivision = {
   ]
 };
 
-// All available permissions categorized
 const allPermissionsCategories = {
   'Dashboard': [
     { id: 'dashboard_view', label: 'View Dashboard', level: 'view' },
@@ -353,17 +351,90 @@ const allPermissionsCategories = {
   ]
 };
 
+// Quick facility inline edit component
+const FacilityQuickEdit = ({ userId, currentFacility, onUpdated }) => {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(currentFacility || '');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ facility: value, updated_at: new Date().toISOString() })
+        .eq('id', userId);
+      if (error) throw error;
+      setEditing(false);
+      onUpdated(value);
+    } catch (err) {
+      console.error('Error updating facility:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setValue(currentFacility || '');
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2 mt-1">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="Enter facility name..."
+          autoFocus
+          className="flex-1 bg-slate-900 border border-emerald-500 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+          onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') handleCancel(); }}
+        />
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="p-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg transition-colors disabled:opacity-50"
+        >
+          {saving ? <Loader2 size={14} className="text-white animate-spin" /> : <CheckCircle size={14} className="text-white" />}
+        </button>
+        <button
+          onClick={handleCancel}
+          className="p-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+        >
+          <X size={14} className="text-white" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 group/facility mt-1">
+      <p className="text-white font-semibold text-sm">
+        {currentFacility || <span className="text-slate-500 italic">Not assigned</span>}
+      </p>
+      <button
+        onClick={() => setEditing(true)}
+        className="opacity-0 group-hover/facility:opacity-100 p-1 bg-slate-700 hover:bg-emerald-600 rounded transition-all duration-200"
+        title="Quick edit facility"
+      >
+        <Edit2 size={11} className="text-white" />
+      </button>
+    </div>
+  );
+};
+
 const UserProfilesAdmin = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDivision, setFilterDivision] = useState('all');
   const [filterRole, setFilterRole] = useState('all');
+  const [filterFacility, setFilterFacility] = useState('all');
   const [editingUser, setEditingUser] = useState(null);
   const [editForm, setEditForm] = useState(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
-  const [showAddUser, setShowAddUser] = useState(false);
   const [selectedDivisionForEdit, setSelectedDivisionForEdit] = useState('DD');
   const [expandedCategories, setExpandedCategories] = useState({});
 
@@ -380,7 +451,6 @@ const UserProfilesAdmin = () => {
         .from('user_profiles')
         .select('*')
         .order('created_at', { ascending: false });
-
       if (error) throw error;
       setUsers(data || []);
     } catch (error) {
@@ -396,25 +466,25 @@ const UserProfilesAdmin = () => {
     setTimeout(() => setMessage(null), 4000);
   };
 
+  // Get unique facilities for filter dropdown
+  const uniqueFacilities = [...new Set(users.map(u => u.facility).filter(Boolean))].sort();
+
   const handleEdit = (user) => {
     setEditingUser(user.id);
     setSelectedDivisionForEdit(user.division || 'DD');
     setEditForm({
-      fullname: user.fullname,
-      email: user.email,
+      fullname: user.fullname || '',
+      email: user.email || '',
       phone: user.phone || '',
       facility: user.facility || '',
       certification: user.certification || '',
-      division: user.division,
+      division: user.division || 'DD',
       role_id: user.role_id || '',
-      role_name: user.role_name,
+      role_name: user.role_name || '',
       permissions: user.permissions || []
     });
-    // Expand all categories when editing
     const expanded = {};
-    Object.keys(allPermissionsCategories).forEach(cat => {
-      expanded[cat] = true;
-    });
+    Object.keys(allPermissionsCategories).forEach(cat => { expanded[cat] = true; });
     setExpandedCategories(expanded);
   };
 
@@ -428,7 +498,6 @@ const UserProfilesAdmin = () => {
     setEditForm(prev => {
       const currentPermissions = prev.permissions || [];
       const hasPermission = currentPermissions.includes(permissionId);
-      
       return {
         ...prev,
         permissions: hasPermission
@@ -451,10 +520,7 @@ const UserProfilesAdmin = () => {
   };
 
   const toggleCategory = (category) => {
-    setExpandedCategories(prev => ({
-      ...prev,
-      [category]: !prev[category]
-    }));
+    setExpandedCategories(prev => ({ ...prev, [category]: !prev[category] }));
   };
 
   const handleSave = async (userId) => {
@@ -475,9 +541,7 @@ const UserProfilesAdmin = () => {
           updated_at: new Date().toISOString()
         })
         .eq('id', userId);
-
       if (error) throw error;
-
       await fetchUsers();
       setEditingUser(null);
       setEditForm(null);
@@ -492,18 +556,10 @@ const UserProfilesAdmin = () => {
   };
 
   const handleDelete = async (userId, userName) => {
-    if (!confirm(`Are you sure you want to delete ${userName}? This action cannot be undone.`)) {
-      return;
-    }
-
+    if (!confirm(`Are you sure you want to delete ${userName}? This action cannot be undone.`)) return;
     try {
-      const { error } = await supabase
-        .from('user_profiles')
-        .delete()
-        .eq('id', userId);
-
+      const { error } = await supabase.from('user_profiles').delete().eq('id', userId);
       if (error) throw error;
-
       await fetchUsers();
       showMessage('User deleted successfully');
     } catch (error) {
@@ -512,16 +568,22 @@ const UserProfilesAdmin = () => {
     }
   };
 
+  // Handle quick facility update from inline editor
+  const handleFacilityQuickUpdate = (userId, newFacility) => {
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, facility: newFacility } : u));
+    showMessage('Facility updated successfully');
+  };
+
   const filteredUsers = users.filter(user => {
-    const matchesSearch = 
+    const matchesSearch =
       user.fullname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.role_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+      user.role_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.facility?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesDivision = filterDivision === 'all' || user.division === filterDivision;
     const matchesRole = filterRole === 'all' || user.role_id === filterRole;
-    
-    return matchesSearch && matchesDivision && matchesRole;
+    const matchesFacility = filterFacility === 'all' || user.facility === filterFacility;
+    return matchesSearch && matchesDivision && matchesRole && matchesFacility;
   });
 
   const getDivisionColor = (division) => {
@@ -562,16 +624,17 @@ const UserProfilesAdmin = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/20">
-      {/* Animated Background Effects */}
+      {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-teal-500/5 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
-        <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-green-500/5 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-teal-500/5 rounded-full blur-3xl animate-pulse" style={{animationDelay:'1s'}}></div>
+        <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-green-500/5 rounded-full blur-3xl animate-pulse" style={{animationDelay:'2s'}}></div>
       </div>
 
       <div className="relative z-10 p-6">
         <div className="max-w-7xl mx-auto">
-          {/* Enhanced Header */}
+
+          {/* Header */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-4">
@@ -587,7 +650,7 @@ const UserProfilesAdmin = () => {
                   </h1>
                   <p className="text-slate-400 text-lg font-medium flex items-center gap-2">
                     <Sparkles size={16} className="text-emerald-400" />
-                    Comprehensive user and permission management
+                    Comprehensive user, facility and permission management
                   </p>
                 </div>
               </div>
@@ -600,70 +663,105 @@ const UserProfilesAdmin = () => {
               </button>
             </div>
 
-            {/* Enhanced Stats Dashboard */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <div className="group relative overflow-hidden bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-emerald-500/50 transition-all duration-300 hover:scale-105">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl group-hover:bg-emerald-500/20 transition-colors"></div>
-                <div className="relative flex items-start justify-between">
-                  <div>
-                    <p className="text-slate-400 text-sm font-semibold mb-2 flex items-center gap-2">
-                      <Users size={16} className="text-emerald-400" />
-                      Total Users
-                    </p>
-                    <p className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-500 mb-1">
-                      {users.length}
-                    </p>
-                    <p className="text-xs text-slate-500">Active accounts</p>
+            {/* Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+              <div className="group relative overflow-hidden bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 hover:border-emerald-500/50 transition-all duration-300 hover:scale-105">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl group-hover:bg-emerald-500/20 transition-colors"></div>
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Total Users</p>
+                    <div className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
+                      <Users className="text-white" size={18} />
+                    </div>
                   </div>
-                  <div className="w-14 h-14 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/50">
-                    <Users className="text-white" size={24} />
-                  </div>
+                  <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-500">{users.length}</p>
+                  <p className="text-xs text-slate-500 mt-1">Active accounts</p>
                 </div>
               </div>
 
-              {divisions.map((div, index) => (
-                <div key={div} className="group relative overflow-hidden bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-emerald-500/50 transition-all duration-300 hover:scale-105">
-                  <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${getDivisionColor(div)} opacity-10 rounded-full blur-2xl group-hover:opacity-20 transition-opacity`}></div>
-                  <div className="relative flex items-start justify-between">
-                    <div>
-                      <p className="text-slate-400 text-sm font-semibold mb-2 flex items-center gap-2">
-                        <Activity size={16} className="text-emerald-400" />
-                        {div} Division
-                      </p>
-                      <p className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-500 mb-1">
-                        {users.filter(u => u.division === div).length}
-                      </p>
-                      <p className="text-xs text-slate-500">Active members</p>
+              {divisions.map(div => (
+                <div key={div} className="group relative overflow-hidden bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 hover:border-emerald-500/50 transition-all duration-300 hover:scale-105">
+                  <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${getDivisionColor(div)} opacity-10 rounded-full blur-2xl group-hover:opacity-20 transition-opacity`}></div>
+                  <div className="relative">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider">{div} Division</p>
+                      <div className={`w-10 h-10 bg-gradient-to-br ${getDivisionColor(div)} rounded-xl flex items-center justify-center shadow-lg`}>
+                        <Shield className="text-white" size={18} />
+                      </div>
                     </div>
-                    <div className={`w-14 h-14 bg-gradient-to-br ${getDivisionColor(div)} rounded-xl flex items-center justify-center shadow-lg`}>
-                      <Shield className="text-white" size={24} />
-                    </div>
+                    <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-500">
+                      {users.filter(u => u.division === div).length}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">{uniqueFacilities.filter(f => users.some(u => u.division === div && u.facility === f)).length} facilities</p>
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Enhanced Filters */}
+            {/* Facility Summary Bar */}
+            {uniqueFacilities.length > 0 && (
+              <div className="bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-sm border border-emerald-500/20 rounded-2xl p-5 mb-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <Home className="text-emerald-400" size={20} />
+                  <h3 className="text-lg font-bold text-white">Facilities Overview</h3>
+                  <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 text-xs rounded-lg border border-emerald-500/30 font-bold">
+                    {uniqueFacilities.length} Total
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  {uniqueFacilities.map(facility => {
+                    const count = users.filter(u => u.facility === facility).length;
+                    return (
+                      <button
+                        key={facility}
+                        onClick={() => setFilterFacility(filterFacility === facility ? 'all' : facility)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-105 border ${
+                          filterFacility === facility
+                            ? 'bg-gradient-to-r from-emerald-600 to-teal-500 border-emerald-400 text-white shadow-lg shadow-emerald-500/30'
+                            : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:border-emerald-500/50 hover:text-white'
+                        }`}
+                      >
+                        <Building2 size={14} />
+                        {facility}
+                        <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${
+                          filterFacility === facility ? 'bg-white/20 text-white' : 'bg-slate-700 text-slate-400'
+                        }`}>{count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Filters */}
             <div className="bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6">
               <div className="flex items-center gap-3 mb-4">
                 <Filter className="text-emerald-400" size={20} />
                 <h3 className="text-lg font-bold text-white">Filter & Search</h3>
+                {(searchTerm || filterDivision !== 'all' || filterRole !== 'all' || filterFacility !== 'all') && (
+                  <button
+                    onClick={() => { setSearchTerm(''); setFilterDivision('all'); setFilterRole('all'); setFilterFacility('all'); }}
+                    className="ml-auto flex items-center gap-1 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-xs font-semibold transition-all"
+                  >
+                    <X size={12} /> Clear Filters
+                  </button>
+                )}
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="relative">
-                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-emerald-400" size={20} />
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-emerald-400" size={18} />
                   <input
                     type="text"
-                    placeholder="Search by name, email, or role..."
+                    placeholder="Search name, email, facility..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full bg-slate-800/50 border border-slate-700 rounded-xl pl-12 pr-4 py-4 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                    className="w-full bg-slate-800/50 border border-slate-700 rounded-xl pl-11 pr-4 py-3.5 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all text-sm"
                   />
                 </div>
                 <select
                   value={filterDivision}
                   onChange={(e) => setFilterDivision(e.target.value)}
-                  className="bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all cursor-pointer"
+                  className="bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all cursor-pointer text-sm"
                 >
                   <option value="all">All Divisions</option>
                   {divisions.map(div => (
@@ -671,33 +769,45 @@ const UserProfilesAdmin = () => {
                   ))}
                 </select>
                 <select
+                  value={filterFacility}
+                  onChange={(e) => setFilterFacility(e.target.value)}
+                  className="bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all cursor-pointer text-sm"
+                >
+                  <option value="all">All Facilities</option>
+                  {uniqueFacilities.map(f => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </select>
+                <select
                   value={filterRole}
                   onChange={(e) => setFilterRole(e.target.value)}
-                  className="bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-4 text-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all cursor-pointer"
+                  className="bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all cursor-pointer text-sm"
                 >
                   <option value="all">All Roles</option>
-                  {Object.entries(rolesByDivision).flatMap(([div, roles]) => 
+                  {Object.entries(rolesByDivision).flatMap(([div, roles]) =>
                     roles.map(role => (
-                      <option key={role.id} value={role.id}>{role.name} ({div})</option>
+                      <option key={`${div}-${role.id}`} value={role.id}>{role.name} ({div})</option>
                     ))
                   )}
                 </select>
               </div>
+              {filteredUsers.length !== users.length && (
+                <p className="text-slate-400 text-xs mt-3">
+                  Showing <span className="text-emerald-400 font-bold">{filteredUsers.length}</span> of <span className="text-white font-bold">{users.length}</span> users
+                </p>
+              )}
             </div>
           </div>
 
-          {/* Message Display */}
+          {/* Message */}
           {message && (
             <div className={`mb-6 p-5 rounded-xl flex items-center gap-3 backdrop-blur-sm border ${
-              message.type === 'error' 
-                ? 'bg-red-900/30 border-red-500/50' 
-                : 'bg-emerald-900/30 border-emerald-500/50'
-            } animate-in fade-in slide-in-from-top-2 duration-300`}>
-              {message.type === 'error' ? (
-                <AlertCircle className="text-red-400" size={24} />
-              ) : (
-                <CheckCircle className="text-emerald-400" size={24} />
-              )}
+              message.type === 'error' ? 'bg-red-900/30 border-red-500/50' : 'bg-emerald-900/30 border-emerald-500/50'
+            }`}>
+              {message.type === 'error'
+                ? <AlertCircle className="text-red-400" size={24} />
+                : <CheckCircle className="text-emerald-400" size={24} />
+              }
               <span className={`text-lg font-semibold ${message.type === 'error' ? 'text-red-300' : 'text-emerald-300'}`}>
                 {message.text}
               </span>
@@ -705,7 +815,7 @@ const UserProfilesAdmin = () => {
           )}
 
           {/* Users List */}
-          <div className="space-y-6">
+          <div className="space-y-5">
             {filteredUsers.length === 0 ? (
               <div className="bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-16 text-center">
                 <div className="w-24 h-24 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-emerald-500/50">
@@ -718,10 +828,10 @@ const UserProfilesAdmin = () => {
               filteredUsers.map(user => (
                 <div
                   key={user.id}
-                  className="group bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden hover:border-emerald-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-emerald-500/20"
+                  className="group bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden hover:border-emerald-500/30 transition-all duration-300 hover:shadow-2xl hover:shadow-emerald-500/10"
                 >
                   {editingUser === user.id ? (
-                    // Enhanced Edit Mode
+                    /* ─── EDIT MODE ─── */
                     <div className="p-8">
                       <div className="flex items-center justify-between mb-8">
                         <div className="flex items-center gap-4">
@@ -746,10 +856,9 @@ const UserProfilesAdmin = () => {
                           </button>
                           <button
                             onClick={handleCancelEdit}
-                            className="flex items-center gap-2 px-6 py-3 bg-slate-700/50 border border-slate-600 text-white rounded-xl font-bold hover:bg-slate-700 hover:border-slate-500 transition-all duration-300 hover:scale-105"
+                            className="flex items-center gap-2 px-6 py-3 bg-slate-700/50 border border-slate-600 text-white rounded-xl font-bold hover:bg-slate-700 transition-all duration-300 hover:scale-105"
                           >
-                            <X size={20} />
-                            Cancel
+                            <X size={20} /> Cancel
                           </button>
                         </div>
                       </div>
@@ -762,7 +871,7 @@ const UserProfilesAdmin = () => {
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
-                            <label className="block text-sm font-bold text-emerald-400 mb-3">Full Name</label>
+                            <label className="block text-sm font-bold text-emerald-400 mb-2">Full Name</label>
                             <input
                               type="text"
                               value={editForm.fullname}
@@ -771,7 +880,7 @@ const UserProfilesAdmin = () => {
                             />
                           </div>
                           <div>
-                            <label className="block text-sm font-bold text-emerald-400 mb-3">Email Address</label>
+                            <label className="block text-sm font-bold text-emerald-400 mb-2">Email Address</label>
                             <input
                               type="email"
                               value={editForm.email}
@@ -780,7 +889,7 @@ const UserProfilesAdmin = () => {
                             />
                           </div>
                           <div>
-                            <label className="block text-sm font-bold text-emerald-400 mb-3">Phone Number</label>
+                            <label className="block text-sm font-bold text-emerald-400 mb-2">Phone Number</label>
                             <input
                               type="tel"
                               value={editForm.phone}
@@ -788,17 +897,48 @@ const UserProfilesAdmin = () => {
                               className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
                             />
                           </div>
-                          <div>
-                            <label className="block text-sm font-bold text-emerald-400 mb-3">Facility</label>
-                            <input
-                              type="text"
-                              value={editForm.facility}
-                              onChange={(e) => setEditForm({...editForm, facility: e.target.value})}
-                              className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
-                            />
+
+                          {/* FACILITY — highlighted as important */}
+                          <div className="relative">
+                            <label className="block text-sm font-bold text-emerald-400 mb-2 flex items-center gap-2">
+                              <Building2 size={14} className="text-emerald-400" />
+                              Facility / Home Assignment
+                              <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 text-xs rounded-full border border-emerald-500/30">Required for DSP</span>
+                            </label>
+                            <div className="relative">
+                              <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-emerald-400" size={16} />
+                              <input
+                                type="text"
+                                value={editForm.facility}
+                                onChange={(e) => setEditForm({...editForm, facility: e.target.value})}
+                                placeholder="e.g. Sunrise House, Oak Group Home..."
+                                className="w-full bg-slate-900/50 border-2 border-emerald-500/40 rounded-xl pl-10 pr-4 py-3 text-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder-slate-600"
+                              />
+                            </div>
+                            {uniqueFacilities.length > 0 && (
+                              <div className="mt-2">
+                                <p className="text-xs text-slate-500 mb-1.5">Existing facilities (click to use):</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {uniqueFacilities.map(f => (
+                                    <button
+                                      key={f}
+                                      onClick={() => setEditForm({...editForm, facility: f})}
+                                      className={`px-2 py-1 rounded-lg text-xs font-medium transition-all border ${
+                                        editForm.facility === f
+                                          ? 'bg-emerald-600 border-emerald-500 text-white'
+                                          : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-emerald-500/50 hover:text-white'
+                                      }`}
+                                    >
+                                      {f}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
+
                           <div>
-                            <label className="block text-sm font-bold text-emerald-400 mb-3">Certification</label>
+                            <label className="block text-sm font-bold text-emerald-400 mb-2">Certification</label>
                             <input
                               type="text"
                               value={editForm.certification}
@@ -807,7 +947,7 @@ const UserProfilesAdmin = () => {
                             />
                           </div>
                           <div>
-                            <label className="block text-sm font-bold text-emerald-400 mb-3">Division</label>
+                            <label className="block text-sm font-bold text-emerald-400 mb-2">Division</label>
                             <select
                               value={selectedDivisionForEdit}
                               onChange={(e) => {
@@ -842,16 +982,12 @@ const UserProfilesAdmin = () => {
                               }`}
                             >
                               <div className="flex items-center gap-3 mb-3">
-                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                                  editForm.role_id === role.id ? 'bg-white/20' : 'bg-slate-800'
-                                }`}>
+                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${editForm.role_id === role.id ? 'bg-white/20' : 'bg-slate-800'}`}>
                                   <Shield size={20} className={editForm.role_id === role.id ? 'text-white' : 'text-emerald-400'} />
                                 </div>
-                                {editForm.role_id === role.id && (
-                                  <CheckCircle size={20} className="text-white ml-auto" />
-                                )}
+                                {editForm.role_id === role.id && <CheckCircle size={20} className="text-white ml-auto" />}
                               </div>
-                              <h5 className="font-bold text-white mb-2">{role.name}</h5>
+                              <h5 className="font-bold text-white mb-1 text-sm">{role.name}</h5>
                               <p className="text-xs text-slate-400">{role.permissions.length} permissions</p>
                             </button>
                           ))}
@@ -862,9 +998,9 @@ const UserProfilesAdmin = () => {
                       <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700/30">
                         <h4 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
                           <Lock className="text-emerald-400" size={20} />
-                          Custom Permissions ({editForm.permissions?.length || 0} selected)
+                          Custom Permissions
+                          <span className="text-sm font-normal text-slate-400">({editForm.permissions?.length || 0} selected)</span>
                         </h4>
-                        
                         <ScrollArea className="h-[500px] pr-4">
                           <div className="space-y-4">
                             {Object.entries(allPermissionsCategories).map(([category, permissions]) => (
@@ -875,44 +1011,34 @@ const UserProfilesAdmin = () => {
                                 >
                                   <div className="flex items-center gap-3">
                                     <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getDivisionColor('DD')} flex items-center justify-center`}>
-                                      <Settings size={16} className="text-white" />
+                                      <Settings size={14} className="text-white" />
                                     </div>
-                                    <span className="font-bold text-white text-lg">{category}</span>
-                                    <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-full border border-emerald-500/30">
+                                    <span className="font-bold text-white">{category}</span>
+                                    <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/30">
                                       {permissions.filter(p => editForm.permissions?.includes(p.id)).length}/{permissions.length}
                                     </span>
                                   </div>
-                                  <ChevronDown 
-                                    size={20} 
-                                    className={`text-slate-400 transition-transform duration-300 ${
-                                      expandedCategories[category] ? 'rotate-180' : ''
-                                    }`}
-                                  />
+                                  <ChevronDown size={18} className={`text-slate-400 transition-transform duration-300 ${expandedCategories[category] ? 'rotate-180' : ''}`} />
                                 </button>
-                                
                                 {expandedCategories[category] && (
                                   <div className="p-4 pt-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                     {permissions.map(permission => (
                                       <button
                                         key={permission.id}
                                         onClick={() => togglePermission(permission.id)}
-                                        className={`p-3 rounded-lg text-left transition-all duration-300 hover:scale-105 border ${
+                                        className={`p-3 rounded-lg text-left transition-all duration-200 hover:scale-105 border ${
                                           editForm.permissions?.includes(permission.id)
                                             ? `bg-gradient-to-br from-emerald-600/20 to-teal-500/20 ${getPermissionLevelColor(permission.level)} border-2`
                                             : 'bg-slate-800/50 border-slate-700 hover:border-emerald-500/30'
                                         }`}
                                       >
                                         <div className="flex items-center justify-between mb-2">
-                                          <span className={`text-xs font-bold px-2 py-1 rounded ${getPermissionLevelColor(permission.level)} border`}>
+                                          <span className={`text-xs font-bold px-2 py-0.5 rounded border ${getPermissionLevelColor(permission.level)}`}>
                                             {permission.level.toUpperCase()}
                                           </span>
-                                          {editForm.permissions?.includes(permission.id) && (
-                                            <CheckCircle size={16} className="text-emerald-400" />
-                                          )}
+                                          {editForm.permissions?.includes(permission.id) && <CheckCircle size={14} className="text-emerald-400" />}
                                         </div>
-                                        <span className={`text-sm font-medium ${
-                                          editForm.permissions?.includes(permission.id) ? 'text-white' : 'text-slate-400'
-                                        }`}>
+                                        <span className={`text-xs font-medium ${editForm.permissions?.includes(permission.id) ? 'text-white' : 'text-slate-400'}`}>
                                           {permission.label}
                                         </span>
                                       </button>
@@ -926,118 +1052,119 @@ const UserProfilesAdmin = () => {
                       </div>
                     </div>
                   ) : (
-                    // Enhanced View Mode
-                    <div className="p-8">
-                      <div className="flex items-start justify-between mb-6">
-                        <div className="flex items-center gap-6">
-                          <div className={`w-20 h-20 bg-gradient-to-br ${getDivisionColor(user.division)} rounded-2xl flex items-center justify-center shadow-2xl`}>
-                            <Users className="text-white" size={36} />
+                    /* ─── VIEW MODE ─── */
+                    <div className="p-6">
+                      <div className="flex items-start justify-between mb-5">
+                        <div className="flex items-center gap-5">
+                          <div className={`w-16 h-16 bg-gradient-to-br ${getDivisionColor(user.division)} rounded-2xl flex items-center justify-center shadow-xl flex-shrink-0`}>
+                            <Users className="text-white" size={28} />
                           </div>
                           <div>
-                            <h3 className="text-3xl font-black text-white mb-1">{user.fullname}</h3>
-                            <p className="text-emerald-400 font-bold text-lg mb-2">{user.role_name}</p>
-                            <div className="flex items-center gap-3">
-                              <span className={`px-4 py-1.5 bg-gradient-to-r ${getDivisionColor(user.division)} text-white text-sm rounded-lg font-bold shadow-lg`}>
+                            <h3 className="text-2xl font-black text-white mb-0.5">{user.fullname}</h3>
+                            <p className="text-emerald-400 font-bold mb-2">{user.role_name}</p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`px-3 py-1 bg-gradient-to-r ${getDivisionColor(user.division)} text-white text-xs rounded-lg font-bold shadow`}>
                                 {user.division}
                               </span>
-                              <span className="px-3 py-1.5 bg-slate-700/50 text-slate-300 text-sm rounded-lg font-medium border border-slate-600">
+                              <span className="px-2.5 py-1 bg-slate-700/50 text-slate-300 text-xs rounded-lg font-medium border border-slate-600">
                                 {user.permissions?.length || 0} Permissions
                               </span>
                             </div>
                           </div>
                         </div>
-                        <div className="flex gap-3">
+                        <div className="flex gap-2 flex-shrink-0">
                           <button
                             onClick={() => handleEdit(user)}
-                            className="group flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-green-500/50 transition-all duration-300 hover:scale-105"
+                            className="group flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-bold hover:shadow-xl hover:shadow-green-500/40 transition-all duration-300 hover:scale-105 text-sm"
                           >
-                            <Edit2 size={20} className="group-hover:rotate-12 transition-transform" />
+                            <Edit2 size={16} className="group-hover:rotate-12 transition-transform" />
                             Edit
                           </button>
                           <button
                             onClick={() => handleDelete(user.id, user.fullname)}
-                            className="group flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-red-500/50 transition-all duration-300 hover:scale-105"
+                            className="group flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-xl font-bold hover:shadow-xl hover:shadow-red-500/40 transition-all duration-300 hover:scale-105 text-sm"
                           >
-                            <Trash2 size={20} className="group-hover:scale-110 transition-transform" />
+                            <Trash2 size={16} className="group-hover:scale-110 transition-transform" />
                             Delete
                           </button>
                         </div>
                       </div>
 
-                      {/* User Details Grid */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                        <div className="bg-slate-800/30 rounded-xl p-5 border border-slate-700/30">
-                          <div className="flex items-center gap-3 text-slate-300">
-                            <div className="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center">
-                              <Mail size={20} className="text-emerald-400" />
+                      {/* Details Grid — facility always shown */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                        {/* Email */}
+                        <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/30">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="w-7 h-7 bg-emerald-500/20 rounded-lg flex items-center justify-center">
+                              <Mail size={14} className="text-emerald-400" />
                             </div>
-                            <div>
-                              <p className="text-xs text-slate-500 font-medium">Email Address</p>
-                              <p className="text-white font-semibold">{user.email}</p>
-                            </div>
+                            <p className="text-xs text-slate-500 font-medium">Email</p>
                           </div>
+                          <p className="text-white font-semibold text-sm truncate">{user.email}</p>
                         </div>
-                        {user.phone && (
-                          <div className="bg-slate-800/30 rounded-xl p-5 border border-slate-700/30">
-                            <div className="flex items-center gap-3 text-slate-300">
-                              <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
-                                <Phone size={20} className="text-green-400" />
-                              </div>
-                              <div>
-                                <p className="text-xs text-slate-500 font-medium">Phone Number</p>
-                                <p className="text-white font-semibold">{user.phone}</p>
-                              </div>
+
+                        {/* Phone */}
+                        <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/30">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="w-7 h-7 bg-green-500/20 rounded-lg flex items-center justify-center">
+                              <Phone size={14} className="text-green-400" />
                             </div>
+                            <p className="text-xs text-slate-500 font-medium">Phone</p>
                           </div>
-                        )}
-                        {user.facility && (
-                          <div className="bg-slate-800/30 rounded-xl p-5 border border-slate-700/30">
-                            <div className="flex items-center gap-3 text-slate-300">
-                              <div className="w-10 h-10 bg-teal-500/20 rounded-lg flex items-center justify-center">
-                                <Building2 size={20} className="text-teal-400" />
-                              </div>
-                              <div>
-                                <p className="text-xs text-slate-500 font-medium">Facility</p>
-                                <p className="text-white font-semibold">{user.facility}</p>
-                              </div>
+                          <p className="text-white font-semibold text-sm">{user.phone || <span className="text-slate-500 italic text-xs">Not set</span>}</p>
+                        </div>
+
+                        {/* FACILITY — always shown, with quick inline edit */}
+                        <div className="bg-slate-800/40 rounded-xl p-4 border border-emerald-500/20 col-span-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="w-7 h-7 bg-teal-500/20 rounded-lg flex items-center justify-center">
+                              <Building2 size={14} className="text-teal-400" />
                             </div>
+                            <p className="text-xs text-slate-500 font-medium">Facility</p>
+                            <span className="ml-auto px-1.5 py-0.5 bg-teal-500/10 text-teal-400 text-xs rounded border border-teal-500/20 font-bold">KEY</span>
                           </div>
-                        )}
-                        {user.certification && (
-                          <div className="bg-slate-800/30 rounded-xl p-5 border border-slate-700/30">
-                            <div className="flex items-center gap-3 text-slate-300">
-                              <div className="w-10 h-10 bg-lime-500/20 rounded-lg flex items-center justify-center">
-                                <Award size={20} className="text-lime-400" />
-                              </div>
-                              <div>
-                                <p className="text-xs text-slate-500 font-medium">Certification</p>
-                                <p className="text-white font-semibold">{user.certification}</p>
-                              </div>
+                          <FacilityQuickEdit
+                            userId={user.id}
+                            currentFacility={user.facility}
+                            onUpdated={(newVal) => handleFacilityQuickUpdate(user.id, newVal)}
+                          />
+                        </div>
+
+                        {/* Certification */}
+                        <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/30">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="w-7 h-7 bg-lime-500/20 rounded-lg flex items-center justify-center">
+                              <Award size={14} className="text-lime-400" />
                             </div>
+                            <p className="text-xs text-slate-500 font-medium">Certification</p>
                           </div>
-                        )}
+                          <p className="text-white font-semibold text-sm">{user.certification || <span className="text-slate-500 italic text-xs">Not set</span>}</p>
+                        </div>
                       </div>
 
-                      {/* Permissions Display */}
-                      <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700/30">
-                        <div className="flex items-center justify-between mb-4">
-                          <h4 className="text-lg font-bold text-white flex items-center gap-2">
-                            <Lock className="text-emerald-400" size={20} />
+                      {/* Permissions */}
+                      <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/30">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                            <Lock className="text-emerald-400" size={16} />
                             Active Permissions
                           </h4>
-                          <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 text-sm rounded-lg font-bold border border-emerald-500/30">
+                          <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-lg font-bold border border-emerald-500/30">
                             {user.permissions?.length || 0} Total
                           </span>
                         </div>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
                           {user.permissions?.map(perm => (
-                            <span 
-                              key={perm} 
-                              className="px-3 py-1.5 bg-gradient-to-r from-slate-700 to-slate-600 border border-slate-600 text-slate-200 text-sm rounded-lg font-medium hover:from-emerald-600 hover:to-teal-500 hover:border-emerald-500 hover:text-white transition-all duration-300 hover:scale-105"
+                            <span
+                              key={perm}
+                              className="px-2.5 py-1 bg-slate-700/60 border border-slate-600/50 text-slate-300 text-xs rounded-lg font-medium hover:bg-emerald-600/20 hover:border-emerald-500/40 hover:text-white transition-all duration-200"
                             >
                               {perm.replace(/_/g, ' ')}
                             </span>
                           ))}
+                          {(!user.permissions || user.permissions.length === 0) && (
+                            <span className="text-slate-500 text-xs italic">No permissions assigned</span>
+                          )}
                         </div>
                       </div>
                     </div>

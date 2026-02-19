@@ -18,7 +18,6 @@ import { useUser, UserButton } from '@clerk/nextjs';
 import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import { useUserProfile } from '../../contexts/userProfileContext';
-import { PERMISSIONS } from '../../utils/permissions';
 import { ScrollBar } from '../../components/ui/scroll-area';
 import { getModuleAccessLevel, MODULE_PERMISSIONS, ACCESS_LEVELS } from '../../utils/permissions';
 

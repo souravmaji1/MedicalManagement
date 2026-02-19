@@ -16,7 +16,7 @@ import { useUserProfile } from '../../../contexts/userProfileContext';
 
 import { UserButton as ClerkUserButton } from '@clerk/nextjs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
-
+import { useTheme } from '../../../contexts/themeContext';
 
 
  // 1. ADD IMPORTS (at the top with other imports)
@@ -33,7 +33,7 @@ const DischargePage = () => {
   const router = useRouter();
   const { user, isLoaded } = useUser();
   const { userProfile, loading: profileLoading, hasPermission, hasAnyPermission } = useUserProfile();
-
+const { isDark } = useTheme();
   // State Management
   const [individuals, setIndividuals] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -701,11 +701,14 @@ const canViewDetails = canViewDischarges;
                     <div className="relative z-10">
                       <div className="flex items-start justify-between mb-4">
                         <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300 ${
-                          filterStatus === 'all' 
-                            ? 'bg-gradient-to-br from-emerald-600 to-teal-500 animate-pulse' 
-                            : 'bg-gradient-to-br from-slate-700 to-slate-800'
-                        }`}>
-                          <Users className={filterStatus === 'all' ? 'text-white' : 'text-slate-400'} size={26} />
+  filterStatus === 'all'
+    ? 'bg-gradient-to-br from-emerald-600 to-teal-500 animate-pulse'
+    : isDark
+      ? 'bg-gradient-to-br from-slate-700 to-slate-800'
+      : 'bg-gradient-to-br from-emerald-100 to-teal-100 border border-emerald-200'
+}`}>
+
+<Users className={filterStatus === 'all' ? 'text-white' : isDark ? 'text-slate-400' : 'text-emerald-600'} size={26} />
                         </div>
                       </div>
                       <div className="space-y-1">
@@ -728,11 +731,14 @@ const canViewDetails = canViewDischarges;
                     <div className="relative z-10">
                       <div className="flex items-start justify-between mb-4">
                         <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300 ${
-                          filterStatus === 'active' 
-                            ? 'bg-gradient-to-br from-green-400 to-emerald-500 animate-pulse' 
-                            : 'bg-gradient-to-br from-slate-700 to-slate-800'
-                        }`}>
-                          <CheckCircle className={filterStatus === 'active' ? 'text-white' : 'text-slate-400'} size={26} />
+  filterStatus === 'active'
+    ? 'bg-gradient-to-br from-green-400 to-emerald-500 animate-pulse'
+    : isDark
+      ? 'bg-gradient-to-br from-slate-700 to-slate-800'
+      : 'bg-gradient-to-br from-green-100 to-emerald-100 border border-green-200'
+}`}
+>
+<CheckCircle className={filterStatus === 'active' ? 'text-white' : isDark ? 'text-slate-400' : 'text-green-600'} size={26} />
                         </div>
                       </div>
                       <div className="space-y-1">
@@ -755,11 +761,14 @@ const canViewDetails = canViewDischarges;
                     <div className="relative z-10">
                       <div className="flex items-start justify-between mb-4">
                         <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300 ${
-                          filterStatus === 'pending' 
-                            ? 'bg-gradient-to-br from-yellow-400 to-orange-500 animate-pulse' 
-                            : 'bg-gradient-to-br from-slate-700 to-slate-800'
-                        }`}>
-                          <Clock className={filterStatus === 'pending' ? 'text-white' : 'text-slate-400'} size={26} />
+  filterStatus === 'pending'
+    ? 'bg-gradient-to-br from-yellow-400 to-orange-500 animate-pulse'
+    : isDark
+      ? 'bg-gradient-to-br from-slate-700 to-slate-800'
+      : 'bg-gradient-to-br from-yellow-100 to-orange-100 border border-yellow-200'
+}`}
+>
+<Clock className={filterStatus === 'pending' ? 'text-white' : isDark ? 'text-slate-400' : 'text-yellow-600'} size={26} />
                         </div>
                       </div>
                       <div className="space-y-1">
@@ -782,11 +791,14 @@ const canViewDetails = canViewDischarges;
                     <div className="relative z-10">
                       <div className="flex items-start justify-between mb-4">
                         <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-300 ${
-                          filterStatus === 'discharged' 
-                            ? 'bg-gradient-to-br from-red-500 to-orange-500 animate-pulse' 
-                            : 'bg-gradient-to-br from-slate-700 to-slate-800'
-                        }`}>
-                          <LogOut className={filterStatus === 'discharged' ? 'text-white' : 'text-slate-400'} size={26} />
+  filterStatus === 'discharged'
+    ? 'bg-gradient-to-br from-red-500 to-orange-500 animate-pulse'
+    : isDark
+      ? 'bg-gradient-to-br from-slate-700 to-slate-800'
+      : 'bg-gradient-to-br from-red-100 to-orange-100 border border-red-200'
+}`}
+>
+<LogOut className={filterStatus === 'discharged' ? 'text-white' : isDark ? 'text-slate-400' : 'text-red-500'} size={26} />
                         </div>
                       </div>
                       <div className="space-y-1">

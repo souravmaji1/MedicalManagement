@@ -8,11 +8,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import { UserProfileProvider } from "../contexts/userProfileContext";
 import { ThemeProvider } from "../contexts/themeContext";
-const unbounded = Aclonica({
-  subsets: ["latin"],
-  variable: "--font-aclonica",
-  weight: ["400"],
-});
+
 
 const kanit = Mulish({
   subsets: ["latin"],
@@ -68,3 +64,4 @@ export default function RootLayout({ children }) {
  </ClerkProvider>
   );
 }
+
