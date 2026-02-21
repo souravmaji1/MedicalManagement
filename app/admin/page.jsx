@@ -7,7 +7,8 @@ import {
   ChevronDown, Loader2, UserCog, CheckCircle, AlertCircle,
   Mail, Phone, Building2, Award, RefreshCw, Plus, Eye,
   Activity, Zap, Star, TrendingUp, Lock, Unlock,
-  UserPlus, Settings, BarChart3, Globe, Sparkles, MapPin, Home
+  UserPlus, Settings, BarChart3, Globe, Sparkles, MapPin, Home,
+  Sun, Moon, Menu, Bell
 } from 'lucide-react';
 import { ScrollArea } from "../../components/ui/scroll-area";
 
@@ -351,8 +352,27 @@ const allPermissionsCategories = {
   ]
 };
 
-// Quick facility inline edit component
-const FacilityQuickEdit = ({ userId, currentFacility, onUpdated }) => {
+// ─── Theme Toggle Button ───
+const ThemeToggleButton = ({ isDark, onToggle }) => (
+  <button
+    onClick={onToggle}
+    className={`relative p-2.5 rounded-xl transition-all duration-300 hover:scale-105 group ${
+      isDark
+        ? 'hover:bg-white/10 bg-slate-800/50 border border-slate-700/50'
+        : 'hover:bg-emerald-50 bg-white border border-emerald-200'
+    }`}
+    title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+  >
+    {isDark ? (
+      <Sun size={20} className="text-yellow-400 group-hover:text-yellow-300 transition-colors" />
+    ) : (
+      <Moon size={20} className="text-slate-600 group-hover:text-emerald-600 transition-colors" />
+    )}
+  </button>
+);
+
+// ─── Facility Quick Edit ───
+const FacilityQuickEdit = ({ userId, currentFacility, onUpdated, isDark }) => {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(currentFacility || '');
   const [saving, setSaving] = useState(false);
@@ -388,7 +408,11 @@ const FacilityQuickEdit = ({ userId, currentFacility, onUpdated }) => {
           onChange={(e) => setValue(e.target.value)}
           placeholder="Enter facility name..."
           autoFocus
-          className="flex-1 bg-slate-900 border border-emerald-500 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+          className={`flex-1 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 transition-all ${
+            isDark
+              ? 'bg-slate-900 border-emerald-500 text-white'
+              : 'bg-white border-emerald-500 text-slate-900'
+          }`}
           onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') handleCancel(); }}
         />
         <button
@@ -398,10 +422,7 @@ const FacilityQuickEdit = ({ userId, currentFacility, onUpdated }) => {
         >
           {saving ? <Loader2 size={14} className="text-white animate-spin" /> : <CheckCircle size={14} className="text-white" />}
         </button>
-        <button
-          onClick={handleCancel}
-          className="p-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
-        >
+        <button onClick={handleCancel} className="p-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors">
           <X size={14} className="text-white" />
         </button>
       </div>
@@ -410,12 +431,14 @@ const FacilityQuickEdit = ({ userId, currentFacility, onUpdated }) => {
 
   return (
     <div className="flex items-center gap-2 group/facility mt-1">
-      <p className="text-white font-semibold text-sm">
-        {currentFacility || <span className="text-slate-500 italic">Not assigned</span>}
+      <p className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-slate-800'}`}>
+        {currentFacility || <span className={`italic ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Not assigned</span>}
       </p>
       <button
         onClick={() => setEditing(true)}
-        className="opacity-0 group-hover/facility:opacity-100 p-1 bg-slate-700 hover:bg-emerald-600 rounded transition-all duration-200"
+        className={`opacity-0 group-hover/facility:opacity-100 p-1 rounded transition-all duration-200 hover:bg-emerald-600 ${
+          isDark ? 'bg-slate-700' : 'bg-slate-200'
+        }`}
         title="Quick edit facility"
       >
         <Edit2 size={11} className="text-white" />
@@ -424,7 +447,9 @@ const FacilityQuickEdit = ({ userId, currentFacility, onUpdated }) => {
   );
 };
 
+// ─── Main Component ───
 const UserProfilesAdmin = () => {
+  const [isDark, setIsDark] = useState(true);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -440,9 +465,23 @@ const UserProfilesAdmin = () => {
 
   const divisions = ['DD', 'MI', 'SUD', 'PEER'];
 
+  // Load saved theme
   useEffect(() => {
-    fetchUsers();
+    try {
+      const saved = localStorage.getItem('carebridge-theme');
+      if (saved === 'light') setIsDark(false);
+    } catch (e) {}
   }, []);
+
+  const toggleTheme = () => {
+    const newDark = !isDark;
+    setIsDark(newDark);
+    try {
+      localStorage.setItem('carebridge-theme', newDark ? 'dark' : 'light');
+    } catch (e) {}
+  };
+
+  useEffect(() => { fetchUsers(); }, []);
 
   const fetchUsers = async () => {
     try {
@@ -466,7 +505,6 @@ const UserProfilesAdmin = () => {
     setTimeout(() => setMessage(null), 4000);
   };
 
-  // Get unique facilities for filter dropdown
   const uniqueFacilities = [...new Set(users.map(u => u.facility).filter(Boolean))].sort();
 
   const handleEdit = (user) => {
@@ -496,13 +534,12 @@ const UserProfilesAdmin = () => {
 
   const togglePermission = (permissionId) => {
     setEditForm(prev => {
-      const currentPermissions = prev.permissions || [];
-      const hasPermission = currentPermissions.includes(permissionId);
+      const current = prev.permissions || [];
       return {
         ...prev,
-        permissions: hasPermission
-          ? currentPermissions.filter(p => p !== permissionId)
-          : [...currentPermissions, permissionId]
+        permissions: current.includes(permissionId)
+          ? current.filter(p => p !== permissionId)
+          : [...current, permissionId]
       };
     });
   };
@@ -510,12 +547,7 @@ const UserProfilesAdmin = () => {
   const handleRoleSelect = (roleId) => {
     const role = rolesByDivision[selectedDivisionForEdit]?.find(r => r.id === roleId);
     if (role) {
-      setEditForm(prev => ({
-        ...prev,
-        role_id: roleId,
-        role_name: role.name,
-        permissions: [...role.permissions]
-      }));
+      setEditForm(prev => ({ ...prev, role_id: roleId, role_name: role.name, permissions: [...role.permissions] }));
     }
   };
 
@@ -568,7 +600,6 @@ const UserProfilesAdmin = () => {
     }
   };
 
-  // Handle quick facility update from inline editor
   const handleFacilityQuickUpdate = (userId, newFacility) => {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, facility: newFacility } : u));
     showMessage('Facility updated successfully');
@@ -598,16 +629,29 @@ const UserProfilesAdmin = () => {
 
   const getPermissionLevelColor = (level) => {
     const colors = {
-      'view': 'bg-green-500/20 text-green-400 border-green-500/30',
-      'edit': 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-      'admin': 'bg-teal-500/20 text-teal-400 border-teal-500/30'
+      'view': 'bg-green-500/20 text-green-600 border-green-500/30',
+      'edit': 'bg-emerald-500/20 text-emerald-600 border-emerald-500/30',
+      'admin': 'bg-teal-500/20 text-teal-600 border-teal-500/30'
     };
-    return colors[level] || 'bg-slate-500/20 text-slate-400 border-slate-500/30';
+    return colors[level] || 'bg-slate-500/20 text-slate-600 border-slate-500/30';
   };
+
+  // ── Theme-aware class helpers ──
+  const bg = isDark ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/20' : 'bg-gradient-to-br from-slate-50 via-white to-emerald-50';
+  const card = isDark ? 'bg-gradient-to-br from-slate-900/90 to-slate-800/90 border-slate-700/50' : 'bg-white border-slate-200 shadow-sm';
+  const cardHover = isDark ? 'hover:border-emerald-500/30' : 'hover:border-emerald-400 hover:shadow-md';
+  const text = isDark ? 'text-white' : 'text-slate-900';
+  const textMuted = isDark ? 'text-slate-400' : 'text-slate-500';
+  const inputBg = isDark ? 'bg-slate-800/50 border-slate-700 text-white placeholder-slate-500 focus:border-emerald-500' : 'bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-emerald-500';
+  const selectBg = isDark ? 'bg-slate-800/50 border-slate-700 text-white focus:border-emerald-500' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-emerald-500';
+  const sectionBg = isDark ? 'bg-slate-800/30 border-slate-700/30' : 'bg-slate-50 border-slate-200';
+  const permBtn = isDark ? 'bg-slate-800/50 border-slate-700 hover:border-emerald-500/30' : 'bg-white border-slate-200 hover:border-emerald-400';
+  const permTag = isDark ? 'bg-slate-700/60 border-slate-600/50 text-slate-300 hover:bg-emerald-600/20 hover:border-emerald-500/40 hover:text-white' : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-emerald-50 hover:border-emerald-400 hover:text-emerald-700';
+  const facilityBar = isDark ? 'bg-gradient-to-br from-slate-900/90 to-slate-800/90 border-emerald-500/20' : 'bg-white border-emerald-200 shadow-sm';
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/20 flex items-center justify-center">
+      <div className={`min-h-screen ${bg} flex items-center justify-center`}>
         <div className="text-center">
           <div className="relative">
             <Loader2 className="w-20 h-20 text-emerald-500 animate-spin mx-auto mb-6" />
@@ -616,14 +660,14 @@ const UserProfilesAdmin = () => {
           <h3 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-500 mb-2">
             Loading Admin Panel
           </h3>
-          <p className="text-slate-400 text-lg">Fetching user data...</p>
+          <p className={`text-lg ${textMuted}`}>Fetching user data...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/20">
+    <div className={`min-h-screen ${bg} transition-colors duration-300`}>
       {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl animate-pulse"></div>
@@ -631,60 +675,94 @@ const UserProfilesAdmin = () => {
         <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-green-500/5 rounded-full blur-3xl animate-pulse" style={{animationDelay:'2s'}}></div>
       </div>
 
+      {/* ── Navbar ── */}
+      <div className={`sticky top-0 z-50 border-b backdrop-blur-xl px-6 py-4 flex items-center justify-between shadow-lg transition-colors duration-300 ${
+        isDark
+          ? 'bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-900/20 border-slate-800/50'
+          : 'bg-gradient-to-r from-white via-white to-emerald-50 border-emerald-100'
+      }`}>
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <div className="w-12 h-12 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/50">
+              <Shield className="text-white" size={24} />
+            </div>
+            <div className={`absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 animate-pulse ${isDark ? 'border-slate-900' : 'border-white'}`}></div>
+          </div>
+          <div>
+            <h1 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-500">
+              CareBridge Pro
+            </h1>
+            <p className={`text-xs font-medium tracking-wide ${textMuted}`}>Admin Control Center</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button className={`relative p-2.5 rounded-xl transition-all duration-300 hover:scale-105 group ${isDark ? 'hover:bg-white/10' : 'hover:bg-emerald-50'}`}>
+            <Bell size={20} className={`transition-colors group-hover:text-emerald-500 ${isDark ? 'text-slate-300' : 'text-slate-600'}`} />
+            <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-gradient-to-r from-lime-500 to-green-600 rounded-full animate-pulse"></span>
+          </button>
+
+          <ThemeToggleButton isDark={isDark} onToggle={toggleTheme} />
+
+          <button
+            onClick={fetchUsers}
+            className={`group flex items-center gap-2 px-5 py-2.5 border rounded-xl font-bold transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-emerald-500/30 ${
+              isDark
+                ? 'bg-gradient-to-r from-slate-800 to-slate-700 border-slate-600 text-white hover:from-emerald-600 hover:to-teal-500 hover:border-emerald-500'
+                : 'bg-white border-slate-200 text-slate-700 hover:from-emerald-600 hover:to-teal-500 hover:bg-gradient-to-r hover:text-white hover:border-emerald-500'
+            }`}
+          >
+            <RefreshCw size={18} className="group-hover:rotate-180 transition-transform duration-500" />
+            <span>Refresh</span>
+          </button>
+        </div>
+      </div>
+
       <div className="relative z-10 p-6">
         <div className="max-w-7xl mx-auto">
 
-          {/* Header */}
+          {/* Page Header */}
           <div className="mb-8">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                  <div className="w-16 h-16 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-2xl flex items-center justify-center shadow-2xl shadow-emerald-500/50">
-                    <Shield className="text-white" size={32} />
-                  </div>
-                  <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-slate-900 animate-pulse"></div>
+            <div className="flex items-center gap-4 mb-6">
+              <div className="relative">
+                <div className="w-16 h-16 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-2xl flex items-center justify-center shadow-2xl shadow-emerald-500/50">
+                  <Shield className="text-white" size={32} />
                 </div>
-                <div>
-                  <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500 mb-1">
-                    Admin Control Center
-                  </h1>
-                  <p className="text-slate-400 text-lg font-medium flex items-center gap-2">
-                    <Sparkles size={16} className="text-emerald-400" />
-                    Comprehensive user, facility and permission management
-                  </p>
-                </div>
+                <div className={`absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 animate-pulse ${isDark ? 'border-slate-900' : 'border-white'}`}></div>
               </div>
-              <button
-                onClick={fetchUsers}
-                className="group flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-slate-800 to-slate-700 border border-slate-600 text-white rounded-xl hover:from-emerald-600 hover:to-teal-500 hover:border-emerald-500 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/50"
-              >
-                <RefreshCw size={20} className="group-hover:rotate-180 transition-transform duration-500" />
-                <span className="font-bold">Refresh</span>
-              </button>
+              <div>
+                <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500 mb-1">
+                  Admin Control Center
+                </h1>
+                <p className={`text-lg font-medium flex items-center gap-2 ${textMuted}`}>
+                  <Sparkles size={16} className="text-emerald-400" />
+                  Comprehensive user, facility and permission management
+                </p>
+              </div>
             </div>
 
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-              <div className="group relative overflow-hidden bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 hover:border-emerald-500/50 transition-all duration-300 hover:scale-105">
+              <div className={`group relative overflow-hidden backdrop-blur-sm border rounded-2xl p-5 transition-all duration-300 hover:scale-105 ${card} ${isDark ? 'hover:border-emerald-500/50' : 'hover:border-emerald-400 hover:shadow-lg'}`}>
                 <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl group-hover:bg-emerald-500/20 transition-colors"></div>
                 <div className="relative">
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Total Users</p>
+                    <p className={`text-xs font-semibold uppercase tracking-wider ${textMuted}`}>Total Users</p>
                     <div className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
                       <Users className="text-white" size={18} />
                     </div>
                   </div>
                   <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-500">{users.length}</p>
-                  <p className="text-xs text-slate-500 mt-1">Active accounts</p>
+                  <p className={`text-xs mt-1 ${textMuted}`}>Active accounts</p>
                 </div>
               </div>
 
               {divisions.map(div => (
-                <div key={div} className="group relative overflow-hidden bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 hover:border-emerald-500/50 transition-all duration-300 hover:scale-105">
+                <div key={div} className={`group relative overflow-hidden backdrop-blur-sm border rounded-2xl p-5 transition-all duration-300 hover:scale-105 ${card} ${isDark ? 'hover:border-emerald-500/50' : 'hover:border-emerald-400 hover:shadow-lg'}`}>
                   <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${getDivisionColor(div)} opacity-10 rounded-full blur-2xl group-hover:opacity-20 transition-opacity`}></div>
                   <div className="relative">
                     <div className="flex items-center justify-between mb-3">
-                      <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider">{div} Division</p>
+                      <p className={`text-xs font-semibold uppercase tracking-wider ${textMuted}`}>{div} Division</p>
                       <div className={`w-10 h-10 bg-gradient-to-br ${getDivisionColor(div)} rounded-xl flex items-center justify-center shadow-lg`}>
                         <Shield className="text-white" size={18} />
                       </div>
@@ -692,19 +770,19 @@ const UserProfilesAdmin = () => {
                     <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-500">
                       {users.filter(u => u.division === div).length}
                     </p>
-                    <p className="text-xs text-slate-500 mt-1">{uniqueFacilities.filter(f => users.some(u => u.division === div && u.facility === f)).length} facilities</p>
+                    <p className={`text-xs mt-1 ${textMuted}`}>{uniqueFacilities.filter(f => users.some(u => u.division === div && u.facility === f)).length} facilities</p>
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Facility Summary Bar */}
+            {/* Facilities Overview */}
             {uniqueFacilities.length > 0 && (
-              <div className="bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-sm border border-emerald-500/20 rounded-2xl p-5 mb-6">
+              <div className={`backdrop-blur-sm border rounded-2xl p-5 mb-6 ${facilityBar}`}>
                 <div className="flex items-center gap-3 mb-4">
                   <Home className="text-emerald-400" size={20} />
-                  <h3 className="text-lg font-bold text-white">Facilities Overview</h3>
-                  <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 text-xs rounded-lg border border-emerald-500/30 font-bold">
+                  <h3 className={`text-lg font-bold ${text}`}>Facilities Overview</h3>
+                  <span className="px-2 py-1 bg-emerald-500/20 text-emerald-600 text-xs rounded-lg border border-emerald-500/30 font-bold">
                     {uniqueFacilities.length} Total
                   </span>
                 </div>
@@ -718,13 +796,15 @@ const UserProfilesAdmin = () => {
                         className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 hover:scale-105 border ${
                           filterFacility === facility
                             ? 'bg-gradient-to-r from-emerald-600 to-teal-500 border-emerald-400 text-white shadow-lg shadow-emerald-500/30'
-                            : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:border-emerald-500/50 hover:text-white'
+                            : isDark
+                              ? 'bg-slate-800/50 border-slate-700 text-slate-300 hover:border-emerald-500/50 hover:text-white'
+                              : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-emerald-400 hover:text-slate-900'
                         }`}
                       >
                         <Building2 size={14} />
                         {facility}
                         <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${
-                          filterFacility === facility ? 'bg-white/20 text-white' : 'bg-slate-700 text-slate-400'
+                          filterFacility === facility ? 'bg-white/20 text-white' : isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-200 text-slate-500'
                         }`}>{count}</span>
                       </button>
                     );
@@ -734,14 +814,14 @@ const UserProfilesAdmin = () => {
             )}
 
             {/* Filters */}
-            <div className="bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6">
+            <div className={`backdrop-blur-sm border rounded-2xl p-6 ${card}`}>
               <div className="flex items-center gap-3 mb-4">
                 <Filter className="text-emerald-400" size={20} />
-                <h3 className="text-lg font-bold text-white">Filter & Search</h3>
+                <h3 className={`text-lg font-bold ${text}`}>Filter & Search</h3>
                 {(searchTerm || filterDivision !== 'all' || filterRole !== 'all' || filterFacility !== 'all') && (
                   <button
                     onClick={() => { setSearchTerm(''); setFilterDivision('all'); setFilterRole('all'); setFilterFacility('all'); }}
-                    className="ml-auto flex items-center gap-1 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-xs font-semibold transition-all"
+                    className={`ml-auto flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}
                   >
                     <X size={12} /> Clear Filters
                   </button>
@@ -755,60 +835,46 @@ const UserProfilesAdmin = () => {
                     placeholder="Search name, email, facility..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full bg-slate-800/50 border border-slate-700 rounded-xl pl-11 pr-4 py-3.5 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all text-sm"
+                    className={`w-full border rounded-xl pl-11 pr-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all text-sm ${inputBg}`}
                   />
                 </div>
-                <select
-                  value={filterDivision}
-                  onChange={(e) => setFilterDivision(e.target.value)}
-                  className="bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all cursor-pointer text-sm"
-                >
+                <select value={filterDivision} onChange={(e) => setFilterDivision(e.target.value)}
+                  className={`border rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all cursor-pointer text-sm ${selectBg}`}>
                   <option value="all">All Divisions</option>
-                  {divisions.map(div => (
-                    <option key={div} value={div}>{div} Division</option>
-                  ))}
+                  {divisions.map(div => <option key={div} value={div}>{div} Division</option>)}
                 </select>
-                <select
-                  value={filterFacility}
-                  onChange={(e) => setFilterFacility(e.target.value)}
-                  className="bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all cursor-pointer text-sm"
-                >
+                <select value={filterFacility} onChange={(e) => setFilterFacility(e.target.value)}
+                  className={`border rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all cursor-pointer text-sm ${selectBg}`}>
                   <option value="all">All Facilities</option>
-                  {uniqueFacilities.map(f => (
-                    <option key={f} value={f}>{f}</option>
-                  ))}
+                  {uniqueFacilities.map(f => <option key={f} value={f}>{f}</option>)}
                 </select>
-                <select
-                  value={filterRole}
-                  onChange={(e) => setFilterRole(e.target.value)}
-                  className="bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all cursor-pointer text-sm"
-                >
+                <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)}
+                  className={`border rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all cursor-pointer text-sm ${selectBg}`}>
                   <option value="all">All Roles</option>
                   {Object.entries(rolesByDivision).flatMap(([div, roles]) =>
-                    roles.map(role => (
-                      <option key={`${div}-${role.id}`} value={role.id}>{role.name} ({div})</option>
-                    ))
+                    roles.map(role => <option key={`${div}-${role.id}`} value={role.id}>{role.name} ({div})</option>)
                   )}
                 </select>
               </div>
               {filteredUsers.length !== users.length && (
-                <p className="text-slate-400 text-xs mt-3">
-                  Showing <span className="text-emerald-400 font-bold">{filteredUsers.length}</span> of <span className="text-white font-bold">{users.length}</span> users
+                <p className={`text-xs mt-3 ${textMuted}`}>
+                  Showing <span className="text-emerald-500 font-bold">{filteredUsers.length}</span> of <span className={`font-bold ${text}`}>{users.length}</span> users
                 </p>
               )}
             </div>
           </div>
 
-          {/* Message */}
+          {/* Message Toast */}
           {message && (
             <div className={`mb-6 p-5 rounded-xl flex items-center gap-3 backdrop-blur-sm border ${
-              message.type === 'error' ? 'bg-red-900/30 border-red-500/50' : 'bg-emerald-900/30 border-emerald-500/50'
+              message.type === 'error'
+                ? 'bg-red-900/20 border-red-500/50'
+                : 'bg-emerald-900/20 border-emerald-500/50'
             }`}>
               {message.type === 'error'
                 ? <AlertCircle className="text-red-400" size={24} />
-                : <CheckCircle className="text-emerald-400" size={24} />
-              }
-              <span className={`text-lg font-semibold ${message.type === 'error' ? 'text-red-300' : 'text-emerald-300'}`}>
+                : <CheckCircle className="text-emerald-400" size={24} />}
+              <span className={`text-lg font-semibold ${message.type === 'error' ? 'text-red-400' : 'text-emerald-400'}`}>
                 {message.text}
               </span>
             </div>
@@ -817,18 +883,18 @@ const UserProfilesAdmin = () => {
           {/* Users List */}
           <div className="space-y-5">
             {filteredUsers.length === 0 ? (
-              <div className="bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-16 text-center">
+              <div className={`backdrop-blur-sm border rounded-2xl p-16 text-center ${card}`}>
                 <div className="w-24 h-24 bg-gradient-to-br from-emerald-600 to-teal-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-emerald-500/50">
                   <Users className="text-white" size={48} />
                 </div>
-                <h3 className="text-2xl font-bold text-white mb-3">No Users Found</h3>
-                <p className="text-slate-400 text-lg">Try adjusting your search or filter criteria</p>
+                <h3 className={`text-2xl font-bold mb-3 ${text}`}>No Users Found</h3>
+                <p className={`text-lg ${textMuted}`}>Try adjusting your search or filter criteria</p>
               </div>
             ) : (
               filteredUsers.map(user => (
                 <div
                   key={user.id}
-                  className="group bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden hover:border-emerald-500/30 transition-all duration-300 hover:shadow-2xl hover:shadow-emerald-500/10"
+                  className={`group backdrop-blur-sm border rounded-2xl overflow-hidden transition-all duration-300 ${card} ${cardHover} hover:shadow-xl`}
                 >
                   {editingUser === user.id ? (
                     /* ─── EDIT MODE ─── */
@@ -842,21 +908,23 @@ const UserProfilesAdmin = () => {
                             <h3 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-500">
                               Editing User Profile
                             </h3>
-                            <p className="text-slate-400 font-medium">{user.fullname}</p>
+                            <p className={textMuted}>{user.fullname}</p>
                           </div>
                         </div>
                         <div className="flex gap-3">
                           <button
                             onClick={() => handleSave(user.id)}
                             disabled={saving}
-                            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-emerald-500/50 transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-500 text-white rounded-xl font-bold hover:shadow-2xl hover:shadow-emerald-500/50 transition-all duration-300 hover:scale-105 disabled:opacity-50"
                           >
                             {saving ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
                             {saving ? 'Saving...' : 'Save Changes'}
                           </button>
                           <button
                             onClick={handleCancelEdit}
-                            className="flex items-center gap-2 px-6 py-3 bg-slate-700/50 border border-slate-600 text-white rounded-xl font-bold hover:bg-slate-700 transition-all duration-300 hover:scale-105"
+                            className={`flex items-center gap-2 px-6 py-3 border rounded-xl font-bold transition-all duration-300 hover:scale-105 ${
+                              isDark ? 'bg-slate-700/50 border-slate-600 text-white hover:bg-slate-700' : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
+                            }`}
                           >
                             <X size={20} /> Cancel
                           </button>
@@ -864,69 +932,59 @@ const UserProfilesAdmin = () => {
                       </div>
 
                       {/* Basic Information */}
-                      <div className="bg-slate-800/30 rounded-xl p-6 mb-6 border border-slate-700/30">
-                        <h4 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                      <div className={`rounded-xl p-6 mb-6 border ${sectionBg}`}>
+                        <h4 className={`text-xl font-bold mb-6 flex items-center gap-2 ${text}`}>
                           <Users className="text-emerald-400" size={20} />
                           Basic Information
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div>
-                            <label className="block text-sm font-bold text-emerald-400 mb-2">Full Name</label>
-                            <input
-                              type="text"
-                              value={editForm.fullname}
-                              onChange={(e) => setEditForm({...editForm, fullname: e.target.value})}
-                              className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-bold text-emerald-400 mb-2">Email Address</label>
-                            <input
-                              type="email"
-                              value={editForm.email}
-                              onChange={(e) => setEditForm({...editForm, email: e.target.value})}
-                              className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-bold text-emerald-400 mb-2">Phone Number</label>
-                            <input
-                              type="tel"
-                              value={editForm.phone}
-                              onChange={(e) => setEditForm({...editForm, phone: e.target.value})}
-                              className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
-                            />
-                          </div>
+                          {[
+                            { label: 'Full Name', key: 'fullname', type: 'text' },
+                            { label: 'Email Address', key: 'email', type: 'email' },
+                            { label: 'Phone Number', key: 'phone', type: 'tel' },
+                          ].map(({ label, key, type }) => (
+                            <div key={key}>
+                              <label className="block text-sm font-bold text-emerald-500 mb-2">{label}</label>
+                              <input
+                                type={type}
+                                value={editForm[key]}
+                                onChange={(e) => setEditForm({ ...editForm, [key]: e.target.value })}
+                                className={`w-full border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all ${inputBg}`}
+                              />
+                            </div>
+                          ))}
 
-                          {/* FACILITY — highlighted as important */}
+                          {/* Facility Field */}
                           <div className="relative">
-                            <label className="block text-sm font-bold text-emerald-400 mb-2 flex items-center gap-2">
-                              <Building2 size={14} className="text-emerald-400" />
+                            <label className="block text-sm font-bold text-emerald-500 mb-2 flex items-center gap-2">
+                              <Building2 size={14} />
                               Facility / Home Assignment
-                              <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 text-xs rounded-full border border-emerald-500/30">Required for DSP</span>
+                              <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-600 text-xs rounded-full border border-emerald-500/30">Required for DSP</span>
                             </label>
                             <div className="relative">
                               <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-emerald-400" size={16} />
                               <input
                                 type="text"
                                 value={editForm.facility}
-                                onChange={(e) => setEditForm({...editForm, facility: e.target.value})}
+                                onChange={(e) => setEditForm({ ...editForm, facility: e.target.value })}
                                 placeholder="e.g. Sunrise House, Oak Group Home..."
-                                className="w-full bg-slate-900/50 border-2 border-emerald-500/40 rounded-xl pl-10 pr-4 py-3 text-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder-slate-600"
+                                className={`w-full border-2 border-emerald-500/40 rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all ${
+                                  isDark ? 'bg-slate-900/50 text-white placeholder-slate-600' : 'bg-white text-slate-900 placeholder-slate-400'
+                                }`}
                               />
                             </div>
                             {uniqueFacilities.length > 0 && (
                               <div className="mt-2">
-                                <p className="text-xs text-slate-500 mb-1.5">Existing facilities (click to use):</p>
+                                <p className={`text-xs mb-1.5 ${textMuted}`}>Existing facilities (click to use):</p>
                                 <div className="flex flex-wrap gap-1.5">
                                   {uniqueFacilities.map(f => (
                                     <button
                                       key={f}
-                                      onClick={() => setEditForm({...editForm, facility: f})}
+                                      onClick={() => setEditForm({ ...editForm, facility: f })}
                                       className={`px-2 py-1 rounded-lg text-xs font-medium transition-all border ${
                                         editForm.facility === f
                                           ? 'bg-emerald-600 border-emerald-500 text-white'
-                                          : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-emerald-500/50 hover:text-white'
+                                          : isDark ? 'bg-slate-800 border-slate-700 text-slate-400 hover:border-emerald-500/50 hover:text-white' : 'bg-slate-100 border-slate-200 text-slate-600 hover:border-emerald-400'
                                       }`}
                                     >
                                       {f}
@@ -938,35 +996,34 @@ const UserProfilesAdmin = () => {
                           </div>
 
                           <div>
-                            <label className="block text-sm font-bold text-emerald-400 mb-2">Certification</label>
+                            <label className="block text-sm font-bold text-emerald-500 mb-2">Certification</label>
                             <input
                               type="text"
                               value={editForm.certification}
-                              onChange={(e) => setEditForm({...editForm, certification: e.target.value})}
-                              className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                              onChange={(e) => setEditForm({ ...editForm, certification: e.target.value })}
+                              className={`w-full border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all ${inputBg}`}
                             />
                           </div>
+
                           <div>
-                            <label className="block text-sm font-bold text-emerald-400 mb-2">Division</label>
+                            <label className="block text-sm font-bold text-emerald-500 mb-2">Division</label>
                             <select
                               value={selectedDivisionForEdit}
                               onChange={(e) => {
                                 setSelectedDivisionForEdit(e.target.value);
-                                setEditForm({...editForm, division: e.target.value, role_id: '', role_name: ''});
+                                setEditForm({ ...editForm, division: e.target.value, role_id: '', role_name: '' });
                               }}
-                              className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all cursor-pointer"
+                              className={`w-full border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all cursor-pointer ${selectBg}`}
                             >
-                              {divisions.map(div => (
-                                <option key={div} value={div}>{div}</option>
-                              ))}
+                              {divisions.map(div => <option key={div} value={div}>{div}</option>)}
                             </select>
                           </div>
                         </div>
                       </div>
 
                       {/* Role Selection */}
-                      <div className="bg-slate-800/30 rounded-xl p-6 mb-6 border border-slate-700/30">
-                        <h4 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                      <div className={`rounded-xl p-6 mb-6 border ${sectionBg}`}>
+                        <h4 className={`text-xl font-bold mb-6 flex items-center gap-2 ${text}`}>
                           <Shield className="text-emerald-400" size={20} />
                           Role Assignment
                         </h4>
@@ -978,47 +1035,47 @@ const UserProfilesAdmin = () => {
                               className={`p-5 rounded-xl text-left transition-all duration-300 hover:scale-105 border-2 ${
                                 editForm.role_id === role.id
                                   ? 'bg-gradient-to-br from-emerald-600 to-teal-500 border-emerald-400 shadow-xl shadow-emerald-500/50'
-                                  : 'bg-slate-900/50 border-slate-700 hover:border-emerald-500/50'
+                                  : isDark ? 'bg-slate-900/50 border-slate-700 hover:border-emerald-500/50' : 'bg-white border-slate-200 hover:border-emerald-400 shadow-sm'
                               }`}
                             >
                               <div className="flex items-center gap-3 mb-3">
-                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${editForm.role_id === role.id ? 'bg-white/20' : 'bg-slate-800'}`}>
-                                  <Shield size={20} className={editForm.role_id === role.id ? 'text-white' : 'text-emerald-400'} />
+                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${editForm.role_id === role.id ? 'bg-white/20' : isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
+                                  <Shield size={20} className={editForm.role_id === role.id ? 'text-white' : 'text-emerald-500'} />
                                 </div>
                                 {editForm.role_id === role.id && <CheckCircle size={20} className="text-white ml-auto" />}
                               </div>
-                              <h5 className="font-bold text-white mb-1 text-sm">{role.name}</h5>
-                              <p className="text-xs text-slate-400">{role.permissions.length} permissions</p>
+                              <h5 className={`font-bold mb-1 text-sm ${editForm.role_id === role.id ? 'text-white' : text}`}>{role.name}</h5>
+                              <p className={`text-xs ${editForm.role_id === role.id ? 'text-white/70' : textMuted}`}>{role.permissions.length} permissions</p>
                             </button>
                           ))}
                         </div>
                       </div>
 
                       {/* Custom Permissions */}
-                      <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700/30">
-                        <h4 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                      <div className={`rounded-xl p-6 border ${sectionBg}`}>
+                        <h4 className={`text-xl font-bold mb-6 flex items-center gap-2 ${text}`}>
                           <Lock className="text-emerald-400" size={20} />
                           Custom Permissions
-                          <span className="text-sm font-normal text-slate-400">({editForm.permissions?.length || 0} selected)</span>
+                          <span className={`text-sm font-normal ${textMuted}`}>({editForm.permissions?.length || 0} selected)</span>
                         </h4>
                         <ScrollArea className="h-[500px] pr-4">
                           <div className="space-y-4">
                             {Object.entries(allPermissionsCategories).map(([category, permissions]) => (
-                              <div key={category} className="bg-slate-900/50 rounded-xl overflow-hidden border border-slate-700/30">
+                              <div key={category} className={`rounded-xl overflow-hidden border ${isDark ? 'bg-slate-900/50 border-slate-700/30' : 'bg-white border-slate-200 shadow-sm'}`}>
                                 <button
                                   onClick={() => toggleCategory(category)}
-                                  className="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 transition-colors"
+                                  className={`w-full flex items-center justify-between p-4 transition-colors ${isDark ? 'hover:bg-slate-800/50' : 'hover:bg-slate-50'}`}
                                 >
                                   <div className="flex items-center gap-3">
                                     <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getDivisionColor('DD')} flex items-center justify-center`}>
                                       <Settings size={14} className="text-white" />
                                     </div>
-                                    <span className="font-bold text-white">{category}</span>
-                                    <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                                    <span className={`font-bold ${text}`}>{category}</span>
+                                    <span className="text-xs bg-emerald-500/20 text-emerald-600 px-2 py-0.5 rounded-full border border-emerald-500/30">
                                       {permissions.filter(p => editForm.permissions?.includes(p.id)).length}/{permissions.length}
                                     </span>
                                   </div>
-                                  <ChevronDown size={18} className={`text-slate-400 transition-transform duration-300 ${expandedCategories[category] ? 'rotate-180' : ''}`} />
+                                  <ChevronDown size={18} className={`transition-transform duration-300 ${expandedCategories[category] ? 'rotate-180' : ''} ${textMuted}`} />
                                 </button>
                                 {expandedCategories[category] && (
                                   <div className="p-4 pt-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -1029,16 +1086,16 @@ const UserProfilesAdmin = () => {
                                         className={`p-3 rounded-lg text-left transition-all duration-200 hover:scale-105 border ${
                                           editForm.permissions?.includes(permission.id)
                                             ? `bg-gradient-to-br from-emerald-600/20 to-teal-500/20 ${getPermissionLevelColor(permission.level)} border-2`
-                                            : 'bg-slate-800/50 border-slate-700 hover:border-emerald-500/30'
+                                            : permBtn
                                         }`}
                                       >
                                         <div className="flex items-center justify-between mb-2">
                                           <span className={`text-xs font-bold px-2 py-0.5 rounded border ${getPermissionLevelColor(permission.level)}`}>
                                             {permission.level.toUpperCase()}
                                           </span>
-                                          {editForm.permissions?.includes(permission.id) && <CheckCircle size={14} className="text-emerald-400" />}
+                                          {editForm.permissions?.includes(permission.id) && <CheckCircle size={14} className="text-emerald-500" />}
                                         </div>
-                                        <span className={`text-xs font-medium ${editForm.permissions?.includes(permission.id) ? 'text-white' : 'text-slate-400'}`}>
+                                        <span className={`text-xs font-medium ${editForm.permissions?.includes(permission.id) ? text : textMuted}`}>
                                           {permission.label}
                                         </span>
                                       </button>
@@ -1060,13 +1117,13 @@ const UserProfilesAdmin = () => {
                             <Users className="text-white" size={28} />
                           </div>
                           <div>
-                            <h3 className="text-2xl font-black text-white mb-0.5">{user.fullname}</h3>
-                            <p className="text-emerald-400 font-bold mb-2">{user.role_name}</p>
+                            <h3 className={`text-2xl font-black mb-0.5 ${text}`}>{user.fullname}</h3>
+                            <p className="text-emerald-500 font-bold mb-2">{user.role_name}</p>
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className={`px-3 py-1 bg-gradient-to-r ${getDivisionColor(user.division)} text-white text-xs rounded-lg font-bold shadow`}>
                                 {user.division}
                               </span>
-                              <span className="px-2.5 py-1 bg-slate-700/50 text-slate-300 text-xs rounded-lg font-medium border border-slate-600">
+                              <span className={`px-2.5 py-1 text-xs rounded-lg font-medium border ${isDark ? 'bg-slate-700/50 text-slate-300 border-slate-600' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
                                 {user.permissions?.length || 0} Permissions
                               </span>
                             </div>
@@ -1090,80 +1147,82 @@ const UserProfilesAdmin = () => {
                         </div>
                       </div>
 
-                      {/* Details Grid — facility always shown */}
+                      {/* Details Grid */}
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
                         {/* Email */}
-                        <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/30">
+                        <div className={`rounded-xl p-4 border ${isDark ? 'bg-slate-800/40 border-slate-700/30' : 'bg-slate-50 border-slate-200'}`}>
                           <div className="flex items-center gap-2 mb-2">
                             <div className="w-7 h-7 bg-emerald-500/20 rounded-lg flex items-center justify-center">
-                              <Mail size={14} className="text-emerald-400" />
+                              <Mail size={14} className="text-emerald-500" />
                             </div>
-                            <p className="text-xs text-slate-500 font-medium">Email</p>
+                            <p className={`text-xs font-medium ${textMuted}`}>Email</p>
                           </div>
-                          <p className="text-white font-semibold text-sm truncate">{user.email}</p>
+                          <p className={`font-semibold text-sm truncate ${text}`}>{user.email}</p>
                         </div>
 
                         {/* Phone */}
-                        <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/30">
+                        <div className={`rounded-xl p-4 border ${isDark ? 'bg-slate-800/40 border-slate-700/30' : 'bg-slate-50 border-slate-200'}`}>
                           <div className="flex items-center gap-2 mb-2">
                             <div className="w-7 h-7 bg-green-500/20 rounded-lg flex items-center justify-center">
-                              <Phone size={14} className="text-green-400" />
+                              <Phone size={14} className="text-green-500" />
                             </div>
-                            <p className="text-xs text-slate-500 font-medium">Phone</p>
+                            <p className={`text-xs font-medium ${textMuted}`}>Phone</p>
                           </div>
-                          <p className="text-white font-semibold text-sm">{user.phone || <span className="text-slate-500 italic text-xs">Not set</span>}</p>
+                          <p className={`font-semibold text-sm ${text}`}>
+                            {user.phone || <span className={`italic text-xs ${textMuted}`}>Not set</span>}
+                          </p>
                         </div>
 
-                        {/* FACILITY — always shown, with quick inline edit */}
-                        <div className="bg-slate-800/40 rounded-xl p-4 border border-emerald-500/20 col-span-1">
+                        {/* Facility */}
+                        <div className={`rounded-xl p-4 border border-emerald-500/20 ${isDark ? 'bg-slate-800/40' : 'bg-emerald-50/50'}`}>
                           <div className="flex items-center gap-2 mb-1">
                             <div className="w-7 h-7 bg-teal-500/20 rounded-lg flex items-center justify-center">
-                              <Building2 size={14} className="text-teal-400" />
+                              <Building2 size={14} className="text-teal-500" />
                             </div>
-                            <p className="text-xs text-slate-500 font-medium">Facility</p>
-                            <span className="ml-auto px-1.5 py-0.5 bg-teal-500/10 text-teal-400 text-xs rounded border border-teal-500/20 font-bold">KEY</span>
+                            <p className={`text-xs font-medium ${textMuted}`}>Facility</p>
+                            <span className="ml-auto px-1.5 py-0.5 bg-teal-500/10 text-teal-600 text-xs rounded border border-teal-500/20 font-bold">KEY</span>
                           </div>
                           <FacilityQuickEdit
                             userId={user.id}
                             currentFacility={user.facility}
                             onUpdated={(newVal) => handleFacilityQuickUpdate(user.id, newVal)}
+                            isDark={isDark}
                           />
                         </div>
 
                         {/* Certification */}
-                        <div className="bg-slate-800/40 rounded-xl p-4 border border-slate-700/30">
+                        <div className={`rounded-xl p-4 border ${isDark ? 'bg-slate-800/40 border-slate-700/30' : 'bg-slate-50 border-slate-200'}`}>
                           <div className="flex items-center gap-2 mb-2">
                             <div className="w-7 h-7 bg-lime-500/20 rounded-lg flex items-center justify-center">
-                              <Award size={14} className="text-lime-400" />
+                              <Award size={14} className="text-lime-500" />
                             </div>
-                            <p className="text-xs text-slate-500 font-medium">Certification</p>
+                            <p className={`text-xs font-medium ${textMuted}`}>Certification</p>
                           </div>
-                          <p className="text-white font-semibold text-sm">{user.certification || <span className="text-slate-500 italic text-xs">Not set</span>}</p>
+                          <p className={`font-semibold text-sm ${text}`}>
+                            {user.certification || <span className={`italic text-xs ${textMuted}`}>Not set</span>}
+                          </p>
                         </div>
                       </div>
 
                       {/* Permissions */}
-                      <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/30">
+                      <div className={`rounded-xl p-4 border ${isDark ? 'bg-slate-800/30 border-slate-700/30' : 'bg-slate-50 border-slate-200'}`}>
                         <div className="flex items-center justify-between mb-3">
-                          <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                          <h4 className={`text-sm font-bold flex items-center gap-2 ${text}`}>
                             <Lock className="text-emerald-400" size={16} />
                             Active Permissions
                           </h4>
-                          <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-lg font-bold border border-emerald-500/30">
+                          <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-600 text-xs rounded-lg font-bold border border-emerald-500/30">
                             {user.permissions?.length || 0} Total
                           </span>
                         </div>
                         <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
                           {user.permissions?.map(perm => (
-                            <span
-                              key={perm}
-                              className="px-2.5 py-1 bg-slate-700/60 border border-slate-600/50 text-slate-300 text-xs rounded-lg font-medium hover:bg-emerald-600/20 hover:border-emerald-500/40 hover:text-white transition-all duration-200"
-                            >
+                            <span key={perm} className={`px-2.5 py-1 border text-xs rounded-lg font-medium transition-all duration-200 ${permTag}`}>
                               {perm.replace(/_/g, ' ')}
                             </span>
                           ))}
                           {(!user.permissions || user.permissions.length === 0) && (
-                            <span className="text-slate-500 text-xs italic">No permissions assigned</span>
+                            <span className={`text-xs italic ${textMuted}`}>No permissions assigned</span>
                           )}
                         </div>
                       </div>
