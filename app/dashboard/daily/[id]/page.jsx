@@ -450,10 +450,10 @@ Generate ONLY the note content in the exact format above. Do not include explana
               content: prompt
             }
           ],
-          model: 'llama-3.3-70b-versatile',
-          temperature: 0.7,
-          max_tokens: 1000,
-          top_p: 0.9,
+          model: 'groq/compound-mini',
+          temperature: 1,
+          max_completion_tokens: 2048,
+          top_p: 1,
           stream: false
         })
       });
